@@ -20,11 +20,27 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    const navigateToFeed = () => {
+      setTimeout(() => {
+        router.replace("/(tabs)/feed/index");
+      }, 0);
+    };
+
     const check = async () => {
       const { data } = await supabase.auth.getSession();
-      if (data.session) router.replace("/(tabs)/feed/index");
+      if (data.session) navigateToFeed();
     };
     check();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session) navigateToFeed();
+      }
+    );
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
   const normalizedEmail = (v: string) => v.trim().toLowerCase();
@@ -95,7 +111,6 @@ export default function LoginScreen() {
     try {
       setLoading(true);
       await signInWithGoogle();
-      router.replace("/(tabs)/feed/index");
     } catch (e: any) {
       Alert.alert("Google login fallito", e?.message ?? "Errore");
     } finally {
@@ -107,7 +122,6 @@ export default function LoginScreen() {
     try {
       setLoading(true);
       await signInWithApple();
-      router.replace("/(tabs)/feed/index");
     } catch (e: any) {
       Alert.alert("Apple login fallito", e?.message ?? "Errore");
     } finally {
