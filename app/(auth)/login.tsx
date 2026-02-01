@@ -6,10 +6,13 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
+  Platform,
 } from "react-native";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { router } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 import { signInWithGoogle } from "../../src/lib/auth";
+import { signInWithApple } from "../../src/lib/appleAuth";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("playm@test.it");
@@ -100,6 +103,18 @@ export default function LoginScreen() {
     }
   };
 
+  const onApple = async () => {
+    try {
+      setLoading(true);
+      await signInWithApple();
+      router.replace("/(tabs)/feed/index");
+    } catch (e: any) {
+      Alert.alert("Apple login fallito", e?.message ?? "Errore");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <View style={{ flex: 1, padding: 24, justifyContent: "center", gap: 12 }}>
       <Text style={{ fontSize: 28, fontWeight: "700", marginBottom: 12 }}>
@@ -158,6 +173,16 @@ export default function LoginScreen() {
       >
         <Text style={{ fontWeight: "700" }}>Continua con Google</Text>
       </Pressable>
+
+      {Platform.OS === "ios" && (
+        <AppleAuthentication.AppleAuthenticationButton
+          buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+          cornerRadius={12}
+          style={{ height: 44 }}
+          onPress={onApple}
+        />
+      )}
 
       <Pressable
         onPress={onSignUp}
