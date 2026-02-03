@@ -59,7 +59,7 @@ function AuthGate() {
     const inTabs = currentGroup === "(tabs)";
     const inAuth = currentGroup === "(auth)";
     const inOnboarding = currentGroup === "(onboarding)";
-    const inCallback = inAuth && pathname === "/(auth)/callback";
+    const inCallback = pathname === "/callback";
 
     let target: string | null = null;
 
