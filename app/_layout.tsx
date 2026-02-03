@@ -37,6 +37,7 @@ function AuthGate() {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, nextSession) => {
         setSession(nextSession);
+        lastTargetRef.current = null;
       }
     );
 
@@ -58,6 +59,7 @@ function AuthGate() {
     const inTabs = currentGroup === "(tabs)";
     const inAuth = currentGroup === "(auth)";
     const inOnboarding = currentGroup === "(onboarding)";
+    const inCallback = inAuth && pathname === "/(auth)/callback";
 
     let target: string | null = null;
 
@@ -66,19 +68,25 @@ function AuthGate() {
         target = "/(tabs)/feed";
       }
     } else {
-      target = onboardingSeen ? "/(auth)/signup" : "/(onboarding)";
-
-      if (
-        (inAuth && pathname === target) ||
-        (inOnboarding && pathname === target)
-      ) {
+      if (inCallback) {
         target = null;
+      } else {
+        target = onboardingSeen ? "/(auth)/signup" : "/(onboarding)";
+
+        if (
+          (inAuth && pathname === target) ||
+          (inOnboarding && pathname === target)
+        ) {
+          target = null;
+        }
       }
     }
 
     if (target && pathname !== target && lastTargetRef.current !== target) {
       lastTargetRef.current = target;
       router.replace(target);
+    } else if (!target) {
+      lastTargetRef.current = null;
     }
   }, [isReady, onboardingSeen, pathname, router, segments, session]);
 
