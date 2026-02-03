@@ -15,7 +15,6 @@ const config: ExpoConfig = {
 
   android: {
     package: "com.clubandplayer.app",
-    versionCode: 3,
   },
 
   plugins: ["expo-router"],
