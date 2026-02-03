@@ -6,6 +6,7 @@ import { supabase } from "../../src/lib/supabase";
 
 export default function AuthCallback() {
   const [error, setError] = useState<string | null>(null);
+  const [lastUrl, setLastUrl] = useState<string | null>(null);
   const handledRef = useRef(false);
   const router = useRouter();
 
@@ -50,9 +51,15 @@ export default function AuthCallback() {
       }
     };
 
-    Linking.getInitialURL().then(handleUrl);
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        setLastUrl(url);
+      }
+      handleUrl(url);
+    });
 
     const subscription = Linking.addEventListener("url", ({ url }) => {
+      setLastUrl(url);
       handleUrl(url);
     });
 
@@ -78,6 +85,9 @@ export default function AuthCallback() {
       {error ? (
         <View style={{ alignItems: "center", gap: 12, paddingHorizontal: 24 }}>
           <Text style={{ textAlign: "center" }}>{error}</Text>
+          <Text style={{ textAlign: "center" }}>
+            URL ricevuto: {lastUrl ? lastUrl.slice(0, 160) : "none"}
+          </Text>
           <Pressable
             onPress={handleRetry}
             style={{
