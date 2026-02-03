@@ -80,6 +80,10 @@ export default function AuthCallback() {
     router.replace("/(auth)/signup");
   };
 
+  const handleOpenDebugDeeplink = () => {
+    router.push("/debug/deeplink");
+  };
+
   return (
     <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
       {error ? (
@@ -115,6 +119,22 @@ export default function AuthCallback() {
               Torna al login
             </Text>
           </Pressable>
+          {__DEV__ && (
+            <Pressable
+              onPress={handleOpenDebugDeeplink}
+              style={{
+                paddingVertical: 10,
+                paddingHorizontal: 16,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: "#2563eb",
+              }}
+            >
+              <Text style={{ color: "#1d4ed8", fontWeight: "600" }}>
+                Apri Debug Deeplink
+              </Text>
+            </Pressable>
+          )}
         </View>
       ) : (
         <ActivityIndicator />

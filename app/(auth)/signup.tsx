@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useRouter } from "expo-router";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { supabase } from "../../src/lib/supabase";
 import { signInWithApple } from "../../src/lib/appleAuth";
@@ -14,6 +15,7 @@ import { signInWithGoogle } from "../../src/lib/auth";
 
 export default function SignupScreen() {
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const onGoogle = async () => {
     try {
@@ -35,6 +37,10 @@ export default function SignupScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleOpenDebugDeeplink = () => {
+    router.push("/debug/deeplink");
   };
 
   return (
@@ -71,6 +77,11 @@ export default function SignupScreen() {
           style={{ height: 44 }}
           onPress={onApple}
         />
+      )}
+      {__DEV__ && (
+        <Pressable onPress={handleOpenDebugDeeplink}>
+          <Text style={{ color: "#2563eb", fontWeight: "600" }}>Debug</Text>
+        </Pressable>
       )}
     </View>
   );
