@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -8,51 +8,12 @@ import {
   View,
 } from "react-native";
 import * as AppleAuthentication from "expo-apple-authentication";
-import { router } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 import { signInWithApple } from "../../src/lib/appleAuth";
 import { signInWithGoogle } from "../../src/lib/auth";
 
 export default function SignupScreen() {
   const [loading, setLoading] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(true);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const navigateToFeed = () => {
-      setTimeout(() => {
-        router.replace("/(tabs)/feed/index");
-      }, 0);
-    };
-
-    const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        navigateToFeed();
-        return;
-      }
-
-      if (isMounted) {
-        setCheckingSession(false);
-      }
-    };
-
-    checkSession();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (session) {
-          navigateToFeed();
-        }
-      }
-    );
-
-    return () => {
-      isMounted = false;
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
 
   const onGoogle = async () => {
     try {
@@ -75,14 +36,6 @@ export default function SignupScreen() {
       setLoading(false);
     }
   };
-
-  if (checkingSession) {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator />
-      </View>
-    );
-  }
 
   return (
     <View style={{ flex: 1, padding: 24, justifyContent: "center", gap: 12 }}>
