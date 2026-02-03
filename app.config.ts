@@ -4,7 +4,7 @@ const config: ExpoConfig = {
   name: "Club & Player",
   slug: "clubandplayer",
   scheme: "clubandplayer",
-  version: "1.0.4",
+  version: "1.0.5",
   orientation: "portrait",
   userInterfaceStyle: "automatic",
 
@@ -15,6 +15,18 @@ const config: ExpoConfig = {
 
   android: {
     package: "com.clubandplayer.app",
+    intentFilters: [
+      {
+        action: "VIEW",
+        data: [
+          {
+            scheme: "clubandplayer",
+            pathPrefix: "/callback",
+          },
+        ],
+        category: ["BROWSABLE", "DEFAULT"],
+      },
+    ],
   },
 
   plugins: ["expo-router"],
