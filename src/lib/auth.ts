@@ -5,7 +5,13 @@ import { supabase } from "./supabase";
 WebBrowser.maybeCompleteAuthSession();
 
 export async function signInWithGoogle() {
-  const redirectTo = Linking.createURL("auth/callback");
+  const redirectTo = Linking.createURL("auth/callback", {
+    scheme: "clubandplayer",
+  });
+
+  if (__DEV__) {
+    console.log("[auth] redirectTo:", redirectTo);
+  }
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
