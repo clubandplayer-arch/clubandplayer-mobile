@@ -4,7 +4,7 @@ const config: ExpoConfig = {
   name: "Club & Player",
   slug: "clubandplayer",
   scheme: "clubandplayer",
-  version: "1.0.7",
+  version: "1.0.8",
   orientation: "portrait",
   userInterfaceStyle: "automatic",
 
