@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,6 @@ import {
   Platform,
 } from "react-native";
 import * as AppleAuthentication from "expo-apple-authentication";
-import { router } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 import { signInWithGoogle } from "../../src/lib/auth";
 import { signInWithApple } from "../../src/lib/appleAuth";
@@ -18,30 +17,6 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("playm@test.it");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const navigateToFeed = () => {
-      setTimeout(() => {
-        router.replace("/(tabs)/feed/index");
-      }, 0);
-    };
-
-    const check = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data.session) navigateToFeed();
-    };
-    check();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (session) navigateToFeed();
-      }
-    );
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
 
   const normalizedEmail = (v: string) => v.trim().toLowerCase();
 
@@ -64,7 +39,6 @@ export default function LoginScreen() {
         return;
       }
 
-      router.replace("/(tabs)/feed/index");
     } catch {
       Alert.alert("Errore", "Qualcosa è andato storto");
     } finally {
@@ -99,7 +73,6 @@ export default function LoginScreen() {
         return;
       }
 
-      router.replace("/(tabs)/feed/index");
     } catch {
       Alert.alert("Errore", "Qualcosa è andato storto");
     } finally {
