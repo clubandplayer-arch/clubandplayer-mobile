@@ -12,7 +12,6 @@ export default function AuthCallback() {
 
     const handleUrl = async (url: string | null) => {
       if (!url || handledRef.current) return;
-      handledRef.current = true;
 
       const parsed = Linking.parse(url);
       const code = parsed.queryParams?.code;
@@ -23,6 +22,8 @@ export default function AuthCallback() {
         }
         return;
       }
+
+      handledRef.current = true;
 
       const { error: exchangeError } =
         await supabase.auth.exchangeCodeForSession(code);
