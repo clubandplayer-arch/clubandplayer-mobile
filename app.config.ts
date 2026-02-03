@@ -4,7 +4,7 @@ const config: ExpoConfig = {
   name: "Club & Player",
   slug: "clubandplayer",
   scheme: "clubandplayer",
-  version: "1.0.5",
+  version: "1.0.6",
   orientation: "portrait",
   userInterfaceStyle: "automatic",
 
@@ -19,6 +19,10 @@ const config: ExpoConfig = {
       {
         action: "VIEW",
         data: [
+          {
+            scheme: "clubandplayer",
+            host: "callback",
+          },
           {
             scheme: "clubandplayer",
             pathPrefix: "/callback",
