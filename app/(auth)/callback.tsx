@@ -13,20 +13,16 @@ export default function AuthCallback() {
   useEffect(() => {
     let isMounted = true;
 
-    // ✅ Se la sessione arriva (anche senza URL), vai al feed.
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!isMounted) return;
-      if (session) {
-        router.replace("/(tabs)/feed");
-      }
-    });
-
-    // Check immediato
+    // If session already exists (e.g. exchange done in src/lib/auth.ts),
+    // move on even if no URL is delivered to this screen.
     supabase.auth.getSession().then(({ data }) => {
       if (!isMounted) return;
-      if (data.session) {
-        router.replace("/(tabs)/feed");
-      }
+      if (data.session) router.replace("/(tabs)/feed");
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return;
+      if (session) router.replace("/(tabs)/feed");
     });
 
     const timeoutId = setTimeout(() => {
@@ -37,8 +33,6 @@ export default function AuthCallback() {
 
     const handleUrl = async (url: string | null) => {
       if (!url || handledRef.current) return;
-
-      if (__DEV__) console.log("OAuth callback URL ricevuto:", url);
 
       const parsed = Linking.parse(url);
       const code = parsed.queryParams?.code;
