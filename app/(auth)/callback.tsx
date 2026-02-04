@@ -12,6 +12,16 @@ export default function AuthCallback() {
 
   useEffect(() => {
     let isMounted = true;
+
+    // Se la sessione è già stata completata da openAuthSessionAsync + exchangeCodeForSession,
+    // questa pagina può essere stata aperta "vuota" (URL none). In quel caso, vai subito al feed.
+    supabase.auth.getSession().then(({ data }) => {
+      if (!isMounted) return;
+      if (data.session) {
+        router.replace("/(tabs)/feed");
+      }
+    });
+
     const timeoutId = setTimeout(() => {
       if (isMounted && !handledRef.current) {
         setError("Login non completato, riprova");
@@ -29,9 +39,7 @@ export default function AuthCallback() {
       const code = parsed.queryParams?.code;
 
       if (typeof code !== "string") {
-        if (isMounted) {
-          setError("OAuth code mancante");
-        }
+        if (isMounted) setError("OAuth code mancante");
         return;
       }
 
@@ -52,9 +60,7 @@ export default function AuthCallback() {
     };
 
     Linking.getInitialURL().then((url) => {
-      if (url) {
-        setLastUrl(url);
-      }
+      if (url) setLastUrl(url);
       handleUrl(url);
     });
 
@@ -73,11 +79,11 @@ export default function AuthCallback() {
   const handleRetry = () => {
     handledRef.current = false;
     setError(null);
-    router.replace("/(auth)/signup");
+    router.replace("/(auth)/login");
   };
 
   const handleBackToLogin = () => {
-    router.replace("/(auth)/signup");
+    router.replace("/(auth)/login");
   };
 
   const handleOpenDebugDeeplink = () => {
@@ -92,6 +98,7 @@ export default function AuthCallback() {
           <Text style={{ textAlign: "center" }}>
             URL ricevuto: {lastUrl ? lastUrl.slice(0, 160) : "none"}
           </Text>
+
           <Pressable
             onPress={handleRetry}
             style={{
@@ -101,10 +108,9 @@ export default function AuthCallback() {
               borderRadius: 8,
             }}
           >
-            <Text style={{ color: "#ffffff", fontWeight: "600" }}>
-              Riprova
-            </Text>
+            <Text style={{ color: "#ffffff", fontWeight: "600" }}>Riprova</Text>
           </Pressable>
+
           <Pressable
             onPress={handleBackToLogin}
             style={{
@@ -119,6 +125,7 @@ export default function AuthCallback() {
               Torna al login
             </Text>
           </Pressable>
+
           {__DEV__ && (
             <Pressable
               onPress={handleOpenDebugDeeplink}
