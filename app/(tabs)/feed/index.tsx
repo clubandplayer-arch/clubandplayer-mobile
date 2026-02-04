@@ -10,6 +10,7 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
+import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../../../src/lib/supabase";
 
 import {
@@ -138,6 +139,13 @@ export default function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const [email, setEmail] = useState<string | null>(null);
+  const [feedMode, setFeedMode] = useState<"all" | "following">("all");
+  const [followedCount, setFollowedCount] = useState<number | null>(null);
+  const [followDiscoveryStatus, setFollowDiscoveryStatus] = useState<
+    "ok" | "no_follow_rows" | "discovery_failed" | null
+  >(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   const [items, setItems] = useState<FeedPost[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -145,10 +153,12 @@ export default function FeedScreen() {
   const [nextOffset, setNextOffset] = useState<number | null>(0);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (mode: "all" | "following") => {
     setError(null);
     setNextOffset(0);
     setLoadingMore(false);
+    setFollowedCount(null);
+    setFollowDiscoveryStatus(null);
 
     try {
       const { data, error: userErr } = await supabase.auth.getUser();
@@ -158,13 +168,25 @@ export default function FeedScreen() {
         setEmail(data.user?.email ?? null);
       }
 
-      const res = await getFeedPosts(supabase, { limit: 15, offset: 0 });
+      const res = await getFeedPosts(supabase, {
+        limit: 15,
+        offset: 0,
+        mode,
+      });
       setItems(res.items);
       setNextOffset(res.nextOffset);
+      setFollowedCount(
+        typeof res.meta.followedIdsCount === "number"
+          ? res.meta.followedIdsCount
+          : null
+      );
+      setFollowDiscoveryStatus(res.meta.followDiscoveryStatus ?? null);
     } catch (e: any) {
       setError(e?.message ? String(e.message) : "Errore nel caricamento feed");
       setItems([]);
       setNextOffset(null);
+      setFollowedCount(null);
+      setFollowDiscoveryStatus(null);
     } finally {
       setLoading(false);
     }
@@ -182,6 +204,7 @@ export default function FeedScreen() {
       const res = await getFeedPosts(supabase, {
         limit: 15,
         offset: nextOffset,
+        mode: feedMode,
       });
       setItems((prev) => [...prev, ...res.items]);
       setNextOffset(res.nextOffset);
@@ -190,25 +213,40 @@ export default function FeedScreen() {
     } finally {
       setLoadingMore(false);
     }
-  }, [error, loading, loadingMore, nextOffset, refreshing]);
+  }, [error, feedMode, loading, loadingMore, nextOffset, refreshing]);
 
   useEffect(() => {
-    load();
-    const { data: sub } = supabase.auth.onAuthStateChange(() => {
-      setLoading(true);
-      load();
+    let isMounted = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!isMounted) return;
+      setSession(data.session ?? null);
     });
-    return () => sub.subscription.unsubscribe();
-  }, [load]);
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setLoading(true);
+      setReloadToken((prev) => prev + 1);
+    });
+
+    return () => {
+      isMounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    load(feedMode);
+  }, [feedMode, load, reloadToken, session]);
 
   const onRefresh = useCallback(async () => {
     try {
       setRefreshing(true);
-      await load();
+      await load(feedMode);
     } finally {
       setRefreshing(false);
     }
-  }, [load]);
+  }, [feedMode, load]);
 
   const onLogout = async () => {
     try {
@@ -224,6 +262,14 @@ export default function FeedScreen() {
   };
 
   const header = useMemo(() => {
+    const isFollowing = feedMode === "following";
+    const emptyMessage =
+      isFollowing && followDiscoveryStatus === "discovery_failed"
+        ? "Impossibile caricare i seguiti in questo momento."
+        : isFollowing && followedCount === 0
+        ? "Non segui ancora nessuno."
+        : "Nessun contenuto ancora. Qui compariranno i post delle persone e dei club che segui.";
+
     return (
       <View
         style={{
@@ -234,6 +280,68 @@ export default function FeedScreen() {
         }}
       >
         <Text style={{ fontSize: 28, fontWeight: "800" }}>Feed</Text>
+
+        <View
+          style={{
+            flexDirection: "row",
+            borderWidth: 1,
+            borderColor: "#e5e7eb",
+            borderRadius: 999,
+            padding: 4,
+            gap: 6,
+            backgroundColor: "#f9fafb",
+            alignSelf: "flex-start",
+          }}
+        >
+          <Pressable
+            onPress={() => {
+              if (feedMode !== "all") {
+                setLoading(true);
+                setFeedMode("all");
+              }
+            }}
+            style={{
+              paddingVertical: 6,
+              paddingHorizontal: 14,
+              borderRadius: 999,
+              backgroundColor: feedMode === "all" ? "#111827" : "transparent",
+            }}
+          >
+            <Text
+              style={{
+                color: feedMode === "all" ? "#ffffff" : "#111827",
+                fontWeight: "700",
+              }}
+            >
+              Tutti
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              if (feedMode !== "following") {
+                setLoading(true);
+                setFeedMode("following");
+              }
+            }}
+            style={{
+              paddingVertical: 6,
+              paddingHorizontal: 14,
+              borderRadius: 999,
+              backgroundColor:
+                feedMode === "following" ? "#111827" : "transparent",
+            }}
+          >
+            <Text
+              style={{
+                color: feedMode === "following" ? "#ffffff" : "#111827",
+                fontWeight: "700",
+              }}
+            >
+              Seguiti
+            </Text>
+          </Pressable>
+        </View>
 
         <View
           style={{
@@ -361,7 +469,7 @@ export default function FeedScreen() {
           >
             <Text style={{ fontWeight: "800", color: "#b91c1c" }}>Errore</Text>
             <Text style={{ color: "#b91c1c" }}>{error}</Text>
-            <Pressable onPress={load} style={{ alignSelf: "flex-start" }}>
+            <Pressable onPress={() => load(feedMode)} style={{ alignSelf: "flex-start" }}>
               <Text
                 style={{ color: "#036f9a", fontWeight: "800" }}
               >
@@ -383,13 +491,23 @@ export default function FeedScreen() {
           >
             <Text style={{ fontSize: 16, fontWeight: "700" }}>Contenuti</Text>
             <Text style={{ color: "#374151" }}>
-              Nessun contenuto ancora. Qui compariranno i post delle persone e dei club che segui.
+              {emptyMessage}
             </Text>
           </View>
         ) : null}
       </View>
     );
-  }, [email, error, items.length, load, loading, onLogout, router]);
+  }, [
+    email,
+    error,
+    feedMode,
+    followedCount,
+    followDiscoveryStatus,
+    items.length,
+    loading,
+    onLogout,
+    router,
+  ]);
 
   const footer = useMemo(() => {
     if (loadingMore) {
