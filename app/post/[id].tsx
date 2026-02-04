@@ -13,6 +13,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 import { getAuthorName, getPostText, type FeedAuthor, type FeedMediaItem } from "../../src/lib/feed/getFeedPosts";
 import { asString, normalizeMediaRow } from "../../src/lib/media/normalizeMedia";
+import { resolveProfileByAuthorId } from "../../src/lib/profiles/resolveProfile";
 
 type PostRow = {
   id: string;
@@ -129,13 +130,21 @@ export default function PostDetailScreen() {
         return;
       }
 
-      const [byUserId, byProfileId] = await Promise.all([
-        supabase.from("profiles").select("*").eq("user_id", authorId).maybeSingle(),
-        supabase.from("profiles").select("*").eq("id", authorId).maybeSingle(),
-      ]);
-
-      const found = (byUserId.data ?? byProfileId.data) as any;
-      setAuthor(found ? (found as FeedAuthor) : null);
+      const resolved = await resolveProfileByAuthorId(authorId, supabase);
+      setAuthor(
+        resolved
+          ? {
+              id: resolved.id,
+              user_id: resolved.user_id ?? undefined,
+              full_name: resolved.full_name,
+              display_name: resolved.display_name,
+              avatar_url: resolved.avatar_url,
+              type: resolved.type,
+              account_type: resolved.account_type,
+              role: resolved.role,
+            }
+          : null,
+      );
     } catch (e: any) {
       setError(e?.message ? String(e.message) : "Errore nel caricamento post");
       setPost(null);

@@ -29,9 +29,12 @@ export function normalizeMediaRow(row: any): NormalizedMediaItem | null {
   if (!url) return null;
 
   const poster = asString(row?.poster_url) ?? asString(row?.posterUrl);
-  const width = Number.isFinite(row?.width) ? Number(row.width) : null;
-  const height = Number.isFinite(row?.height) ? Number(row.height) : null;
-  const position = Number.isFinite(row?.position) ? Math.trunc(Number(row.position)) : undefined;
+  const widthValue = Number(row?.width);
+  const heightValue = Number(row?.height);
+  const positionValue = Number(row?.position);
+  const width = Number.isFinite(widthValue) ? widthValue : null;
+  const height = Number.isFinite(heightValue) ? heightValue : null;
+  const position = Number.isFinite(positionValue) ? Math.trunc(positionValue) : undefined;
 
   return {
     id: asString(row?.id) ?? undefined,
