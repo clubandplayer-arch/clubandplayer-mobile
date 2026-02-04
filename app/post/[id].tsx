@@ -12,6 +12,8 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 import { getAuthorName, getPostText, type FeedAuthor, type FeedMediaItem } from "../../src/lib/feed/getFeedPosts";
+import { asString, normalizeMediaRow } from "../../src/lib/media/normalizeMedia";
+import { resolveProfileByAuthorId } from "../../src/lib/profiles/resolveProfile";
 
 type PostRow = {
   id: string;
@@ -26,16 +28,6 @@ function formatWhen(iso?: string | null) {
     return new Date(iso).toLocaleString();
   } catch {
     return "";
-  }
-}
-
-function asString(v: any): string | null {
-  if (typeof v === "string") return v;
-  if (v == null) return null;
-  try {
-    return String(v);
-  } catch {
-    return null;
   }
 }
 
@@ -123,22 +115,7 @@ export default function PostDetailScreen() {
 
       if (!mediaErr && Array.isArray(mediaRows)) {
         const normalized: FeedMediaItem[] = mediaRows
-          .map((r: any) => {
-            const mediaType = typeof r?.media_type === "string" ? r.media_type.trim().toLowerCase() : "";
-            if (mediaType !== "image" && mediaType !== "video") return null;
-            const url = asString(r?.url);
-            if (!url) return null;
-            return {
-              id: asString(r?.id) ?? undefined,
-              post_id: asString(r?.post_id) ?? undefined,
-              media_type: mediaType as "image" | "video",
-              url,
-              poster_url: asString(r?.poster_url) ?? null,
-              width: Number.isFinite(r?.width) ? Number(r.width) : null,
-              height: Number.isFinite(r?.height) ? Number(r.height) : null,
-              position: Number.isFinite(r?.position) ? Math.trunc(Number(r.position)) : undefined,
-            };
-          })
+          .map((r: any) => normalizeMediaRow(r))
           .filter(Boolean) as FeedMediaItem[];
 
         setMedia(normalized);
@@ -153,13 +130,21 @@ export default function PostDetailScreen() {
         return;
       }
 
-      const [byUserId, byProfileId] = await Promise.all([
-        supabase.from("profiles").select("*").eq("user_id", authorId).maybeSingle(),
-        supabase.from("profiles").select("*").eq("id", authorId).maybeSingle(),
-      ]);
-
-      const found = (byUserId.data ?? byProfileId.data) as any;
-      setAuthor(found ? (found as FeedAuthor) : null);
+      const resolved = await resolveProfileByAuthorId(authorId, supabase);
+      setAuthor(
+        resolved
+          ? {
+              id: resolved.id,
+              user_id: resolved.user_id ?? undefined,
+              full_name: resolved.full_name,
+              display_name: resolved.display_name,
+              avatar_url: resolved.avatar_url,
+              type: resolved.type,
+              account_type: resolved.account_type,
+              role: resolved.role,
+            }
+          : null,
+      );
     } catch (e: any) {
       setError(e?.message ? String(e.message) : "Errore nel caricamento post");
       setPost(null);
