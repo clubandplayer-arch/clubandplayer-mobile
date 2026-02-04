@@ -11,38 +11,22 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
+import { resolveProfileByAuthorId, type Profile } from "../../src/lib/profiles/resolveProfile";
 
-type ProfileRow = {
-  id: string;
-  user_id: string | null;
-  full_name: string | null;
-  display_name: string | null;
-  avatar_url: string | null;
-  bio: string | null;
-  sport: string | null;
-  role: string | null;
-  city: string | null;
-  province: string | null;
-  region: string | null;
-  country: string | null;
-  account_type: string | null;
-  type: string | null;
-};
-
-function buildDisplayName(p: ProfileRow | null) {
+function buildDisplayName(p: Profile | null) {
   const a = (p?.full_name ?? "").trim();
   const b = (p?.display_name ?? "").trim();
   return a || b || "Utente";
 }
 
-function buildLocation(p: ProfileRow | null) {
+function buildLocation(p: Profile | null) {
   const parts = [p?.city, p?.province, p?.region, p?.country]
     .map((v) => (v ?? "").trim())
     .filter(Boolean);
   return parts.length ? parts.join(" • ") : "—";
 }
 
-function buildTagline(p: ProfileRow | null) {
+function buildTagline(p: Profile | null) {
   const parts = [p?.sport, p?.role].map((v) => (v ?? "").trim()).filter(Boolean);
   return parts.length ? parts.join(" • ") : "—";
 }
@@ -55,7 +39,7 @@ export default function ProfileByIdScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
 
   const title = useMemo(() => buildDisplayName(profile), [profile]);
 
@@ -70,31 +54,13 @@ export default function ProfileByIdScreen() {
     }
 
     try {
-      // profileKey è l'author_id del post: nel tuo backend può essere user_id oppure profile.id
-      const [byUserId, byProfileId] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select(
-            "id,user_id,full_name,display_name,avatar_url,bio,sport,role,city,province,region,country,account_type,type"
-          )
-          .eq("user_id", profileKey)
-          .maybeSingle(),
-        supabase
-          .from("profiles")
-          .select(
-            "id,user_id,full_name,display_name,avatar_url,bio,sport,role,city,province,region,country,account_type,type"
-          )
-          .eq("id", profileKey)
-          .maybeSingle(),
-      ]);
-
-      const found = (byUserId.data ?? byProfileId.data) as any;
+      const found = await resolveProfileByAuthorId(profileKey, supabase);
 
       if (!found) {
         setProfile(null);
         setError("Profilo non trovato.");
       } else {
-        setProfile(found as ProfileRow);
+        setProfile(found);
       }
     } catch (e: any) {
       setProfile(null);

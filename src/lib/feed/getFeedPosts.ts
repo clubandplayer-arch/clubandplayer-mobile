@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { resolveProfilesByAuthorIds } from '../profiles/resolveProfile';
 
 export type FeedMediaItem = {
   id?: string;
@@ -337,24 +338,9 @@ export async function getFeedPosts(
   }
 
   // authors (fallback: profiles.user_id OR profiles.id)
-  const authorById = new Map<string, FeedAuthor>();
-  if (authorIds.length) {
-    const [byUserId, byProfileId] = await Promise.all([
-      supabase.from('profiles').select('*').in('user_id', authorIds),
-      supabase.from('profiles').select('*').in('id', authorIds),
-    ]);
-
-    const pushProfile = (p: any) => {
-      const pid = asString(p?.id);
-      const uid = asString(p?.user_id);
-      const key = uid || pid;
-      if (!key) return;
-      authorById.set(key, p as FeedAuthor);
-    };
-
-    if (!byUserId.error && Array.isArray(byUserId.data)) byUserId.data.forEach(pushProfile);
-    if (!byProfileId.error && Array.isArray(byProfileId.data)) byProfileId.data.forEach(pushProfile);
-  }
+  const authorById = authorIds.length
+    ? await resolveProfilesByAuthorIds(authorIds, supabase)
+    : new Map<string, FeedAuthor>();
 
   const items: FeedPost[] = rows
     .map((r: any) => {
