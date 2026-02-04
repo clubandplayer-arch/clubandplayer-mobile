@@ -9,7 +9,7 @@ const sanitizeAuthUrl = (url: string) => {
     const parsed = new URL(url);
     const params = parsed.searchParams;
 
-    for (const key of params.keys()) {
+    for (const key of Array.from(params.keys())) {
       if (key !== "redirect_to") {
         params.set(key, "<redacted>");
       }
@@ -24,6 +24,16 @@ const sanitizeAuthUrl = (url: string) => {
     );
   }
 };
+
+function extractCodeFromUrl(url: string): string | null {
+  try {
+    const parsed = Linking.parse(url);
+    const code = parsed.queryParams?.code;
+    return typeof code === "string" && code.length > 0 ? code : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function signInWithGoogle() {
   const redirectTo = Linking.createURL("callback", {
@@ -48,6 +58,25 @@ export async function signInWithGoogle() {
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
 
   if (result.type !== "success") {
-    throw new Error("Google login cancelled");
+    throw new Error("Google login non completato (browser chiuso o annullato)");
+  }
+
+  if (!("url" in result) || !result.url) {
+    throw new Error("Google login non completato (URL di ritorno mancante)");
+  }
+
+  console.log("[auth] result.url:", sanitizeAuthUrl(result.url));
+
+  const code = extractCodeFromUrl(result.url);
+  if (!code) {
+    throw new Error("OAuth code mancante nel ritorno dal browser");
+  }
+
+  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(
+    code
+  );
+
+  if (exchangeError) {
+    throw new Error(`Scambio sessione fallito: ${String(exchangeError)}`);
   }
 }
