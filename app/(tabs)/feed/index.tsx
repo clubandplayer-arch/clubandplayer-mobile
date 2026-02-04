@@ -58,9 +58,11 @@ function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
 function FeedCard({
   item,
   onOpenAuthor,
+  onOpenPost,
 }: {
   item: FeedPost;
   onOpenAuthor: (authorId: string) => void;
+  onOpenPost: (postId: string) => void;
 }) {
   const authorName = getAuthorName(item.author);
   const text = getPostText(item.raw);
@@ -95,31 +97,35 @@ function FeedCard({
       </Pressable>
 
       {!!text ? (
-        <Text style={{ fontSize: 14, lineHeight: 19, color: "#111827" }}>
-          {text}
-        </Text>
+        <Pressable onPress={() => onOpenPost(item.id)}>
+          <Text style={{ fontSize: 14, lineHeight: 19, color: "#111827" }}>
+            {text}
+          </Text>
+        </Pressable>
       ) : null}
 
       {firstMedia?.url ? (
-        <View
-          style={{
-            borderRadius: 12,
-            overflow: "hidden",
-            backgroundColor: "#f3f4f6",
-          }}
-        >
-          <Image
-            source={{ uri: firstMedia.poster_url || firstMedia.url }}
-            style={{ width: "100%", height: 220 }}
-            resizeMode="cover"
-          />
-          <View style={{ padding: 10 }}>
-            <Text style={{ fontSize: 12, color: "#6b7280" }}>
-              {firstMedia.media_type === "video" ? "🎬 Video" : "🖼️ Foto"}
-              {item.media.length > 1 ? ` • +${item.media.length - 1}` : ""}
-            </Text>
+        <Pressable onPress={() => onOpenPost(item.id)}>
+          <View
+            style={{
+              borderRadius: 12,
+              overflow: "hidden",
+              backgroundColor: "#f3f4f6",
+            }}
+          >
+            <Image
+              source={{ uri: firstMedia.poster_url || firstMedia.url }}
+              style={{ width: "100%", height: 220 }}
+              resizeMode="cover"
+            />
+            <View style={{ padding: 10 }}>
+              <Text style={{ fontSize: 12, color: "#6b7280" }}>
+                {firstMedia.media_type === "video" ? "🎬 Video" : "🖼️ Foto"}
+                {item.media.length > 1 ? ` • +${item.media.length - 1}` : ""}
+              </Text>
+            </View>
           </View>
-        </View>
+        </Pressable>
       ) : null}
     </View>
   );
@@ -262,7 +268,9 @@ export default function FeedScreen() {
                   alignSelf: "flex-start",
                 }}
               >
-                <Text style={{ color: "#ffffff", fontWeight: "700" }}>Logout</Text>
+                <Text style={{ color: "#ffffff", fontWeight: "700" }}>
+                  Logout
+                </Text>
               </Pressable>
             </>
           ) : (
@@ -354,7 +362,11 @@ export default function FeedScreen() {
             <Text style={{ fontWeight: "800", color: "#b91c1c" }}>Errore</Text>
             <Text style={{ color: "#b91c1c" }}>{error}</Text>
             <Pressable onPress={load} style={{ alignSelf: "flex-start" }}>
-              <Text style={{ color: "#036f9a", fontWeight: "800" }}>Riprova</Text>
+              <Text
+                style={{ color: "#036f9a", fontWeight: "800" }}
+              >
+                Riprova
+              </Text>
             </Pressable>
           </View>
         ) : null}
@@ -424,6 +436,7 @@ export default function FeedScreen() {
         <FeedCard
           item={item}
           onOpenAuthor={(authorId) => router.push(`/profile/${authorId}`)}
+          onOpenPost={(postId) => router.push(`/post/${postId}`)}
         />
       )}
       ListHeaderComponent={header}
