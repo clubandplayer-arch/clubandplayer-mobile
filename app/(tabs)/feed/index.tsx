@@ -55,11 +55,19 @@ function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
   );
 }
 
-function FeedCard({ item }: { item: FeedPost }) {
+function FeedCard({
+  item,
+  onOpenAuthor,
+}: {
+  item: FeedPost;
+  onOpenAuthor: (authorId: string) => void;
+}) {
   const authorName = getAuthorName(item.author);
   const text = getPostText(item.raw);
   const when = formatWhen(item.created_at);
   const firstMedia = item.media?.[0] ?? null;
+
+  const authorId = (item.author_id ?? "").toString();
 
   return (
     <View
@@ -72,7 +80,11 @@ function FeedCard({ item }: { item: FeedPost }) {
         gap: 10,
       }}
     >
-      <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+      <Pressable
+        onPress={() => authorId && onOpenAuthor(authorId)}
+        disabled={!authorId}
+        style={{ flexDirection: "row", gap: 10, alignItems: "center" }}
+      >
         <Avatar url={item.author?.avatar_url ?? null} size={40} />
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 15, fontWeight: "800", color: "#111827" }}>
@@ -80,7 +92,7 @@ function FeedCard({ item }: { item: FeedPost }) {
           </Text>
           <Text style={{ fontSize: 12, color: "#6b7280" }}>{when}</Text>
         </View>
-      </View>
+      </Pressable>
 
       {!!text ? (
         <Text style={{ fontSize: 14, lineHeight: 19, color: "#111827" }}>
@@ -133,7 +145,6 @@ export default function FeedScreen() {
     setLoadingMore(false);
 
     try {
-      // session/email
       const { data, error: userErr } = await supabase.auth.getUser();
       if (userErr) {
         setEmail(null);
@@ -141,7 +152,6 @@ export default function FeedScreen() {
         setEmail(data.user?.email ?? null);
       }
 
-      // feed reale (read-only)
       const res = await getFeedPosts(supabase, { limit: 15, offset: 0 });
       setItems(res.items);
       setNextOffset(res.nextOffset);
@@ -163,11 +173,13 @@ export default function FeedScreen() {
 
     try {
       setLoadingMore(true);
-      const res = await getFeedPosts(supabase, { limit: 15, offset: nextOffset });
+      const res = await getFeedPosts(supabase, {
+        limit: 15,
+        offset: nextOffset,
+      });
       setItems((prev) => [...prev, ...res.items]);
       setNextOffset(res.nextOffset);
     } catch (e: any) {
-      // non blocchiamo tutto il feed, ma segnaliamo
       setError(e?.message ? String(e.message) : "Errore nel caricamento feed");
     } finally {
       setLoadingMore(false);
@@ -177,7 +189,6 @@ export default function FeedScreen() {
   useEffect(() => {
     load();
     const { data: sub } = supabase.auth.onAuthStateChange(() => {
-      // quando cambia sessione, reset feed
       setLoading(true);
       load();
     });
@@ -373,7 +384,9 @@ export default function FeedScreen() {
       return (
         <View style={{ paddingVertical: 18, alignItems: "center" }}>
           <ActivityIndicator />
-          <Text style={{ marginTop: 8, color: "#6b7280" }}>Carico altri post…</Text>
+          <Text style={{ marginTop: 8, color: "#6b7280" }}>
+            Carico altri post…
+          </Text>
         </View>
       );
     }
@@ -389,7 +402,14 @@ export default function FeedScreen() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 10,
+        }}
+      >
         <ActivityIndicator />
         <Text style={{ color: "#6b7280" }}>Caricamento feed…</Text>
       </View>
@@ -400,7 +420,12 @@ export default function FeedScreen() {
     <FlatList
       data={items}
       keyExtractor={(it) => it.id}
-      renderItem={({ item }) => <FeedCard item={item} />}
+      renderItem={({ item }) => (
+        <FeedCard
+          item={item}
+          onOpenAuthor={(authorId) => router.push(`/profile/${authorId}`)}
+        />
+      )}
       ListHeaderComponent={header}
       ListFooterComponent={footer}
       refreshControl={
