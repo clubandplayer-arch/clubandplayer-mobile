@@ -12,9 +12,11 @@ function AuthGate() {
   const router = useRouter();
   const segments = useSegments();
   const pathname = usePathname();
+
   const [session, setSession] = useState<Session | null>(null);
   const [onboardingSeen, setOnboardingSeen] = useState<boolean | null>(null);
   const [isReady, setIsReady] = useState(false);
+
   const lastTargetRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -27,6 +29,7 @@ function AuthGate() {
       ]);
 
       if (!isMounted) return;
+
       setSession(data.session ?? null);
       setOnboardingSeen(seen);
       setIsReady(true);
@@ -43,6 +46,7 @@ function AuthGate() {
 
     const unsubscribeOnboarding = subscribeOnboardingSeen((seen) => {
       setOnboardingSeen(seen);
+      lastTargetRef.current = null;
     });
 
     return () => {
@@ -55,39 +59,44 @@ function AuthGate() {
   useEffect(() => {
     if (!isReady || onboardingSeen === null) return;
 
-    const currentGroup = segments[0];
+    const currentGroup = segments[0]; // "(tabs)" | "(auth)" | "(onboarding)" | undefined
     const inTabs = currentGroup === "(tabs)";
-    const inAuth = currentGroup === "(auth)";
-    const inOnboarding = currentGroup === "(onboarding)";
-    const inCallback = pathname === "/callback";
+    const inCallback = pathname === "/callback"; // expo-router strips groups in pathname
 
     let target: string | null = null;
 
     if (session) {
-      if (!inTabs) {
-        target = "/(tabs)/feed";
-      }
+      if (!inTabs) target = "/(tabs)/feed";
     } else {
       if (inCallback) {
         target = null;
+      } else if (!onboardingSeen) {
+        target = "/(onboarding)";
       } else {
-        target = onboardingSeen ? "/(auth)/signup" : "/(onboarding)";
-
-        if (
-          (inAuth && pathname === target) ||
-          (inOnboarding && pathname === target)
-        ) {
-          target = null;
-        }
+        target = "/(auth)/login";
       }
     }
 
-    if (target && pathname !== target && lastTargetRef.current !== target) {
-      lastTargetRef.current = target;
-      router.replace(target);
-    } else if (!target) {
+    if (!target) {
       lastTargetRef.current = null;
+      return;
     }
+
+    // Prevent loops / repeated replaces
+    if (lastTargetRef.current === target) return;
+
+    // If we're already in the correct group, avoid over-navigating
+    if (session && inTabs) return;
+    if (!session && !inCallback) {
+      const inAuth = currentGroup === "(auth)";
+      const inOnboarding = currentGroup === "(onboarding)";
+      if ((target === "/(auth)/login" && inAuth) || (target === "/(onboarding)" && inOnboarding)) {
+        return;
+      }
+    }
+
+    lastTargetRef.current = target;
+    router.replace(target);
   }, [isReady, onboardingSeen, pathname, router, segments, session]);
 
   if (!isReady || onboardingSeen === null) {
