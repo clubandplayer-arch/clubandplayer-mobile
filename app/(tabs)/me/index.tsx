@@ -21,8 +21,6 @@ export default function MeScreen() {
   const [email, setEmail] = useState<string | null>(null);
 
   const appVersionLabel = useMemo(() => {
-    // Expo: version + buildNumber/versionCode live in expo config.
-    // We keep it simple and safe for alpha feedback.
     const expoConfig: any = Constants.expoConfig ?? Constants.manifest ?? {};
     const version = expoConfig?.version ?? "unknown";
     const androidCode =
@@ -76,9 +74,10 @@ export default function MeScreen() {
   };
 
   const onFeedback = async () => {
-    // Cambia pure questa mail con quella che userai per raccogliere feedback
-    const to = "clubandplayer.dev@gmail.com";
-    const subject = encodeURIComponent(`Feedback Club & Player Mobile — ${appVersionLabel}`);
+    const to = "support@clubandplayer.com";
+    const subject = encodeURIComponent(
+      `Feedback Club & Player Mobile — ${appVersionLabel}`
+    );
     const body = encodeURIComponent(
       [
         `Versione: ${appVersionLabel}`,
@@ -105,7 +104,7 @@ export default function MeScreen() {
       if (!supported) {
         Alert.alert(
           "Feedback",
-          "Non riesco ad aprire l’app Email su questo dispositivo. Puoi inviare una mail a clubandplayer.dev@gmail.com."
+          "Non riesco ad aprire l’app Email. Puoi scriverci a support@clubandplayer.com."
         );
         return;
       }
@@ -113,7 +112,7 @@ export default function MeScreen() {
     } catch {
       Alert.alert(
         "Feedback",
-        "Non riesco ad aprire l’app Email. Puoi inviare una mail a clubandplayer.dev@gmail.com."
+        "Non riesco ad aprire l’app Email. Puoi scriverci a support@clubandplayer.com."
       );
     }
   };
