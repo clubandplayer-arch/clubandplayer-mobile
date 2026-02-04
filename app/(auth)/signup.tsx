@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as AppleAuthentication from "expo-apple-authentication";
-import { supabase } from "../../src/lib/supabase";
 import { signInWithApple } from "../../src/lib/appleAuth";
 import { signInWithGoogle } from "../../src/lib/auth";
 
@@ -39,17 +38,15 @@ export default function SignupScreen() {
     }
   };
 
-  const handleOpenDebugDeeplink = () => {
-    router.push("/debug/deeplink");
-  };
-
   return (
     <View style={{ flex: 1, padding: 24, justifyContent: "center", gap: 12 }}>
       <Text style={{ fontSize: 28, fontWeight: "700", marginBottom: 12 }}>
         Club & Player
       </Text>
 
-      <Text style={{ fontSize: 18, fontWeight: "600" }}>Registrati</Text>
+      <Text style={{ fontSize: 18, fontWeight: "600" }}>
+        Crea il tuo account
+      </Text>
 
       <Pressable
         onPress={onGoogle}
@@ -65,24 +62,32 @@ export default function SignupScreen() {
         {loading ? (
           <ActivityIndicator />
         ) : (
-          <Text style={{ fontWeight: "700" }}>Continua con Google</Text>
+          <Text style={{ fontWeight: "700" }}>Registrati con Google</Text>
         )}
       </Pressable>
 
       {Platform.OS === "ios" && (
         <AppleAuthentication.AppleAuthenticationButton
-          buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+          buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
           buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
           cornerRadius={12}
           style={{ height: 44 }}
           onPress={onApple}
         />
       )}
-      {__DEV__ && (
-        <Pressable onPress={handleOpenDebugDeeplink}>
-          <Text style={{ color: "#2563eb", fontWeight: "600" }}>Debug</Text>
-        </Pressable>
-      )}
+
+      <Pressable
+        onPress={() => router.replace("/(auth)/login")}
+        disabled={loading}
+        style={{ paddingVertical: 10, alignItems: "center" }}
+      >
+        <Text>
+          Hai già un account?{" "}
+          <Text style={{ fontWeight: "700", color: "#0A66C2" }}>
+            Accedi
+          </Text>
+        </Text>
+      </Pressable>
     </View>
   );
 }
