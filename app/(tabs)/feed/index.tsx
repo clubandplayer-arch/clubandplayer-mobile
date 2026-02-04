@@ -10,6 +10,7 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
+import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../../../src/lib/supabase";
 
 import {
@@ -140,6 +141,11 @@ export default function FeedScreen() {
   const [email, setEmail] = useState<string | null>(null);
   const [feedMode, setFeedMode] = useState<"all" | "following">("all");
   const [followedCount, setFollowedCount] = useState<number | null>(null);
+  const [followDiscoveryStatus, setFollowDiscoveryStatus] = useState<
+    "ok" | "no_follow_rows" | "discovery_failed" | null
+  >(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   const [items, setItems] = useState<FeedPost[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -147,11 +153,12 @@ export default function FeedScreen() {
   const [nextOffset, setNextOffset] = useState<number | null>(0);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (mode: "all" | "following") => {
     setError(null);
     setNextOffset(0);
     setLoadingMore(false);
     setFollowedCount(null);
+    setFollowDiscoveryStatus(null);
 
     try {
       const { data, error: userErr } = await supabase.auth.getUser();
@@ -164,20 +171,26 @@ export default function FeedScreen() {
       const res = await getFeedPosts(supabase, {
         limit: 15,
         offset: 0,
-        mode: feedMode,
+        mode,
       });
       setItems(res.items);
       setNextOffset(res.nextOffset);
-      setFollowedCount(res.meta.followedCount ?? null);
+      setFollowedCount(
+        typeof res.meta.followedIdsCount === "number"
+          ? res.meta.followedIdsCount
+          : null
+      );
+      setFollowDiscoveryStatus(res.meta.followDiscoveryStatus ?? null);
     } catch (e: any) {
       setError(e?.message ? String(e.message) : "Errore nel caricamento feed");
       setItems([]);
       setNextOffset(null);
       setFollowedCount(null);
+      setFollowDiscoveryStatus(null);
     } finally {
       setLoading(false);
     }
-  }, [feedMode]);
+  }, []);
 
   const loadMore = useCallback(async () => {
     if (loadingMore) return;
@@ -203,22 +216,37 @@ export default function FeedScreen() {
   }, [error, feedMode, loading, loadingMore, nextOffset, refreshing]);
 
   useEffect(() => {
-    load();
-    const { data: sub } = supabase.auth.onAuthStateChange(() => {
-      setLoading(true);
-      load();
+    let isMounted = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!isMounted) return;
+      setSession(data.session ?? null);
     });
-    return () => sub.subscription.unsubscribe();
-  }, [load]);
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setLoading(true);
+      setReloadToken((prev) => prev + 1);
+    });
+
+    return () => {
+      isMounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    load(feedMode);
+  }, [feedMode, load, reloadToken, session]);
 
   const onRefresh = useCallback(async () => {
     try {
       setRefreshing(true);
-      await load();
+      await load(feedMode);
     } finally {
       setRefreshing(false);
     }
-  }, [load]);
+  }, [feedMode, load]);
 
   const onLogout = async () => {
     try {
@@ -236,7 +264,9 @@ export default function FeedScreen() {
   const header = useMemo(() => {
     const isFollowing = feedMode === "following";
     const emptyMessage =
-      isFollowing && followedCount === 0
+      isFollowing && followDiscoveryStatus === "discovery_failed"
+        ? "Impossibile caricare i seguiti in questo momento."
+        : isFollowing && followedCount === 0
         ? "Non segui ancora nessuno."
         : "Nessun contenuto ancora. Qui compariranno i post delle persone e dei club che segui.";
 
@@ -439,7 +469,7 @@ export default function FeedScreen() {
           >
             <Text style={{ fontWeight: "800", color: "#b91c1c" }}>Errore</Text>
             <Text style={{ color: "#b91c1c" }}>{error}</Text>
-            <Pressable onPress={load} style={{ alignSelf: "flex-start" }}>
+            <Pressable onPress={() => load(feedMode)} style={{ alignSelf: "flex-start" }}>
               <Text
                 style={{ color: "#036f9a", fontWeight: "800" }}
               >
@@ -472,8 +502,8 @@ export default function FeedScreen() {
     error,
     feedMode,
     followedCount,
+    followDiscoveryStatus,
     items.length,
-    load,
     loading,
     onLogout,
     router,
