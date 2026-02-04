@@ -13,8 +13,15 @@ export default function AuthCallback() {
   useEffect(() => {
     let isMounted = true;
 
-    // Se la sessione è già stata completata da openAuthSessionAsync + exchangeCodeForSession,
-    // questa pagina può essere stata aperta "vuota" (URL none). In quel caso, vai subito al feed.
+    // ✅ Se la sessione arriva (anche senza URL), vai al feed.
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return;
+      if (session) {
+        router.replace("/(tabs)/feed");
+      }
+    });
+
+    // Check immediato
     supabase.auth.getSession().then(({ data }) => {
       if (!isMounted) return;
       if (data.session) {
@@ -26,14 +33,12 @@ export default function AuthCallback() {
       if (isMounted && !handledRef.current) {
         setError("Login non completato, riprova");
       }
-    }, 18000);
+    }, 20000);
 
     const handleUrl = async (url: string | null) => {
       if (!url || handledRef.current) return;
 
-      if (__DEV__) {
-        console.log("OAuth callback URL ricevuto:", url);
-      }
+      if (__DEV__) console.log("OAuth callback URL ricevuto:", url);
 
       const parsed = Linking.parse(url);
       const code = parsed.queryParams?.code;
@@ -54,9 +59,7 @@ export default function AuthCallback() {
         return;
       }
 
-      if (isMounted) {
-        router.replace("/(tabs)/feed");
-      }
+      if (isMounted) router.replace("/(tabs)/feed");
     };
 
     Linking.getInitialURL().then((url) => {
@@ -73,6 +76,7 @@ export default function AuthCallback() {
       isMounted = false;
       clearTimeout(timeoutId);
       subscription.remove();
+      sub.subscription.unsubscribe();
     };
   }, [router]);
 
@@ -84,10 +88,6 @@ export default function AuthCallback() {
 
   const handleBackToLogin = () => {
     router.replace("/(auth)/login");
-  };
-
-  const handleOpenDebugDeeplink = () => {
-    router.push("/debug/deeplink");
   };
 
   return (
@@ -125,23 +125,6 @@ export default function AuthCallback() {
               Torna al login
             </Text>
           </Pressable>
-
-          {__DEV__ && (
-            <Pressable
-              onPress={handleOpenDebugDeeplink}
-              style={{
-                paddingVertical: 10,
-                paddingHorizontal: 16,
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: "#2563eb",
-              }}
-            >
-              <Text style={{ color: "#1d4ed8", fontWeight: "600" }}>
-                Apri Debug Deeplink
-              </Text>
-            </Pressable>
-          )}
         </View>
       ) : (
         <ActivityIndicator />
