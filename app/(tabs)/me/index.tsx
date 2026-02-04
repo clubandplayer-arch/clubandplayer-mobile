@@ -14,32 +14,19 @@ import {
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { supabase } from "../../../src/lib/supabase";
+import {
+  resolveProfileByAuthorIdDetailed,
+  type Profile,
+} from "../../../src/lib/profiles/resolveProfile";
 
-type ProfileRow = {
-  id: string;
-  user_id: string | null;
-  full_name: string | null;
-  display_name: string | null;
-  avatar_url: string | null;
-  bio: string | null;
-  sport: string | null;
-  role: string | null;
-  city: string | null;
-  province: string | null;
-  region: string | null;
-  country: string | null;
-  account_type: string | null;
-  type: string | null;
-};
-
-function buildDisplayName(p: ProfileRow | null) {
+function buildDisplayName(p: Profile | null) {
   if (!p) return "—";
   const a = (p.full_name ?? "").trim();
   const b = (p.display_name ?? "").trim();
   return a || b || "—";
 }
 
-function buildLocation(p: ProfileRow | null) {
+function buildLocation(p: Profile | null) {
   if (!p) return "—";
   const parts = [p.city, p.province, p.region, p.country]
     .map((v) => (v ?? "").trim())
@@ -47,7 +34,7 @@ function buildLocation(p: ProfileRow | null) {
   return parts.length ? parts.join(" • ") : "—";
 }
 
-function buildTagline(p: ProfileRow | null) {
+function buildTagline(p: Profile | null) {
   if (!p) return "—";
   const parts = [p.sport, p.role].map((v) => (v ?? "").trim()).filter(Boolean);
   return parts.length ? parts.join(" • ") : "—";
@@ -59,7 +46,7 @@ export default function MeScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const [authEmail, setAuthEmail] = useState<string | null>(null);
-  const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [profileStatus, setProfileStatus] = useState<
     "idle" | "loading" | "found" | "missing" | "error"
   >("idle");
@@ -86,53 +73,25 @@ export default function MeScreen() {
       return;
     }
 
-    // 1) Prova: profiles.id = user.id (come fallback visto sul web) :contentReference[oaicite:3]{index=3}
-    try {
-      const { data: p1, error: e1 } = await supabase
-        .from("profiles")
-        .select(
-          "id,user_id,full_name,display_name,avatar_url,bio,sport,role,city,province,region,country,account_type,type"
-        )
-        .eq("id", user.id)
-        .maybeSingle();
+    const { profile: resolved, error } = await resolveProfileByAuthorIdDetailed(
+      user.id,
+      supabase,
+    );
 
-      if (!e1 && p1) {
-        setProfile(p1 as ProfileRow);
-        setProfileStatus("found");
-        return;
-      }
-    } catch {
-      // ignore and try next
-    }
-
-    // 2) Fallback: profiles.user_id = user.id (usato spesso nel progetto) :contentReference[oaicite:4]{index=4}
-    try {
-      const { data: p2, error: e2 } = await supabase
-        .from("profiles")
-        .select(
-          "id,user_id,full_name,display_name,avatar_url,bio,sport,role,city,province,region,country,account_type,type"
-        )
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (e2) {
-        setProfile(null);
-        setProfileStatus("error");
-        return;
-      }
-
-      if (!p2) {
-        setProfile(null);
-        setProfileStatus("missing");
-        return;
-      }
-
-      setProfile(p2 as ProfileRow);
-      setProfileStatus("found");
-    } catch {
+    if (error) {
       setProfile(null);
       setProfileStatus("error");
+      return;
     }
+
+    if (!resolved) {
+      setProfile(null);
+      setProfileStatus("missing");
+      return;
+    }
+
+    setProfile(resolved);
+    setProfileStatus("found");
   }, []);
 
   const load = useCallback(async () => {
