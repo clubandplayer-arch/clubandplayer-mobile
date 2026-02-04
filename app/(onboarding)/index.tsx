@@ -6,45 +6,33 @@ import { setOnboardingSeen } from "../../src/lib/onboarding";
 export default function OnboardingScreen() {
   const [loading, setLoading] = useState(false);
 
-  const completeOnboarding = async () => {
+  const goTo = async (path: "/(auth)/login" | "/(auth)/signup") => {
     try {
       setLoading(true);
       await setOnboardingSeen(true);
-      router.replace("/(auth)/signup");
+      router.replace(path);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={{ flex: 1, padding: 24, justifyContent: "center", gap: 16 }}>
-      <Text style={{ fontSize: 28, fontWeight: "700" }}>
+    <View style={{ flex: 1, padding: 24, justifyContent: "center", gap: 14 }}>
+      <Text style={{ fontSize: 30, fontWeight: "800" }}>
         Benvenuto su Club & Player
       </Text>
-      <Text style={{ fontSize: 16, color: "#444" }}>
-        Scopri eventi, community e contenuti sportivi pensati per te.
+
+      <Text style={{ fontSize: 16, color: "#374151", lineHeight: 22 }}>
+        Il social sportivo per{" "}
+        <Text style={{ fontWeight: "800" }}>Club</Text> e{" "}
+        <Text style={{ fontWeight: "800" }}>Giocatori</Text>.
+        Segui, pubblica, candidati e resta aggiornato.
       </Text>
 
-      <Pressable
-        onPress={completeOnboarding}
-        disabled={loading}
-        style={{
-          borderWidth: 1,
-          padding: 14,
-          borderRadius: 12,
-          alignItems: "center",
-          opacity: loading ? 0.8 : 1,
-        }}
-      >
-        {loading ? (
-          <ActivityIndicator />
-        ) : (
-          <Text style={{ fontWeight: "700" }}>Salta</Text>
-        )}
-      </Pressable>
+      <View style={{ height: 12 }} />
 
       <Pressable
-        onPress={completeOnboarding}
+        onPress={() => goTo("/(auth)/login")}
         disabled={loading}
         style={{
           backgroundColor: "#0A66C2",
@@ -57,9 +45,45 @@ export default function OnboardingScreen() {
         {loading ? (
           <ActivityIndicator color="white" />
         ) : (
-          <Text style={{ color: "white", fontWeight: "700" }}>Inizia</Text>
+          <Text style={{ color: "white", fontWeight: "800" }}>Accedi</Text>
         )}
       </Pressable>
+
+      <Pressable
+        onPress={() => goTo("/(auth)/signup")}
+        disabled={loading}
+        style={{
+          borderWidth: 1,
+          padding: 14,
+          borderRadius: 12,
+          alignItems: "center",
+          opacity: loading ? 0.8 : 1,
+        }}
+      >
+        {loading ? (
+          <ActivityIndicator />
+        ) : (
+          <Text style={{ fontWeight: "800" }}>Registrati</Text>
+        )}
+      </Pressable>
+
+      <Pressable
+        onPress={() => goTo("/(auth)/login")}
+        disabled={loading}
+        style={{
+          paddingVertical: 10,
+          alignItems: "center",
+          opacity: loading ? 0.6 : 1,
+        }}
+      >
+        <Text style={{ color: "#6b7280" }}>
+          Continua più tardi
+        </Text>
+      </Pressable>
+
+      <Text style={{ fontSize: 12, color: "#6b7280", marginTop: 8 }}>
+        Nota: la navigazione “ospite” verrà aggiunta più avanti. Per ora è richiesto l’accesso.
+      </Text>
     </View>
   );
 }
