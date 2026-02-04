@@ -138,6 +138,8 @@ export default function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const [email, setEmail] = useState<string | null>(null);
+  const [feedMode, setFeedMode] = useState<"all" | "following">("all");
+  const [followedCount, setFollowedCount] = useState<number | null>(null);
 
   const [items, setItems] = useState<FeedPost[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -149,6 +151,7 @@ export default function FeedScreen() {
     setError(null);
     setNextOffset(0);
     setLoadingMore(false);
+    setFollowedCount(null);
 
     try {
       const { data, error: userErr } = await supabase.auth.getUser();
@@ -158,17 +161,23 @@ export default function FeedScreen() {
         setEmail(data.user?.email ?? null);
       }
 
-      const res = await getFeedPosts(supabase, { limit: 15, offset: 0 });
+      const res = await getFeedPosts(supabase, {
+        limit: 15,
+        offset: 0,
+        mode: feedMode,
+      });
       setItems(res.items);
       setNextOffset(res.nextOffset);
+      setFollowedCount(res.meta.followedCount ?? null);
     } catch (e: any) {
       setError(e?.message ? String(e.message) : "Errore nel caricamento feed");
       setItems([]);
       setNextOffset(null);
+      setFollowedCount(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [feedMode]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore) return;
@@ -182,6 +191,7 @@ export default function FeedScreen() {
       const res = await getFeedPosts(supabase, {
         limit: 15,
         offset: nextOffset,
+        mode: feedMode,
       });
       setItems((prev) => [...prev, ...res.items]);
       setNextOffset(res.nextOffset);
@@ -190,7 +200,7 @@ export default function FeedScreen() {
     } finally {
       setLoadingMore(false);
     }
-  }, [error, loading, loadingMore, nextOffset, refreshing]);
+  }, [error, feedMode, loading, loadingMore, nextOffset, refreshing]);
 
   useEffect(() => {
     load();
@@ -224,6 +234,12 @@ export default function FeedScreen() {
   };
 
   const header = useMemo(() => {
+    const isFollowing = feedMode === "following";
+    const emptyMessage =
+      isFollowing && followedCount === 0
+        ? "Non segui ancora nessuno."
+        : "Nessun contenuto ancora. Qui compariranno i post delle persone e dei club che segui.";
+
     return (
       <View
         style={{
@@ -234,6 +250,68 @@ export default function FeedScreen() {
         }}
       >
         <Text style={{ fontSize: 28, fontWeight: "800" }}>Feed</Text>
+
+        <View
+          style={{
+            flexDirection: "row",
+            borderWidth: 1,
+            borderColor: "#e5e7eb",
+            borderRadius: 999,
+            padding: 4,
+            gap: 6,
+            backgroundColor: "#f9fafb",
+            alignSelf: "flex-start",
+          }}
+        >
+          <Pressable
+            onPress={() => {
+              if (feedMode !== "all") {
+                setLoading(true);
+                setFeedMode("all");
+              }
+            }}
+            style={{
+              paddingVertical: 6,
+              paddingHorizontal: 14,
+              borderRadius: 999,
+              backgroundColor: feedMode === "all" ? "#111827" : "transparent",
+            }}
+          >
+            <Text
+              style={{
+                color: feedMode === "all" ? "#ffffff" : "#111827",
+                fontWeight: "700",
+              }}
+            >
+              Tutti
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              if (feedMode !== "following") {
+                setLoading(true);
+                setFeedMode("following");
+              }
+            }}
+            style={{
+              paddingVertical: 6,
+              paddingHorizontal: 14,
+              borderRadius: 999,
+              backgroundColor:
+                feedMode === "following" ? "#111827" : "transparent",
+            }}
+          >
+            <Text
+              style={{
+                color: feedMode === "following" ? "#ffffff" : "#111827",
+                fontWeight: "700",
+              }}
+            >
+              Seguiti
+            </Text>
+          </Pressable>
+        </View>
 
         <View
           style={{
@@ -383,13 +461,23 @@ export default function FeedScreen() {
           >
             <Text style={{ fontSize: 16, fontWeight: "700" }}>Contenuti</Text>
             <Text style={{ color: "#374151" }}>
-              Nessun contenuto ancora. Qui compariranno i post delle persone e dei club che segui.
+              {emptyMessage}
             </Text>
           </View>
         ) : null}
       </View>
     );
-  }, [email, error, items.length, load, loading, onLogout, router]);
+  }, [
+    email,
+    error,
+    feedMode,
+    followedCount,
+    items.length,
+    load,
+    loading,
+    onLogout,
+    router,
+  ]);
 
   const footer = useMemo(() => {
     if (loadingMore) {

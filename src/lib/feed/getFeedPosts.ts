@@ -69,19 +69,83 @@ function normalizeMediaRow(row: any): FeedMediaItem | null {
   };
 }
 
+type FeedMode = 'all' | 'following';
+
+type FollowQueryCandidate = {
+  table: string;
+  followerColumn: string;
+  followedColumn: string;
+};
+
+const FOLLOW_TABLE_CANDIDATES: FollowQueryCandidate[] = [
+  { table: 'follows', followerColumn: 'follower_id', followedColumn: 'following_id' },
+  { table: 'follows', followerColumn: 'user_id', followedColumn: 'following_id' },
+  { table: 'follows', followerColumn: 'follower_id', followedColumn: 'followed_id' },
+  { table: 'follows', followerColumn: 'user_id', followedColumn: 'followed_id' },
+  { table: 'followers', followerColumn: 'follower_id', followedColumn: 'following_id' },
+  { table: 'followers', followerColumn: 'user_id', followedColumn: 'following_id' },
+  { table: 'profile_follows', followerColumn: 'follower_id', followedColumn: 'following_id' },
+  { table: 'user_follows', followerColumn: 'follower_id', followedColumn: 'following_id' },
+];
+
+async function fetchFollowedIds(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ ids: string[]; sourceTable: string | null }> {
+  for (const candidate of FOLLOW_TABLE_CANDIDATES) {
+    const { data, error } = await supabase
+      .from(candidate.table)
+      .select(candidate.followedColumn)
+      .eq(candidate.followerColumn, userId);
+
+    if (error) {
+      continue;
+    }
+
+    const rows = Array.isArray(data) ? data : [];
+    const ids = rows
+      .map((row: any) => asString(row?.[candidate.followedColumn]))
+      .filter(Boolean) as string[];
+
+    return { ids: uniq(ids), sourceTable: candidate.table };
+  }
+
+  return { ids: [], sourceTable: null };
+}
+
 export async function getFeedPosts(
   supabase: SupabaseClient,
-  opts?: { limit?: number; offset?: number },
-): Promise<{ items: FeedPost[]; nextOffset: number | null }> {
+  opts?: { limit?: number; offset?: number; mode?: FeedMode },
+): Promise<{ items: FeedPost[]; nextOffset: number | null; meta: { followedCount?: number } }> {
   const limit = Math.min(Math.max(opts?.limit ?? 15, 5), 30);
   const offset = Math.max(opts?.offset ?? 0, 0);
+  const mode: FeedMode = opts?.mode ?? 'all';
 
-  // v1: posts + media + author hydration (come web) ma read-only e senza filtri following per ora
-  const { data: posts, error } = await supabase
+  let followedIds: string[] | null = null;
+  if (mode === 'following') {
+    const { data: auth } = await supabase.auth.getUser();
+    const userId = asString(auth.user?.id);
+    if (!userId) {
+      return { items: [], nextOffset: null, meta: { followedCount: 0 } };
+    }
+    const res = await fetchFollowedIds(supabase, userId);
+    followedIds = res.ids;
+    if (!followedIds.length) {
+      return { items: [], nextOffset: null, meta: { followedCount: 0 } };
+    }
+  }
+
+  // v1: posts + media + author hydration (come web) ma read-only; filtro following opzionale
+  let postsQuery = supabase
     .from('posts')
     .select('*')
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+    .order('created_at', { ascending: false });
+
+  if (mode === 'following' && followedIds) {
+    postsQuery = postsQuery.in('author_id', followedIds);
+  }
+
+  const { data: posts, error } = await postsQuery.range(offset, offset + limit - 1);
 
   if (error) throw new Error(error.message || 'Errore nel recupero dei post');
 
@@ -147,7 +211,7 @@ export async function getFeedPosts(
     .filter(Boolean) as FeedPost[];
 
   const nextOffset = rows.length < limit ? null : offset + limit;
-  return { items, nextOffset };
+  return { items, nextOffset, meta: { followedCount: followedIds ? followedIds.length : undefined } };
 }
 
 export function getPostText(raw: Record<string, any>): string {
