@@ -4,6 +4,16 @@ import { supabase } from "./supabase";
 
 WebBrowser.maybeCompleteAuthSession();
 
+/**
+ * Android OAuth note (important):
+ * Some devices can resume the app without reliably delivering the deep link URL
+ * to the screen via Linking.getInitialURL()/event timing.
+ * To avoid race conditions, we:
+ *  - start a Linking listener BEFORE opening the browser
+ *  - also read result.url from openAuthSessionAsync when available
+ *  - exchange the auth code for a session here, not only inside /callback
+ */
+
 const sanitizeAuthUrl = (url: string) => {
   try {
     const parsed = new URL(url);
@@ -47,21 +57,14 @@ function waitForRedirectUrl({
   return new Promise((resolve) => {
     let settled = false;
 
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      subscription.remove();
-      resolve(null);
-    }, timeoutMs);
-
     const subscription = Linking.addEventListener("url", ({ url }) => {
-      // Esempio atteso: clubandplayer://callback?code=...
+      // Expected: clubandplayer://callback?code=...
       try {
         const parsed = new URL(url);
         if (parsed.protocol.replace(":", "") !== expectedScheme) return;
         if (parsed.host !== expectedHost) return;
       } catch {
-        // Se URL() fallisce, proviamo comunque
+        // If URL() fails, still accept the string and let parser try.
       }
 
       if (settled) return;
@@ -70,13 +73,22 @@ function waitForRedirectUrl({
       subscription.remove();
       resolve(url);
     });
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      subscription.remove();
+      resolve(null);
+    }, timeoutMs);
   });
 }
 
 export async function signInWithGoogle() {
   const redirectTo = Linking.createURL("callback", { scheme: "clubandplayer" });
 
-  console.log("[auth] redirectTo:", redirectTo);
+  if (__DEV__) {
+    console.log("[auth] redirectTo:", redirectTo);
+  }
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
@@ -89,9 +101,11 @@ export async function signInWithGoogle() {
   if (error) throw error;
   if (!data.url) throw new Error("Missing OAuth URL");
 
-  console.log("[auth] oauth url:", sanitizeAuthUrl(data.url));
+  if (__DEV__) {
+    console.log("[auth] oauth url:", sanitizeAuthUrl(data.url));
+  }
 
-  // 🔥 Listener attivo PRIMA di aprire il browser (così non perdiamo l'evento su Android)
+  // Listener BEFORE opening the browser (prevents missing event on Android warm resume).
   const redirectPromise = waitForRedirectUrl({
     timeoutMs: 45_000,
     expectedScheme: "clubandplayer",
@@ -102,16 +116,16 @@ export async function signInWithGoogle() {
 
   let finalUrl: string | null = null;
 
-  // 1) Se EAS ci dà result.url, usiamo quello
+  // 1) Prefer result.url if provided
   if (result.type === "success" && "url" in result && result.url) {
     finalUrl = result.url;
-    console.log("[auth] result.url:", sanitizeAuthUrl(finalUrl));
+    if (__DEV__) console.log("[auth] result.url:", sanitizeAuthUrl(finalUrl));
   } else {
-    // 2) Altrimenti aspettiamo l'evento Linking (warm-resume su Android)
+    // 2) Otherwise rely on Linking event (Android warm resume)
     const eventUrl = await redirectPromise;
     if (eventUrl) {
       finalUrl = eventUrl;
-      console.log("[auth] event.url:", sanitizeAuthUrl(finalUrl));
+      if (__DEV__) console.log("[auth] event.url:", sanitizeAuthUrl(finalUrl));
     }
   }
 
