@@ -7,7 +7,6 @@ import {
   ScrollView,
   RefreshControl,
   Image,
-  Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";

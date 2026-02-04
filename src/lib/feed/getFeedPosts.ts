@@ -338,9 +338,22 @@ export async function getFeedPosts(
   }
 
   // authors (fallback: profiles.user_id OR profiles.id)
-  const authorById = authorIds.length
-    ? await resolveProfilesByAuthorIds(authorIds, supabase)
-    : new Map<string, FeedAuthor>();
+  const authorById = new Map<string, FeedAuthor>();
+  if (authorIds.length) {
+    const profilesById = await resolveProfilesByAuthorIds(authorIds, supabase);
+    for (const [key, profile] of profilesById.entries()) {
+      authorById.set(key, {
+        id: profile.id,
+        user_id: profile.user_id ?? undefined,
+        full_name: profile.full_name,
+        display_name: profile.display_name,
+        avatar_url: profile.avatar_url,
+        type: profile.type,
+        account_type: profile.account_type,
+        role: profile.role,
+      });
+    }
+  }
 
   const items: FeedPost[] = rows
     .map((r: any) => {
