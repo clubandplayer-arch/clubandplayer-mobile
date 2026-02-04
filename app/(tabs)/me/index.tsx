@@ -9,39 +9,139 @@ import {
   RefreshControl,
   Linking,
   Platform,
+  Image,
 } from "react-native";
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { supabase } from "../../../src/lib/supabase";
 
+type ProfileRow = {
+  id: string;
+  user_id: string | null;
+  full_name: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  sport: string | null;
+  role: string | null;
+  city: string | null;
+  province: string | null;
+  region: string | null;
+  country: string | null;
+  account_type: string | null;
+  type: string | null;
+};
+
+function buildDisplayName(p: ProfileRow | null) {
+  if (!p) return "—";
+  const a = (p.full_name ?? "").trim();
+  const b = (p.display_name ?? "").trim();
+  return a || b || "—";
+}
+
+function buildLocation(p: ProfileRow | null) {
+  if (!p) return "—";
+  const parts = [p.city, p.province, p.region, p.country]
+    .map((v) => (v ?? "").trim())
+    .filter(Boolean);
+  return parts.length ? parts.join(" • ") : "—";
+}
+
+function buildTagline(p: ProfileRow | null) {
+  if (!p) return "—";
+  const parts = [p.sport, p.role].map((v) => (v ?? "").trim()).filter(Boolean);
+  return parts.length ? parts.join(" • ") : "—";
+}
+
 export default function MeScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [email, setEmail] = useState<string | null>(null);
+
+  const [authEmail, setAuthEmail] = useState<string | null>(null);
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [profileStatus, setProfileStatus] = useState<
+    "idle" | "loading" | "found" | "missing" | "error"
+  >("idle");
 
   const appVersionLabel = useMemo(() => {
-    const expoConfig: any = Constants.expoConfig ?? Constants.manifest ?? {};
-    const version = expoConfig?.version ?? "unknown";
-    const androidCode =
-      expoConfig?.android?.versionCode ??
-      expoConfig?.extra?.eas?.build?.android?.versionCode ??
-      "unknown";
-    return `v${version} (${Platform.OS} ${androidCode})`;
+    const v = (Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? "unknown").toString();
+    const b = (Constants.nativeBuildVersion ??
+      Constants.expoConfig?.android?.versionCode ??
+      "unknown").toString();
+    return `v${v} (${Platform.OS} ${b})`;
+  }, []);
+
+  const loadProfile = useCallback(async () => {
+    setProfileStatus("loading");
+
+    const { data: auth } = await supabase.auth.getUser();
+    const user = auth.user ?? null;
+
+    setAuthEmail(user?.email ?? null);
+
+    if (!user?.id) {
+      setProfile(null);
+      setProfileStatus("missing");
+      return;
+    }
+
+    // 1) Prova: profiles.id = user.id (come fallback visto sul web) :contentReference[oaicite:3]{index=3}
+    try {
+      const { data: p1, error: e1 } = await supabase
+        .from("profiles")
+        .select(
+          "id,user_id,full_name,display_name,avatar_url,bio,sport,role,city,province,region,country,account_type,type"
+        )
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!e1 && p1) {
+        setProfile(p1 as ProfileRow);
+        setProfileStatus("found");
+        return;
+      }
+    } catch {
+      // ignore and try next
+    }
+
+    // 2) Fallback: profiles.user_id = user.id (usato spesso nel progetto) :contentReference[oaicite:4]{index=4}
+    try {
+      const { data: p2, error: e2 } = await supabase
+        .from("profiles")
+        .select(
+          "id,user_id,full_name,display_name,avatar_url,bio,sport,role,city,province,region,country,account_type,type"
+        )
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (e2) {
+        setProfile(null);
+        setProfileStatus("error");
+        return;
+      }
+
+      if (!p2) {
+        setProfile(null);
+        setProfileStatus("missing");
+        return;
+      }
+
+      setProfile(p2 as ProfileRow);
+      setProfileStatus("found");
+    } catch {
+      setProfile(null);
+      setProfileStatus("error");
+    }
   }, []);
 
   const load = useCallback(async () => {
     try {
-      const { data, error } = await supabase.auth.getUser();
-      if (error) {
-        setEmail(null);
-        return;
-      }
-      setEmail(data.user?.email ?? null);
+      await loadProfile();
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadProfile]);
 
   useEffect(() => {
     load();
@@ -54,11 +154,11 @@ export default function MeScreen() {
   const onRefresh = useCallback(async () => {
     try {
       setRefreshing(true);
-      await load();
+      await loadProfile();
     } finally {
       setRefreshing(false);
     }
-  }, [load]);
+  }, [loadProfile]);
 
   const onLogout = async () => {
     try {
@@ -73,6 +173,20 @@ export default function MeScreen() {
     }
   };
 
+  const onOpenWebProfile = async () => {
+    const url = "https://www.clubandplayer.com/profile";
+    try {
+      const ok = await Linking.canOpenURL(url);
+      if (!ok) {
+        Alert.alert("Link", "Non riesco ad aprire il link.");
+        return;
+      }
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert("Link", "Non riesco ad aprire il link.");
+    }
+  };
+
   const onFeedback = async () => {
     const to = "support@clubandplayer.com";
     const subject = encodeURIComponent(
@@ -81,7 +195,8 @@ export default function MeScreen() {
     const body = encodeURIComponent(
       [
         `Versione: ${appVersionLabel}`,
-        email ? `Account: ${email}` : "Account: (non loggato)",
+        authEmail ? `Account: ${authEmail}` : "Account: (non loggato)",
+        profile ? `ProfileId: ${profile.id}` : "ProfileId: (missing)",
         "",
         "Cosa stavi facendo?",
         "- ",
@@ -117,6 +232,14 @@ export default function MeScreen() {
     }
   };
 
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
   return (
     <ScrollView
       style={{ flex: 1 }}
@@ -130,15 +253,10 @@ export default function MeScreen() {
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 10 }}>
         <Text style={{ fontSize: 16, fontWeight: "700" }}>Account</Text>
 
-        {loading ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <ActivityIndicator />
-            <Text>Caricamento…</Text>
-          </View>
-        ) : email ? (
+        {authEmail ? (
           <>
             <Text style={{ color: "#111827" }}>
-              Email: <Text style={{ fontWeight: "700" }}>{email}</Text>
+              Email: <Text style={{ fontWeight: "700" }}>{authEmail}</Text>
             </Text>
 
             <Pressable
@@ -178,6 +296,113 @@ export default function MeScreen() {
         )}
       </View>
 
+      <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 12 }}>
+        <Text style={{ fontSize: 16, fontWeight: "700" }}>Dati profilo</Text>
+
+        {profileStatus === "loading" && (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <ActivityIndicator />
+            <Text>Carico profilo…</Text>
+          </View>
+        )}
+
+        {profileStatus === "error" && (
+          <>
+            <Text style={{ color: "#111827" }}>
+              Non riesco a caricare il profilo dal database.
+            </Text>
+            <Pressable
+              onPress={onOpenWebProfile}
+              style={{
+                paddingVertical: 10,
+                paddingHorizontal: 14,
+                borderWidth: 1,
+                borderColor: "#111827",
+                borderRadius: 10,
+                alignSelf: "flex-start",
+              }}
+            >
+              <Text style={{ color: "#111827", fontWeight: "700" }}>
+                Apri profilo sul web
+              </Text>
+            </Pressable>
+          </>
+        )}
+
+        {profileStatus === "missing" && (
+          <>
+            <Text style={{ color: "#111827" }}>
+              Profilo non trovato. Probabilmente non è stato ancora creato (o usa un mapping diverso).
+            </Text>
+            <Pressable
+              onPress={onOpenWebProfile}
+              style={{
+                paddingVertical: 10,
+                paddingHorizontal: 14,
+                backgroundColor: "#0A66C2",
+                borderRadius: 10,
+                alignSelf: "flex-start",
+              }}
+            >
+              <Text style={{ color: "#ffffff", fontWeight: "800" }}>
+                Completa profilo sul web
+              </Text>
+            </Pressable>
+          </>
+        )}
+
+        {profileStatus === "found" && profile && (
+          <>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              {profile.avatar_url ? (
+                <Image
+                  source={{ uri: profile.avatar_url }}
+                  style={{ width: 56, height: 56, borderRadius: 999 }}
+                />
+              ) : (
+                <View
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 999,
+                    backgroundColor: "#e5e7eb",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Text style={{ fontWeight: "800" }}>
+                    {(buildDisplayName(profile).slice(0, 1) || "U").toUpperCase()}
+                  </Text>
+                </View>
+              )}
+
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={{ fontSize: 18, fontWeight: "800" }}>
+                  {buildDisplayName(profile)}
+                </Text>
+                <Text style={{ color: "#374151" }}>{buildTagline(profile)}</Text>
+                <Text style={{ color: "#6b7280", fontSize: 12 }}>
+                  {buildLocation(profile)}
+                </Text>
+              </View>
+            </View>
+
+            <View style={{ gap: 6 }}>
+              <Text style={{ fontWeight: "700" }}>Bio</Text>
+              <Text style={{ color: "#374151" }}>
+                {profile.bio && profile.bio.trim().length > 0
+                  ? profile.bio
+                  : "Nessuna bio disponibile."}
+              </Text>
+            </View>
+
+            <Text style={{ color: "#6b7280", fontSize: 12 }}>
+              type: {(profile.account_type ?? profile.type ?? "—").toString()}
+            </Text>
+          </>
+        )}
+      </View>
+
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 10 }}>
         <Text style={{ fontSize: 16, fontWeight: "700" }}>Alpha feedback</Text>
         <Text style={{ color: "#374151" }}>
@@ -199,17 +424,7 @@ export default function MeScreen() {
           </Text>
         </Pressable>
 
-        <Text style={{ fontSize: 12, color: "#6b7280" }}>
-          {appVersionLabel}
-        </Text>
-      </View>
-
-      <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
-        <Text style={{ fontSize: 16, fontWeight: "700" }}>Profilo</Text>
-        <Text style={{ color: "#374151" }}>
-          Qui aggiungeremo i tuoi dati (ruolo, sport, città, bio, foto) e la
-          gestione del profilo.
-        </Text>
+        <Text style={{ fontSize: 12, color: "#6b7280" }}>{appVersionLabel}</Text>
       </View>
     </ScrollView>
   );
