@@ -124,10 +124,16 @@ export default function FeedScreen() {
   const [items, setItems] = useState<FeedPost[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  const [nextOffset, setNextOffset] = useState<number | null>(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   const load = useCallback(async () => {
     setError(null);
+    setNextOffset(0);
+    setLoadingMore(false);
+
     try {
-      // 1) session/email (manteniamo la UX già presente)
+      // session/email
       const { data, error: userErr } = await supabase.auth.getUser();
       if (userErr) {
         setEmail(null);
@@ -135,19 +141,44 @@ export default function FeedScreen() {
         setEmail(data.user?.email ?? null);
       }
 
-      // 2) feed reale (read-only)
+      // feed reale (read-only)
       const res = await getFeedPosts(supabase, { limit: 15, offset: 0 });
       setItems(res.items);
+      setNextOffset(res.nextOffset);
     } catch (e: any) {
       setError(e?.message ? String(e.message) : "Errore nel caricamento feed");
+      setItems([]);
+      setNextOffset(null);
     } finally {
       setLoading(false);
     }
   }, []);
 
+  const loadMore = useCallback(async () => {
+    if (loadingMore) return;
+    if (nextOffset == null) return;
+    if (refreshing) return;
+    if (loading) return;
+    if (error) return;
+
+    try {
+      setLoadingMore(true);
+      const res = await getFeedPosts(supabase, { limit: 15, offset: nextOffset });
+      setItems((prev) => [...prev, ...res.items]);
+      setNextOffset(res.nextOffset);
+    } catch (e: any) {
+      // non blocchiamo tutto il feed, ma segnaliamo
+      setError(e?.message ? String(e.message) : "Errore nel caricamento feed");
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [error, loading, loadingMore, nextOffset, refreshing]);
+
   useEffect(() => {
     load();
     const { data: sub } = supabase.auth.onAuthStateChange(() => {
+      // quando cambia sessione, reset feed
+      setLoading(true);
       load();
     });
     return () => sub.subscription.unsubscribe();
@@ -177,7 +208,14 @@ export default function FeedScreen() {
 
   const header = useMemo(() => {
     return (
-      <View style={{ padding: 24, paddingBottom: 12, gap: 16, backgroundColor: "#ffffff" }}>
+      <View
+        style={{
+          padding: 24,
+          paddingBottom: 12,
+          gap: 16,
+          backgroundColor: "#ffffff",
+        }}
+      >
         <Text style={{ fontSize: 28, fontWeight: "800" }}>Feed</Text>
 
         <View
@@ -199,7 +237,8 @@ export default function FeedScreen() {
           ) : email ? (
             <>
               <Text style={{ color: "#111827" }}>
-                Sei loggato come: <Text style={{ fontWeight: "700" }}>{email}</Text>
+                Sei loggato come:{" "}
+                <Text style={{ fontWeight: "700" }}>{email}</Text>
               </Text>
 
               <Pressable
@@ -329,6 +368,25 @@ export default function FeedScreen() {
     );
   }, [email, error, items.length, load, loading, onLogout, router]);
 
+  const footer = useMemo(() => {
+    if (loadingMore) {
+      return (
+        <View style={{ paddingVertical: 18, alignItems: "center" }}>
+          <ActivityIndicator />
+          <Text style={{ marginTop: 8, color: "#6b7280" }}>Carico altri post…</Text>
+        </View>
+      );
+    }
+    if (nextOffset == null && items.length > 0) {
+      return (
+        <View style={{ paddingVertical: 18, alignItems: "center" }}>
+          <Text style={{ color: "#6b7280" }}>Hai visto tutto ✅</Text>
+        </View>
+      );
+    }
+    return <View style={{ height: 16 }} />;
+  }, [items.length, loadingMore, nextOffset]);
+
   if (loading) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
@@ -344,7 +402,12 @@ export default function FeedScreen() {
       keyExtractor={(it) => it.id}
       renderItem={({ item }) => <FeedCard item={item} />}
       ListHeaderComponent={header}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      ListFooterComponent={footer}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+      onEndReachedThreshold={0.6}
+      onEndReached={loadMore}
     />
   );
 }
