@@ -35,10 +35,46 @@ function extractCodeFromUrl(url: string): string | null {
   }
 }
 
-export async function signInWithGoogle() {
-  const redirectTo = Linking.createURL("callback", {
-    scheme: "clubandplayer",
+function waitForRedirectUrl({
+  timeoutMs,
+  expectedScheme,
+  expectedHost,
+}: {
+  timeoutMs: number;
+  expectedScheme: string;
+  expectedHost: string;
+}): Promise<string | null> {
+  return new Promise((resolve) => {
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      subscription.remove();
+      resolve(null);
+    }, timeoutMs);
+
+    const subscription = Linking.addEventListener("url", ({ url }) => {
+      // Esempio atteso: clubandplayer://callback?code=...
+      try {
+        const parsed = new URL(url);
+        if (parsed.protocol.replace(":", "") !== expectedScheme) return;
+        if (parsed.host !== expectedHost) return;
+      } catch {
+        // Se URL() fallisce, proviamo comunque
+      }
+
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      subscription.remove();
+      resolve(url);
+    });
   });
+}
+
+export async function signInWithGoogle() {
+  const redirectTo = Linking.createURL("callback", { scheme: "clubandplayer" });
 
   console.log("[auth] redirectTo:", redirectTo);
 
@@ -55,19 +91,35 @@ export async function signInWithGoogle() {
 
   console.log("[auth] oauth url:", sanitizeAuthUrl(data.url));
 
+  // 🔥 Listener attivo PRIMA di aprire il browser (così non perdiamo l'evento su Android)
+  const redirectPromise = waitForRedirectUrl({
+    timeoutMs: 45_000,
+    expectedScheme: "clubandplayer",
+    expectedHost: "callback",
+  });
+
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
 
-  if (result.type !== "success") {
-    throw new Error("Google login non completato (browser chiuso o annullato)");
+  let finalUrl: string | null = null;
+
+  // 1) Se EAS ci dà result.url, usiamo quello
+  if (result.type === "success" && "url" in result && result.url) {
+    finalUrl = result.url;
+    console.log("[auth] result.url:", sanitizeAuthUrl(finalUrl));
+  } else {
+    // 2) Altrimenti aspettiamo l'evento Linking (warm-resume su Android)
+    const eventUrl = await redirectPromise;
+    if (eventUrl) {
+      finalUrl = eventUrl;
+      console.log("[auth] event.url:", sanitizeAuthUrl(finalUrl));
+    }
   }
 
-  if (!("url" in result) || !result.url) {
+  if (!finalUrl) {
     throw new Error("Google login non completato (URL di ritorno mancante)");
   }
 
-  console.log("[auth] result.url:", sanitizeAuthUrl(result.url));
-
-  const code = extractCodeFromUrl(result.url);
+  const code = extractCodeFromUrl(finalUrl);
   if (!code) {
     throw new Error("OAuth code mancante nel ritorno dal browser");
   }
