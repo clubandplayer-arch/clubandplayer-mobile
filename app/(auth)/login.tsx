@@ -8,13 +8,15 @@ import {
   Alert,
   Platform,
 } from "react-native";
+import { useRouter } from "expo-router";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { supabase } from "../../src/lib/supabase";
 import { signInWithGoogle } from "../../src/lib/auth";
 import { signInWithApple } from "../../src/lib/appleAuth";
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState("playm@test.it");
+  const router = useRouter();
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -38,41 +40,7 @@ export default function LoginScreen() {
         Alert.alert("Login fallito", error.message);
         return;
       }
-
-    } catch {
-      Alert.alert("Errore", "Qualcosa è andato storto");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const onSignUp = async () => {
-    if (!email || !password) {
-      Alert.alert("Errore", "Inserisci email e password");
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const { data, error } = await supabase.auth.signUp({
-        email: normalizedEmail(email),
-        password,
-      });
-
-      if (error) {
-        Alert.alert("Registrazione fallita", error.message);
-        return;
-      }
-
-      if (!data.session) {
-        Alert.alert(
-          "Controlla la mail",
-          "Ti ho inviato una mail di conferma. Dopo la conferma, torna qui e fai login."
-        );
-        return;
-      }
-
+      // redirect gestito da layout / guard
     } catch {
       Alert.alert("Errore", "Qualcosa è andato storto");
     } finally {
@@ -172,17 +140,16 @@ export default function LoginScreen() {
       )}
 
       <Pressable
-        onPress={onSignUp}
+        onPress={() => router.push("/(auth)/signup")}
         disabled={loading}
-        style={{
-          borderWidth: 1,
-          padding: 14,
-          borderRadius: 12,
-          alignItems: "center",
-          opacity: loading ? 0.8 : 1,
-        }}
+        style={{ paddingVertical: 10, alignItems: "center" }}
       >
-        <Text style={{ fontWeight: "700" }}>Registrati (test)</Text>
+        <Text>
+          Non hai un account?{" "}
+          <Text style={{ fontWeight: "700", color: "#0A66C2" }}>
+            Registrati
+          </Text>
+        </Text>
       </Pressable>
     </View>
   );
