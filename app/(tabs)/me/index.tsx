@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,10 @@ import {
   Alert,
   ScrollView,
   RefreshControl,
+  Linking,
+  Platform,
 } from "react-native";
+import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { supabase } from "../../../src/lib/supabase";
 
@@ -16,6 +19,18 @@ export default function MeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
+
+  const appVersionLabel = useMemo(() => {
+    // Expo: version + buildNumber/versionCode live in expo config.
+    // We keep it simple and safe for alpha feedback.
+    const expoConfig: any = Constants.expoConfig ?? Constants.manifest ?? {};
+    const version = expoConfig?.version ?? "unknown";
+    const androidCode =
+      expoConfig?.android?.versionCode ??
+      expoConfig?.extra?.eas?.build?.android?.versionCode ??
+      "unknown";
+    return `v${version} (${Platform.OS} ${androidCode})`;
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -60,6 +75,49 @@ export default function MeScreen() {
     }
   };
 
+  const onFeedback = async () => {
+    // Cambia pure questa mail con quella che userai per raccogliere feedback
+    const to = "clubandplayer.dev@gmail.com";
+    const subject = encodeURIComponent(`Feedback Club & Player Mobile — ${appVersionLabel}`);
+    const body = encodeURIComponent(
+      [
+        `Versione: ${appVersionLabel}`,
+        email ? `Account: ${email}` : "Account: (non loggato)",
+        "",
+        "Cosa stavi facendo?",
+        "- ",
+        "",
+        "Cosa ti aspettavi?",
+        "- ",
+        "",
+        "Cosa è successo invece?",
+        "- ",
+        "",
+        "Screenshot / video (se puoi):",
+        "- ",
+      ].join("\n")
+    );
+
+    const url = `mailto:${to}?subject=${subject}&body=${body}`;
+
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        Alert.alert(
+          "Feedback",
+          "Non riesco ad aprire l’app Email su questo dispositivo. Puoi inviare una mail a clubandplayer.dev@gmail.com."
+        );
+        return;
+      }
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert(
+        "Feedback",
+        "Non riesco ad aprire l’app Email. Puoi inviare una mail a clubandplayer.dev@gmail.com."
+      );
+    }
+  };
+
   return (
     <ScrollView
       style={{ flex: 1 }}
@@ -70,14 +128,7 @@ export default function MeScreen() {
     >
       <Text style={{ fontSize: 28, fontWeight: "800" }}>Profilo</Text>
 
-      <View
-        style={{
-          borderWidth: 1,
-          borderRadius: 12,
-          padding: 16,
-          gap: 10,
-        }}
-      >
+      <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 10 }}>
         <Text style={{ fontSize: 16, fontWeight: "700" }}>Account</Text>
 
         {loading ? (
@@ -128,14 +179,33 @@ export default function MeScreen() {
         )}
       </View>
 
-      <View
-        style={{
-          borderWidth: 1,
-          borderRadius: 12,
-          padding: 16,
-          gap: 8,
-        }}
-      >
+      <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 10 }}>
+        <Text style={{ fontSize: 16, fontWeight: "700" }}>Alpha feedback</Text>
+        <Text style={{ color: "#374151" }}>
+          Aiutaci a migliorare l’app: invia feedback in 30 secondi.
+        </Text>
+
+        <Pressable
+          onPress={onFeedback}
+          style={{
+            paddingVertical: 10,
+            paddingHorizontal: 14,
+            backgroundColor: "#0A66C2",
+            borderRadius: 10,
+            alignSelf: "flex-start",
+          }}
+        >
+          <Text style={{ color: "#ffffff", fontWeight: "800" }}>
+            Invia feedback
+          </Text>
+        </Pressable>
+
+        <Text style={{ fontSize: 12, color: "#6b7280" }}>
+          {appVersionLabel}
+        </Text>
+      </View>
+
+      <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
         <Text style={{ fontSize: 16, fontWeight: "700" }}>Profilo</Text>
         <Text style={{ color: "#374151" }}>
           Qui aggiungeremo i tuoi dati (ruolo, sport, città, bio, foto) e la
