@@ -43,6 +43,7 @@ export default function ProfileByIdScreen() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [followSocial, setFollowSocial] = useState<FollowSocial | null>(null);
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
+  const [viewerProfileId, setViewerProfileId] = useState<string | null>(null);
 
   const title = useMemo(() => buildDisplayName(profile), [profile]);
 
@@ -61,6 +62,12 @@ export default function ProfileByIdScreen() {
       const { data: auth } = await supabase.auth.getUser();
       const viewerId = auth.user?.id ?? null;
       setViewerUserId(viewerId);
+      setViewerProfileId(null);
+
+      if (viewerId) {
+        const viewerProfile = await resolveProfileByAuthorId(viewerId, supabase);
+        setViewerProfileId(viewerProfile?.id ?? null);
+      }
 
       const found = await resolveProfileByAuthorId(profileKey, supabase);
 
@@ -215,7 +222,9 @@ export default function ProfileByIdScreen() {
             </View>
           )}
 
-          {viewerUserId && profile.user_id === viewerUserId ? null : (
+          {profile.user_id === viewerUserId ||
+          profile.id === viewerProfileId ||
+          profileKey === viewerUserId ? null : (
             <Pressable
               onPress={() => {
                 if (!viewerUserId) {

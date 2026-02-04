@@ -122,19 +122,19 @@ export async function getFollowSocialForProfile({
       };
     }
 
-    const followerCount = await countRows(
-      supabase,
-      source.candidate,
-      source.candidate.followedColumn,
-      source.targetId,
+    const followerCounts = await Promise.all(
+      targetIds.map((targetId) =>
+        countRows(supabase, source.candidate, source.candidate.followedColumn, targetId),
+      ),
     );
+    const followerCount = followerCounts.length ? Math.max(...followerCounts) : 0;
 
-    const followingCount = await countRows(
-      supabase,
-      source.candidate,
-      source.candidate.followerColumn,
-      source.targetId,
+    const followingCounts = await Promise.all(
+      targetIds.map((targetId) =>
+        countRows(supabase, source.candidate, source.candidate.followerColumn, targetId),
+      ),
     );
+    const followingCount = followingCounts.length ? Math.max(...followingCounts) : 0;
 
     const isFollowing = viewerIds.length
       ? await resolveIsFollowing(supabase, source.candidate, viewerIds, targetIds)
