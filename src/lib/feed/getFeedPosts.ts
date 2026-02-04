@@ -22,12 +22,67 @@ export type FeedPost = {
   raw: Record<string, any>;
   author?: FeedAuthor | null;
   media: FeedMediaItem[];
+  likeCount?: number;
+  commentCount?: number;
 };
 
 function uniq<T>(arr: T[]) {
   return Array.from(new Set(arr));
 }
 
+type SocialSource = { table: string; postColumn: string };
+
+const LIKE_TABLE_CANDIDATES = ['likes', 'post_likes', 'likes_posts', 'reactions', 'post_reactions'];
+const LIKE_POST_COLUMNS = ['post_id', 'postId', 'post_uuid', 'post'];
+
+const COMMENT_TABLE_CANDIDATES = ['comments', 'post_comments', 'comments_posts'];
+const COMMENT_POST_COLUMNS = ['post_id', 'postId', 'post_uuid', 'post'];
+
+async function discoverSocialSource(
+  supabase: SupabaseClient,
+  postIds: string[],
+  tables: string[],
+  columns: string[],
+): Promise<SocialSource | null> {
+  for (const table of tables) {
+    for (const postColumn of columns) {
+      const { error } = await supabase.from(table).select(postColumn).in(postColumn, postIds).limit(1);
+      if (!error) return { table, postColumn };
+    }
+  }
+  return null;
+}
+
+async function fetchCountsByPost(
+  supabase: SupabaseClient,
+  postIds: string[],
+  tables: string[],
+  columns: string[],
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (!postIds.length) return counts;
+
+  try {
+    const source = await discoverSocialSource(supabase, postIds, tables, columns);
+    if (!source) return counts;
+
+    const { data, error } = await supabase
+      .from(source.table)
+      .select(source.postColumn)
+      .in(source.postColumn, postIds);
+    if (error || !Array.isArray(data)) return counts;
+
+    for (const row of data) {
+      const pid = asString((row as any)?.[source.postColumn]);
+      if (!pid) continue;
+      counts.set(pid, (counts.get(pid) ?? 0) + 1);
+    }
+  } catch {
+    return counts;
+  }
+
+  return counts;
+}
 
 type FeedMode = 'all' | 'following';
 
@@ -275,6 +330,11 @@ export async function getFeedPosts(
   const postIds = uniq(rows.map((r: any) => asString(r?.id)).filter(Boolean) as string[]);
   const authorIds = uniq(rows.map((r: any) => asString(r?.author_id)).filter(Boolean) as string[]);
 
+  const [likeCounts, commentCounts] = await Promise.all([
+    fetchCountsByPost(supabase, postIds, LIKE_TABLE_CANDIDATES, LIKE_POST_COLUMNS),
+    fetchCountsByPost(supabase, postIds, COMMENT_TABLE_CANDIDATES, COMMENT_POST_COLUMNS),
+  ]);
+
   // media
   const mediaByPost = new Map<string, FeedMediaItem[]>();
   if (postIds.length) {
@@ -326,6 +386,8 @@ export async function getFeedPosts(
         raw: r ?? {},
         author: authorId ? authorById.get(authorId) ?? null : null,
         media: mediaByPost.get(id) ?? [],
+        likeCount: likeCounts.get(id) ?? 0,
+        commentCount: commentCounts.get(id) ?? 0,
       };
     })
     .filter(Boolean) as FeedPost[];

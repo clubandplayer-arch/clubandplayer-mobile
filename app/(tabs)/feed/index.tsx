@@ -69,6 +69,8 @@ function FeedCard({
   const text = getPostText(item.raw);
   const when = formatWhen(item.created_at);
   const firstMedia = item.media?.[0] ?? null;
+  const likeCount = typeof item.likeCount === "number" ? item.likeCount : 0;
+  const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
 
   const authorId = (item.author_id ?? "").toString();
 
@@ -128,6 +130,11 @@ function FeedCard({
           </View>
         </Pressable>
       ) : null}
+
+      <View style={{ flexDirection: "row", gap: 14 }}>
+        <Text style={{ fontSize: 12, color: "#6b7280" }}>👍 {likeCount}</Text>
+        <Text style={{ fontSize: 12, color: "#6b7280" }}>💬 {commentCount}</Text>
+      </View>
     </View>
   );
 }
