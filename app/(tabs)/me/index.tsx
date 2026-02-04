@@ -18,6 +18,7 @@ import {
   resolveProfileByAuthorIdDetailed,
   type Profile,
 } from "../../../src/lib/profiles/resolveProfile";
+import { getFollowSocialForProfile, type FollowSocial } from "../../../src/lib/social/getFollowSocial";
 
 function buildDisplayName(p: Profile | null) {
   if (!p) return "—";
@@ -50,6 +51,7 @@ export default function MeScreen() {
   const [profileStatus, setProfileStatus] = useState<
     "idle" | "loading" | "found" | "missing" | "error"
   >("idle");
+  const [followSocial, setFollowSocial] = useState<FollowSocial | null>(null);
 
   const appVersionLabel = useMemo(() => {
     const v = (Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? "unknown").toString();
@@ -61,6 +63,7 @@ export default function MeScreen() {
 
   const loadProfile = useCallback(async () => {
     setProfileStatus("loading");
+    setFollowSocial(null);
 
     const { data: auth } = await supabase.auth.getUser();
     const user = auth.user ?? null;
@@ -92,6 +95,13 @@ export default function MeScreen() {
 
     setProfile(resolved);
     setProfileStatus("found");
+
+    const followData = await getFollowSocialForProfile({
+      viewerUserId: user.id,
+      profileKey: user.id,
+      supabase,
+    });
+    setFollowSocial(followData);
   }, []);
 
   const load = useCallback(async () => {
@@ -345,6 +355,19 @@ export default function MeScreen() {
                 </Text>
               </View>
             </View>
+
+            {followSocial?.discoveryStatus === "discovery_failed" ? (
+              <Text style={{ color: "#6b7280" }}>Statistiche non disponibili</Text>
+            ) : (
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <Text style={{ color: "#111827", fontWeight: "700" }}>
+                  Follower: {followSocial?.followerCount ?? 0}
+                </Text>
+                <Text style={{ color: "#111827", fontWeight: "700" }}>
+                  Seguiti: {followSocial?.followingCount ?? 0}
+                </Text>
+              </View>
+            )}
 
             <View style={{ gap: 6 }}>
               <Text style={{ fontWeight: "700" }}>Bio</Text>

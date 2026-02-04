@@ -7,10 +7,12 @@ import {
   ScrollView,
   RefreshControl,
   Image,
+  Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 import { resolveProfileByAuthorId, type Profile } from "../../src/lib/profiles/resolveProfile";
+import { getFollowSocialForProfile, type FollowSocial } from "../../src/lib/social/getFollowSocial";
 
 function buildDisplayName(p: Profile | null) {
   const a = (p?.full_name ?? "").trim();
@@ -39,11 +41,14 @@ export default function ProfileByIdScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [followSocial, setFollowSocial] = useState<FollowSocial | null>(null);
+  const [viewerUserId, setViewerUserId] = useState<string | null>(null);
 
   const title = useMemo(() => buildDisplayName(profile), [profile]);
 
   const load = useCallback(async () => {
     setError(null);
+    setFollowSocial(null);
 
     if (!profileKey) {
       setProfile(null);
@@ -53,6 +58,10 @@ export default function ProfileByIdScreen() {
     }
 
     try {
+      const { data: auth } = await supabase.auth.getUser();
+      const viewerId = auth.user?.id ?? null;
+      setViewerUserId(viewerId);
+
       const found = await resolveProfileByAuthorId(profileKey, supabase);
 
       if (!found) {
@@ -61,6 +70,13 @@ export default function ProfileByIdScreen() {
       } else {
         setProfile(found);
       }
+
+      const followData = await getFollowSocialForProfile({
+        viewerUserId: viewerId,
+        profileKey,
+        supabase,
+      });
+      setFollowSocial(followData);
     } catch (e: any) {
       setProfile(null);
       setError(e?.message ? String(e.message) : "Errore nel caricamento profilo");
@@ -185,6 +201,49 @@ export default function ProfileByIdScreen() {
               </Text>
             </View>
           </View>
+
+          {followSocial?.discoveryStatus === "discovery_failed" ? (
+            <Text style={{ color: "#6b7280" }}>Statistiche non disponibili</Text>
+          ) : (
+            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              <Text style={{ color: "#111827", fontWeight: "700" }}>
+                Follower: {followSocial?.followerCount ?? 0}
+              </Text>
+              <Text style={{ color: "#111827", fontWeight: "700" }}>
+                Seguiti: {followSocial?.followingCount ?? 0}
+              </Text>
+            </View>
+          )}
+
+          {viewerUserId && profile.user_id === viewerUserId ? null : (
+            <Pressable
+              onPress={() => {
+                if (!viewerUserId) {
+                  router.replace("/(auth)/login");
+                  return;
+                }
+                Alert.alert("Segui", "Funzione in arrivo");
+              }}
+              style={{
+                alignSelf: "flex-start",
+                paddingVertical: 8,
+                paddingHorizontal: 16,
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: followSocial?.isFollowing ? "#0A66C2" : "#111827",
+                backgroundColor: followSocial?.isFollowing ? "#0A66C2" : "transparent",
+              }}
+            >
+              <Text
+                style={{
+                  fontWeight: "800",
+                  color: followSocial?.isFollowing ? "#ffffff" : "#111827",
+                }}
+              >
+                {followSocial?.isFollowing ? "Seguito" : "Segui"}
+              </Text>
+            </Pressable>
+          )}
 
           <View style={{ gap: 6 }}>
             <Text style={{ fontWeight: "800" }}>Bio</Text>
