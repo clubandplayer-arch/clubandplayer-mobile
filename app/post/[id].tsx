@@ -14,6 +14,7 @@ import { supabase } from "../../src/lib/supabase";
 import { getAuthorName, getPostText, type FeedAuthor, type FeedMediaItem } from "../../src/lib/feed/getFeedPosts";
 import { asString, normalizeMediaRow } from "../../src/lib/media/normalizeMedia";
 import { resolveProfileByAuthorId } from "../../src/lib/profiles/resolveProfile";
+import { getPostSocial, type PostSocialResult } from "../../src/lib/posts/getPostSocial";
 
 type PostRow = {
   id: string;
@@ -69,6 +70,11 @@ export default function PostDetailScreen() {
   const [post, setPost] = useState<PostRow | null>(null);
   const [author, setAuthor] = useState<FeedAuthor | null>(null);
   const [media, setMedia] = useState<FeedMediaItem[]>([]);
+  const [social, setSocial] = useState<PostSocialResult>({
+    likeCount: 0,
+    commentCount: 0,
+    comments: [],
+  });
 
   const when = useMemo(() => formatWhen(post?.created_at ?? null), [post?.created_at]);
   const text = useMemo(() => (post ? getPostText(post as any) : ""), [post]);
@@ -82,6 +88,7 @@ export default function PostDetailScreen() {
       setPost(null);
       setAuthor(null);
       setMedia([]);
+      setSocial({ likeCount: 0, commentCount: 0, comments: [] });
       setLoading(false);
       return;
     }
@@ -100,11 +107,15 @@ export default function PostDetailScreen() {
         setPost(null);
         setAuthor(null);
         setMedia([]);
+        setSocial({ likeCount: 0, commentCount: 0, comments: [] });
         return;
       }
 
       const p = postRow as PostRow;
       setPost(p);
+
+      const socialData = await getPostSocial(postId, supabase);
+      setSocial(socialData);
 
       // 2) Media
       const { data: mediaRows, error: mediaErr } = await supabase
@@ -150,6 +161,7 @@ export default function PostDetailScreen() {
       setPost(null);
       setAuthor(null);
       setMedia([]);
+      setSocial({ likeCount: 0, commentCount: 0, comments: [] });
     } finally {
       setLoading(false);
     }
@@ -171,6 +183,8 @@ export default function PostDetailScreen() {
   const screenW = Dimensions.get("window").width;
   const mediaW = screenW - 48; // padding 24*2
   const mediaH = 260;
+  const likeCount = social.likeCount ?? 0;
+  const commentCount = social.commentCount ?? 0;
 
   if (loading) {
     return (
@@ -297,6 +311,44 @@ export default function PostDetailScreen() {
               ))}
             </ScrollView>
           ) : null}
+
+          <View style={{ flexDirection: "row", gap: 14 }}>
+            <Text style={{ fontSize: 12, color: "#6b7280" }}>👍 {likeCount}</Text>
+            <Text style={{ fontSize: 12, color: "#6b7280" }}>💬 {commentCount}</Text>
+          </View>
+        </View>
+      ) : null}
+
+      {!error && post ? (
+        <View style={{ borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 12, padding: 16, gap: 12 }}>
+          <Text style={{ fontSize: 16, fontWeight: "800" }}>Commenti</Text>
+          {social.comments.length > 0 ? (
+            <View style={{ gap: 12 }}>
+              {social.comments.map((comment) => {
+                const commentAuthorName = getAuthorName(comment.author);
+                const commentWhen = formatWhen(comment.created_at);
+                return (
+                  <View
+                    key={comment.id}
+                    style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}
+                  >
+                    <Avatar url={comment.author?.avatar_url ?? null} size={36} />
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                        <Text style={{ fontSize: 14, fontWeight: "700" }}>{commentAuthorName}</Text>
+                        <Text style={{ fontSize: 11, color: "#6b7280" }}>{commentWhen}</Text>
+                      </View>
+                      <Text style={{ fontSize: 13, lineHeight: 18, color: "#111827" }}>
+                        {comment.content}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={{ color: "#6b7280" }}>Nessun commento ancora.</Text>
+          )}
         </View>
       ) : null}
     </ScrollView>
