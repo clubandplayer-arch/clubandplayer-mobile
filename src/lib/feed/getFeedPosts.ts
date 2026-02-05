@@ -414,10 +414,17 @@ export function getPostText(raw: Record<string, any>): string {
   return (found ?? '').toString().trim();
 }
 
+function isEmailLike(value: string): boolean {
+  return value.includes('@');
+}
+
 export function getAuthorName(author?: FeedAuthor | null): string {
-  const name =
-    (author?.display_name && author.display_name.trim()) ||
-    (author?.full_name && author.full_name.trim()) ||
-    '';
+  const fullName = author?.full_name?.trim() ?? '';
+  if (fullName && !isEmailLike(fullName)) {
+    return fullName;
+  }
+
+  const displayName = author?.display_name?.trim() ?? '';
+  const name = displayName && !isEmailLike(displayName) ? displayName : '';
   return name || 'Utente';
 }
