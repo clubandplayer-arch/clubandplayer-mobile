@@ -5,6 +5,7 @@ type CreatePostParams = {
   text: string;
   media: Array<{ uri: string; mediaType: "image" | "video" }>;
   supabase: SupabaseClient;
+  onProgress?: (step: string) => void;
 };
 
 type CreatePostResult = {
@@ -52,7 +53,7 @@ async function insertPostWithDiscovery(
   throw new Error(lastError || "Impossibile creare il post");
 }
 
-export async function createPost({ text, media, supabase }: CreatePostParams): Promise<CreatePostResult> {
+export async function createPost({ text, media, supabase, onProgress }: CreatePostParams): Promise<CreatePostResult> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -71,18 +72,22 @@ export async function createPost({ text, media, supabase }: CreatePostParams): P
     throw new Error("Inserisci testo o almeno un media");
   }
 
+  onProgress?.("Creazione post…");
   const { id: postId } = await insertPostWithDiscovery(supabase, viewerUserId, normalizedText);
 
   for (let i = 0; i < normalizedMedia.length; i += 1) {
     const mediaItem = normalizedMedia[i];
+    onProgress?.(`Upload media ${i + 1}/${normalizedMedia.length}…`);
     const upload = await uploadPostMedia({
       uri: mediaItem.uri,
       mediaType: mediaItem.mediaType,
       supabase,
       postId,
       position: i,
+      onProgress,
     });
 
+    onProgress?.("Salvataggio media…");
     const payload = {
       post_id: postId,
       media_type: mediaItem.mediaType,
@@ -99,5 +104,6 @@ export async function createPost({ text, media, supabase }: CreatePostParams): P
     }
   }
 
+  onProgress?.("Completato");
   return { postId };
 }

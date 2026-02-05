@@ -7,6 +7,7 @@ type UploadPostMediaParams = {
   supabase: SupabaseClient;
   postId: string;
   position: number;
+  onProgress?: (step: string) => void;
 };
 
 type UploadPostMediaResult = {
@@ -16,9 +17,9 @@ type UploadPostMediaResult = {
   height?: number | null;
 };
 
-// Default bucket per media post: "post-media".
+// Default bucket per media post: "posts".
 // Può essere sovrascritto con EXPO_PUBLIC_POST_MEDIA_BUCKET.
-const POST_MEDIA_BUCKET = process.env.EXPO_PUBLIC_POST_MEDIA_BUCKET || "post-media";
+const POST_MEDIA_BUCKET = process.env.EXPO_PUBLIC_POST_MEDIA_BUCKET || "posts";
 
 function inferFileExtension(uri: string, mediaType: "image" | "video") {
   const clean = uri.split("?")[0] ?? "";
@@ -46,7 +47,7 @@ function inferContentType(ext: string, mediaType: "image" | "video") {
 
 function base64ToUint8Array(base64: string): Uint8Array {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-  let str = base64.replace(/[^A-Za-z0-9+/=]/g, "");
+  const str = base64.replace(/[^A-Za-z0-9+/=]/g, "");
   let output = "";
 
   let i = 0;
@@ -98,6 +99,7 @@ export async function uploadPostMedia({
   supabase,
   postId,
   position,
+  onProgress,
 }: UploadPostMediaParams): Promise<UploadPostMediaResult> {
   if (!uri) {
     throw new Error("URI media non valida");
@@ -107,6 +109,7 @@ export async function uploadPostMedia({
   const contentType = inferContentType(ext, mediaType);
   const path = `posts/${postId}/${position}-${Date.now()}.${ext}`;
 
+  onProgress?.("Upload file…");
   const base64 = await readAsStringAsync(uri, {
     encoding: EncodingType.Base64,
   });
