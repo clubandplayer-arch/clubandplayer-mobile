@@ -8,6 +8,7 @@ import {
   Pressable,
   Image,
   Dimensions,
+  Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
@@ -15,6 +16,7 @@ import { getAuthorName, getPostText, type FeedAuthor, type FeedMediaItem } from 
 import { asString, normalizeMediaRow } from "../../src/lib/media/normalizeMedia";
 import { resolveProfileByAuthorId } from "../../src/lib/profiles/resolveProfile";
 import { getPostSocial, type PostSocialResult } from "../../src/lib/posts/getPostSocial";
+import { togglePostLike } from "../../src/lib/posts/togglePostLike";
 import { isCertifiedClub } from "../../src/lib/profiles/certification";
 
 type PostRow = {
@@ -75,7 +77,9 @@ export default function PostDetailScreen() {
     likeCount: 0,
     commentCount: 0,
     comments: [],
+    viewerHasLiked: false,
   });
+  const [isLiking, setIsLiking] = useState(false);
 
   const when = useMemo(() => formatWhen(post?.created_at ?? null), [post?.created_at]);
   const text = useMemo(() => (post ? getPostText(post as any) : ""), [post]);
@@ -89,7 +93,7 @@ export default function PostDetailScreen() {
       setPost(null);
       setAuthor(null);
       setMedia([]);
-      setSocial({ likeCount: 0, commentCount: 0, comments: [] });
+      setSocial({ likeCount: 0, commentCount: 0, comments: [], viewerHasLiked: false });
       setLoading(false);
       return;
     }
@@ -108,7 +112,7 @@ export default function PostDetailScreen() {
         setPost(null);
         setAuthor(null);
         setMedia([]);
-        setSocial({ likeCount: 0, commentCount: 0, comments: [] });
+        setSocial({ likeCount: 0, commentCount: 0, comments: [], viewerHasLiked: false });
         return;
       }
 
@@ -165,7 +169,7 @@ export default function PostDetailScreen() {
       setPost(null);
       setAuthor(null);
       setMedia([]);
-      setSocial({ likeCount: 0, commentCount: 0, comments: [] });
+      setSocial({ likeCount: 0, commentCount: 0, comments: [], viewerHasLiked: false });
     } finally {
       setLoading(false);
     }
@@ -184,11 +188,46 @@ export default function PostDetailScreen() {
     }
   }, [load]);
 
+
+  const onToggleLike = useCallback(async () => {
+    if (!postId || isLiking) return;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user?.id) {
+      Alert.alert("Accedi per mettere like");
+      return;
+    }
+
+    try {
+      setIsLiking(true);
+      const result = await togglePostLike({ postId, supabase });
+      setSocial((prev) => ({
+        ...prev,
+        viewerHasLiked: result.liked,
+        likeCount: Math.max(0, (prev.likeCount ?? 0) + result.likeCountDelta),
+      }));
+
+      const refreshedSocial = await getPostSocial(postId, supabase);
+      setSocial((prev) => ({
+        ...prev,
+        ...refreshedSocial,
+      }));
+    } catch (e: any) {
+      Alert.alert("Like", e?.message ? String(e.message) : "Operazione non riuscita");
+    } finally {
+      setIsLiking(false);
+    }
+  }, [isLiking, postId]);
+
   const screenW = Dimensions.get("window").width;
   const mediaW = screenW - 48; // padding 24*2
   const mediaH = 260;
   const likeCount = social.likeCount ?? 0;
   const commentCount = social.commentCount ?? 0;
+  const liked = Boolean(social.viewerHasLiked);
 
   if (loading) {
     return (
@@ -321,8 +360,13 @@ export default function PostDetailScreen() {
             </ScrollView>
           ) : null}
 
-          <View style={{ flexDirection: "row", gap: 14 }}>
-            <Text style={{ fontSize: 12, color: "#6b7280" }}>👍 {likeCount}</Text>
+          <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
+            <Pressable onPress={onToggleLike} disabled={isLiking} hitSlop={8}>
+              <Text style={{ fontSize: 12, color: liked ? "#0369a1" : "#6b7280", fontWeight: liked ? "800" : "500" }}>
+                👍 {likeCount}{liked ? " · Mi piace" : ""}
+              </Text>
+            </Pressable>
+            {isLiking ? <ActivityIndicator size="small" color="#6b7280" /> : null}
             <Text style={{ fontSize: 12, color: "#6b7280" }}>💬 {commentCount}</Text>
           </View>
         </View>
