@@ -1,4 +1,4 @@
-import { readAsStringAsync, EncodingType } from "expo-file-system/legacy";
+import * as FileSystem from "expo-file-system";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type UploadPostMediaParams = {
@@ -110,8 +110,8 @@ export async function uploadPostMedia({
   const path = `posts/${postId}/${position}-${Date.now()}.${ext}`;
 
   onProgress?.("Upload file…");
-  const base64 = await readAsStringAsync(uri, {
-    encoding: EncodingType.Base64,
+  const base64 = await FileSystem.readAsStringAsync(uri, {
+    encoding: "base64",
   });
 
   const bytes = base64ToUint8Array(base64);
