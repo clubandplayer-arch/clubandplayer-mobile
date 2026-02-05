@@ -13,6 +13,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 import { resolveProfileByAuthorId, type Profile } from "../../src/lib/profiles/resolveProfile";
 import { getFollowSocialForProfile, type FollowSocial } from "../../src/lib/social/getFollowSocial";
+import { isCertifiedClub } from "../../src/lib/profiles/certification";
 
 function buildDisplayName(p: Profile | null) {
   const a = (p?.full_name ?? "").trim();
@@ -201,7 +202,17 @@ export default function ProfileByIdScreen() {
           <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
             <Avatar />
             <View style={{ flex: 1, gap: 2 }}>
-              <Text style={{ fontSize: 18, fontWeight: "900" }}>{title}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Text style={{ fontSize: 18, fontWeight: "900" }}>{title}</Text>
+                {isCertifiedClub({
+                  account_type: profile.account_type,
+                  type: profile.type,
+                  role: profile.role,
+                  verified_until: profile.verified_until,
+                  certified: profile.certified,
+                  certification_status: profile.certification_status,
+                }) ? <Text style={{ fontSize: 12, fontWeight: "900", color: "#111827" }}>C</Text> : null}
+              </View>
               <Text style={{ color: "#374151" }}>{buildTagline(profile)}</Text>
               <Text style={{ color: "#6b7280", fontSize: 12 }}>
                 {buildLocation(profile)}

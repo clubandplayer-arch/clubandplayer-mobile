@@ -13,6 +13,9 @@ export type FeedAuthor = {
   type?: string | null;
   account_type?: string | null;
   role?: string | null;
+  verified_until?: string | null;
+  certified?: boolean | null;
+  certification_status?: string | null;
 };
 
 export type FeedPost = {
@@ -370,6 +373,9 @@ export async function getFeedPosts(
         type: profile.type,
         account_type: profile.account_type,
         role: profile.role,
+        verified_until: profile.verified_until,
+        certified: profile.certified,
+        certification_status: profile.certification_status,
       });
     }
   }

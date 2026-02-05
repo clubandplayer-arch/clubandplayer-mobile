@@ -19,6 +19,7 @@ import {
   getPostText,
   type FeedPost,
 } from "../../../src/lib/feed/getFeedPosts";
+import { isCertifiedClub } from "../../../src/lib/profiles/certification";
 
 function formatWhen(iso?: string | null) {
   if (!iso) return "";
@@ -92,9 +93,14 @@ function FeedCard({
       >
         <Avatar url={item.author?.avatar_url ?? null} size={40} />
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 15, fontWeight: "800", color: "#111827" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text style={{ fontSize: 15, fontWeight: "800", color: "#111827" }}>
             {authorName}
           </Text>
+          {item.author && isCertifiedClub(item.author) ? (
+            <Text style={{ fontSize: 11, fontWeight: "900", color: "#111827" }}>C</Text>
+          ) : null}
+          </View>
           <Text style={{ fontSize: 12, color: "#6b7280" }}>{when}</Text>
         </View>
       </Pressable>

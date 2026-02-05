@@ -16,10 +16,23 @@ export type Profile = {
   country: string | null;
   account_type: string | null;
   type: string | null;
+  verified_until: string | null;
+  certified: boolean | null;
+  certification_status: string | null;
 };
 
-const PROFILE_SELECT =
-  "id,user_id,full_name,display_name,avatar_url,bio,sport,role,city,province,region,country,account_type,type";
+const PROFILE_SELECT = "*";
+
+function asBoolean(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const v = value.trim().toLowerCase();
+    if (["true", "1", "yes", "y"].includes(v)) return true;
+    if (["false", "0", "no", "n"].includes(v)) return false;
+  }
+  return null;
+}
 
 function asString(value: unknown): string | null {
   if (typeof value === "string") return value;
@@ -49,6 +62,9 @@ function normalizeProfile(row: any): Profile | null {
     country: asString(row?.country),
     account_type: asString(row?.account_type),
     type: asString(row?.type),
+    verified_until: asString(row?.verified_until),
+    certified: asBoolean(row?.certified),
+    certification_status: asString(row?.certification_status),
   };
 }
 
