@@ -56,6 +56,9 @@ function mapToFeedAuthor(profile: Awaited<ReturnType<typeof resolveProfileByAuth
     type: profile.type,
     account_type: profile.account_type,
     role: profile.role,
+    verified_until: profile.verified_until,
+    certified: profile.certified,
+    certification_status: profile.certification_status,
   };
 }
 

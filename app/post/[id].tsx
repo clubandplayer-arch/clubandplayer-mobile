@@ -15,6 +15,7 @@ import { getAuthorName, getPostText, type FeedAuthor, type FeedMediaItem } from 
 import { asString, normalizeMediaRow } from "../../src/lib/media/normalizeMedia";
 import { resolveProfileByAuthorId } from "../../src/lib/profiles/resolveProfile";
 import { getPostSocial, type PostSocialResult } from "../../src/lib/posts/getPostSocial";
+import { isCertifiedClub } from "../../src/lib/profiles/certification";
 
 type PostRow = {
   id: string;
@@ -153,6 +154,9 @@ export default function PostDetailScreen() {
               type: resolved.type,
               account_type: resolved.account_type,
               role: resolved.role,
+              verified_until: resolved.verified_until,
+              certified: resolved.certified,
+              certification_status: resolved.certification_status,
             }
           : null,
       );
@@ -257,7 +261,12 @@ export default function PostDetailScreen() {
           >
             <Avatar url={(author as any)?.avatar_url ?? null} size={44} />
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 16, fontWeight: "900" }}>{authorName}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Text style={{ fontSize: 16, fontWeight: "900" }}>{authorName}</Text>
+                {author && isCertifiedClub(author) ? (
+                  <Text style={{ fontSize: 12, fontWeight: "900", color: "#111827" }}>C</Text>
+                ) : null}
+              </View>
               <Text style={{ fontSize: 12, color: "#6b7280" }}>{when}</Text>
             </View>
           </Pressable>
@@ -335,7 +344,12 @@ export default function PostDetailScreen() {
                     <Avatar url={comment.author?.avatar_url ?? null} size={36} />
                     <View style={{ flex: 1, gap: 4 }}>
                       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                        <Text style={{ fontSize: 14, fontWeight: "700" }}>{commentAuthorName}</Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Text style={{ fontSize: 14, fontWeight: "700" }}>{commentAuthorName}</Text>
+                          {comment.author && isCertifiedClub(comment.author) ? (
+                            <Text style={{ fontSize: 11, fontWeight: "900", color: "#111827" }}>C</Text>
+                          ) : null}
+                        </View>
                         <Text style={{ fontSize: 11, color: "#6b7280" }}>{commentWhen}</Text>
                       </View>
                       <Text style={{ fontSize: 13, lineHeight: 18, color: "#111827" }}>
