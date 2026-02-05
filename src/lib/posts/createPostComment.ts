@@ -53,9 +53,26 @@ export async function createPostComment({
     throw new Error("Sorgente commenti non disponibile.");
   }
 
+  // 🔴 FIX: risolvi profile_id quando richiesto
+  let viewerActorId = viewerUserId;
+
+  if (commentSource.authorColumn === "profile_id") {
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("user_id", viewerUserId)
+      .single();
+
+    if (error || !profile?.id) {
+      throw new Error("Profilo utente non trovato.");
+    }
+
+    viewerActorId = profile.id;
+  }
+
   const payload: Record<string, string> = {
     [commentSource.postColumn]: postId,
-    [commentSource.authorColumn]: viewerUserId,
+    [commentSource.authorColumn]: viewerActorId,
     [commentSource.contentColumn]: normalizedContent,
   };
 

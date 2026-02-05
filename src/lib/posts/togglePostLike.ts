@@ -31,38 +31,10 @@ function asAuthError(message: string): Error {
   return new Error(message);
 }
 
-async function discoverLikeUserColumn(
-  supabase: SupabaseClient,
-  table: string,
-  postColumn: string,
-  postId: string,
-  viewerUserId: string,
-): Promise<string> {
-  const cachedColumn = getCachedLikeUserColumn();
-  const columnsToTry = cachedColumn
-    ? [cachedColumn, ...LIKE_USER_COLUMNS.filter((column) => column !== cachedColumn)]
-    : LIKE_USER_COLUMNS;
-
-  let lastError = "";
-  for (const userColumn of columnsToTry) {
-    const { error } = await supabase
-      .from(table)
-      .select("id")
-      .eq(postColumn, postId)
-      .eq(userColumn, viewerUserId)
-      .limit(1);
-
-    if (!error) {
-      setCachedLikeUserColumn(userColumn);
-      return userColumn;
-    }
-    lastError = asErrorMessage(error);
-  }
-
-  throw new Error(lastError || "Colonna autore like non trovata");
-}
-
-export async function togglePostLike({ postId, supabase }: TogglePostLikeParams): Promise<TogglePostLikeResult> {
+export async function togglePostLike({
+  postId,
+  supabase,
+}: TogglePostLikeParams): Promise<TogglePostLikeResult> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -77,52 +49,75 @@ export async function togglePostLike({ postId, supabase }: TogglePostLikeParams)
     throw new Error("Sorgente like non disponibile");
   }
 
-  const userColumn = await discoverLikeUserColumn(
-    supabase,
-    likeSource.table,
-    likeSource.postColumn,
-    postId,
-    viewerUserId,
-  );
+  // 🔴 FIX: risolvi profile_id se necessario
+  let viewerActorId = viewerUserId;
 
-  const { data: existingLikeRows, error: readError } = await supabase
+  const cachedUserColumn = getCachedLikeUserColumn();
+  const columnsToTry = cachedUserColumn
+    ? [cachedUserColumn, ...LIKE_USER_COLUMNS.filter((c) => c !== cachedUserColumn)]
+    : LIKE_USER_COLUMNS;
+
+  let resolvedUserColumn: string | null = null;
+
+  for (const userColumn of columnsToTry) {
+    if (userColumn === "profile_id") {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("user_id", viewerUserId)
+        .single();
+
+      if (!profile?.id) continue;
+      viewerActorId = profile.id;
+    } else {
+      viewerActorId = viewerUserId;
+    }
+
+    const { error } = await supabase
+      .from(likeSource.table)
+      .select("id")
+      .eq(likeSource.postColumn, postId)
+      .eq(userColumn, viewerActorId)
+      .limit(1);
+
+    if (!error) {
+      resolvedUserColumn = userColumn;
+      setCachedLikeUserColumn(userColumn);
+      break;
+    }
+  }
+
+  if (!resolvedUserColumn) {
+    throw new Error("Colonna autore like non trovata");
+  }
+
+  const { data: existingLikeRows } = await supabase
     .from(likeSource.table)
     .select("id")
     .eq(likeSource.postColumn, postId)
-    .eq(userColumn, viewerUserId)
+    .eq(resolvedUserColumn, viewerActorId)
     .limit(1);
-
-  if (readError) {
-    throw asAuthError(asErrorMessage(readError));
-  }
 
   const existingLike = Array.isArray(existingLikeRows) ? existingLikeRows[0] : null;
 
   if (existingLike) {
-    let deleteQuery = supabase.from(likeSource.table).delete();
-    if (existingLike.id) {
-      deleteQuery = deleteQuery.eq("id", existingLike.id);
-    } else {
-      deleteQuery = deleteQuery.eq(likeSource.postColumn, postId).eq(userColumn, viewerUserId);
-    }
+    const { error } = await supabase
+      .from(likeSource.table)
+      .delete()
+      .eq("id", existingLike.id);
 
-    const { error: deleteError } = await deleteQuery;
-    if (deleteError) {
-      throw asAuthError(asErrorMessage(deleteError));
-    }
+    if (error) throw asAuthError(asErrorMessage(error));
 
     return { liked: false, likeCountDelta: -1 };
   }
 
   const payload = {
     [likeSource.postColumn]: postId,
-    [userColumn]: viewerUserId,
+    [resolvedUserColumn]: viewerActorId,
   };
 
-  const { error: insertError } = await supabase.from(likeSource.table).insert(payload);
-  if (insertError) {
-    throw asAuthError(asErrorMessage(insertError));
-  }
+  const { error } = await supabase.from(likeSource.table).insert(payload);
+  if (error) throw asAuthError(asErrorMessage(error));
 
   return { liked: true, likeCountDelta: 1 };
 }
