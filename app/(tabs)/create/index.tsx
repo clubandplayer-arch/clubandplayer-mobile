@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as FileSystem from "expo-file-system";
+// @ts-ignore -- module types are provided by dependency in real environment
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "../../../src/lib/supabase";
 import { emit } from "../../../src/lib/events/appEvents";
@@ -34,7 +35,7 @@ async function pickMediaFromDevice(): Promise<DraftMedia | null> {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images", "videos"] as any,
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
       quality: 0.9,
       allowsMultipleSelection: false,
     });
@@ -50,7 +51,7 @@ async function pickMediaFromDevice(): Promise<DraftMedia | null> {
     let size = sizeFromAsset;
     if (size == null) {
       try {
-        const info = await FileSystem.getInfoAsync(asset.uri, { size: true } as any);
+        const info = await FileSystem.getInfoAsync(asset.uri);
         if (info?.exists && typeof info.size === "number") {
           size = info.size;
         }
