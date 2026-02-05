@@ -41,7 +41,7 @@ async function resolveProfileIds(authorId: string | null, supabase: SupabaseClie
 async function discoverFollowSource(
   supabase: SupabaseClient,
   targetIds: string[],
-): Promise<{ candidate: FollowQueryCandidate; targetId: string } | null> {
+): Promise<{ candidate: FollowQueryCandidate } | null> {
   const cached = getCachedFollowSource();
   if (cached) {
     return {
@@ -50,7 +50,6 @@ async function discoverFollowSource(
         followerColumn: cached.followerColumn,
         followedColumn: cached.followedColumn,
       },
-      targetId: targetIds[0] ?? "",
     };
   }
 
@@ -64,7 +63,7 @@ async function discoverFollowSource(
       if (!error) {
         setCachedFollowSource(candidate);
         devLog("discovered follow source", candidate);
-        return { candidate, targetId };
+        return { candidate };
       }
       lastError = error?.message ?? String(error);
     }

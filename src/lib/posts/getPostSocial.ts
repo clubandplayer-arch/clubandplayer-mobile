@@ -24,6 +24,7 @@ export type PostSocialResult = {
   likeCount: number;
   commentCount: number;
   comments: PostSocialComment[];
+  viewerHasLiked?: boolean;
 };
 
 const LIKE_TABLE_CANDIDATES = ["likes", "post_likes", "likes_posts", "reactions", "post_reactions"];
@@ -62,7 +63,7 @@ function mapToFeedAuthor(profile: Awaited<ReturnType<typeof resolveProfileByAuth
   };
 }
 
-async function discoverLikeSource(
+export async function discoverPostLikeSource(
   supabase: SupabaseClient,
   postId: string,
 ): Promise<LikeSource | null> {
@@ -144,18 +145,37 @@ export async function getPostSocial(
   postId: string,
   supabase: SupabaseClient,
 ): Promise<PostSocialResult> {
-  const fallback: PostSocialResult = { likeCount: 0, commentCount: 0, comments: [] };
+  const fallback: PostSocialResult = { likeCount: 0, commentCount: 0, comments: [], viewerHasLiked: false };
   if (!postId) return fallback;
 
   try {
     let likeCount = 0;
-    const likeSource = await discoverLikeSource(supabase, postId);
+    let viewerHasLiked = false;
+    const likeSource = await discoverPostLikeSource(supabase, postId);
     if (likeSource) {
       const { count, error } = await supabase
         .from(likeSource.table)
         .select("*", { count: "exact", head: true })
         .eq(likeSource.postColumn, postId);
       if (!error && typeof count === "number") likeCount = count;
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const viewerUserId = asString(user?.id);
+      if (viewerUserId) {
+        for (const userColumn of ["user_id", "author_id", "profile_id", "liker_id"]) {
+          const { count: viewerLikeCount, error: viewerLikeErr } = await supabase
+            .from(likeSource.table)
+            .select("id", { count: "exact", head: true })
+            .eq(likeSource.postColumn, postId)
+            .eq(userColumn, viewerUserId);
+          if (!viewerLikeErr) {
+            viewerHasLiked = typeof viewerLikeCount === "number" && viewerLikeCount > 0;
+            break;
+          }
+        }
+      }
     }
 
     let commentCount = 0;
@@ -213,7 +233,7 @@ export async function getPostSocial(
       }
     }
 
-    return { likeCount, commentCount, comments };
+    return { likeCount, commentCount, comments, viewerHasLiked };
   } catch {
     return fallback;
   }
