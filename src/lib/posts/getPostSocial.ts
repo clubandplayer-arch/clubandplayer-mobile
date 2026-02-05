@@ -1,6 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FeedAuthor } from "../feed/getFeedPosts";
 import { resolveProfileByAuthorId } from "../profiles/resolveProfile";
+import { devLog, devWarn } from "../debug/devLog";
+import {
+  getCachedCommentSource,
+  getCachedLikeSource,
+  setCachedCommentSource,
+  setCachedLikeSource,
+  type CommentSource,
+  type LikeSource,
+} from "../social/discoveryCache";
 
 export type PostSocialComment = {
   id: string;
@@ -15,15 +24,6 @@ export type PostSocialResult = {
   likeCount: number;
   commentCount: number;
   comments: PostSocialComment[];
-};
-
-type LikeSource = { table: string; postColumn: string };
-type CommentSource = {
-  table: string;
-  postColumn: string;
-  authorColumn: string;
-  createdColumn: string;
-  contentColumn: string;
 };
 
 const LIKE_TABLE_CANDIDATES = ["likes", "post_likes", "likes_posts", "reactions", "post_reactions"];
@@ -66,15 +66,33 @@ async function discoverLikeSource(
   supabase: SupabaseClient,
   postId: string,
 ): Promise<LikeSource | null> {
+  const cached = getCachedLikeSource();
+  if (cached) {
+    return cached;
+  }
+
+  let lastError: string | undefined;
   for (const table of LIKE_TABLE_CANDIDATES) {
     for (const postColumn of LIKE_POST_COLUMNS) {
       const { error } = await supabase
         .from(table)
         .select(postColumn, { count: "exact", head: true })
         .eq(postColumn, postId);
-      if (!error) return { table, postColumn };
+      if (!error) {
+        const source = { table, postColumn };
+        setCachedLikeSource(source);
+        devLog("discovered like source", source);
+        return source;
+      }
+      lastError = error?.message ?? String(error);
     }
   }
+
+  devWarn("like discovery failed", {
+    triedTables: LIKE_TABLE_CANDIDATES,
+    triedColumns: LIKE_POST_COLUMNS,
+    lastError,
+  });
   return null;
 }
 
@@ -82,6 +100,12 @@ async function discoverCommentSource(
   supabase: SupabaseClient,
   postId: string,
 ): Promise<CommentSource | null> {
+  const cached = getCachedCommentSource();
+  if (cached) {
+    return cached;
+  }
+
+  let lastError: string | undefined;
   for (const table of COMMENT_TABLE_CANDIDATES) {
     for (const postColumn of COMMENT_POST_COLUMNS) {
       for (const authorColumn of COMMENT_AUTHOR_COLUMNS) {
@@ -93,13 +117,26 @@ async function discoverCommentSource(
               .eq(postColumn, postId)
               .limit(1);
             if (!error) {
-              return { table, postColumn, authorColumn, createdColumn, contentColumn };
+              const source = { table, postColumn, authorColumn, createdColumn, contentColumn };
+              setCachedCommentSource(source);
+              devLog("discovered comment source", source);
+              return source;
             }
+            lastError = error?.message ?? String(error);
           }
         }
       }
     }
   }
+
+  devWarn("comment discovery failed", {
+    triedTables: COMMENT_TABLE_CANDIDATES,
+    triedPostColumns: COMMENT_POST_COLUMNS,
+    triedAuthorColumns: COMMENT_AUTHOR_COLUMNS,
+    triedCreatedColumns: COMMENT_CREATED_COLUMNS,
+    triedContentColumns: COMMENT_CONTENT_COLUMNS,
+    lastError,
+  });
   return null;
 }
 

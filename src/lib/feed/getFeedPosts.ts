@@ -1,6 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveProfilesByAuthorIds } from '../profiles/resolveProfile';
 import { asString, normalizeMediaRow, type NormalizedMediaItem } from '../media/normalizeMedia';
+import { devLog, devWarn } from '../debug/devLog';
+import {
+  getCachedCommentSource,
+  getCachedLikeSource,
+  setCachedCommentSource,
+  setCachedLikeSource,
+  type LikeSource,
+} from '../social/discoveryCache';
 
 export type FeedMediaItem = NormalizedMediaItem;
 
@@ -33,7 +41,6 @@ function uniq<T>(arr: T[]) {
   return Array.from(new Set(arr));
 }
 
-type SocialSource = { table: string; postColumn: string };
 
 const LIKE_TABLE_CANDIDATES = ['likes', 'post_likes', 'likes_posts', 'reactions', 'post_reactions'];
 const LIKE_POST_COLUMNS = ['post_id', 'postId', 'post_uuid', 'post'];
@@ -46,13 +53,36 @@ async function discoverSocialSource(
   postIds: string[],
   tables: string[],
   columns: string[],
-): Promise<SocialSource | null> {
+  cache: {
+    get: () => LikeSource | null;
+    set: (source: LikeSource | null) => void;
+    label: 'like' | 'comment';
+  },
+): Promise<LikeSource | null> {
+  const cached = cache.get();
+  if (cached) {
+    return cached;
+  }
+
+  let lastError: string | undefined;
   for (const table of tables) {
     for (const postColumn of columns) {
       const { error } = await supabase.from(table).select(postColumn).in(postColumn, postIds).limit(1);
-      if (!error) return { table, postColumn };
+      if (!error) {
+        const source = { table, postColumn };
+        cache.set(source);
+        devLog(`discovered ${cache.label} source`, source);
+        return source;
+      }
+      lastError = error?.message ?? String(error);
     }
   }
+
+  devWarn(`${cache.label} discovery failed`, {
+    triedTables: tables,
+    triedColumns: columns,
+    lastError,
+  });
   return null;
 }
 
@@ -66,7 +96,11 @@ async function fetchCountsByPost(
   if (!postIds.length) return counts;
 
   try {
-    const source = await discoverSocialSource(supabase, postIds, tables, columns);
+    const source = await discoverSocialSource(supabase, postIds, tables, columns, {
+      get: tables === LIKE_TABLE_CANDIDATES ? getCachedLikeSource : getCachedCommentSource,
+      set: tables === LIKE_TABLE_CANDIDATES ? setCachedLikeSource : setCachedCommentSource,
+      label: tables === LIKE_TABLE_CANDIDATES ? 'like' : 'comment',
+    });
     if (!source) return counts;
 
     const { data, error } = await supabase
