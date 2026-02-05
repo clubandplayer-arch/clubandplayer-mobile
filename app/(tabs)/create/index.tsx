@@ -11,14 +11,18 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "../../../src/lib/supabase";
+import { emit } from "../../../src/lib/events/appEvents";
 import { createPost } from "../../../src/lib/posts/createPost";
 
 type DraftMedia = {
   uri: string;
   mediaType: "image" | "video";
+  size?: number | null;
 };
 
 const MAX_MEDIA = 6;
+const MAX_IMAGE_SIZE_BYTES = 8 * 1024 * 1024;
+const MAX_VIDEO_SIZE_BYTES = 80 * 1024 * 1024;
 
 async function pickMediaFromDevice(): Promise<DraftMedia | null> {
   try {
@@ -40,9 +44,25 @@ async function pickMediaFromDevice(): Promise<DraftMedia | null> {
 
     const asset = result.assets[0];
     const mediaType = asset.type === "video" ? "video" : "image";
+    const sizeFromAsset = typeof asset.fileSize === "number" ? asset.fileSize : null;
+
+    let size = sizeFromAsset;
+    if (size == null) {
+      try {
+        const FileSystem = (await new Function("return import(\"expo-file-system\")")()) as any;
+        const info = await FileSystem.getInfoAsync(asset.uri, { size: true });
+        if (info?.exists && typeof info.size === "number") {
+          size = info.size;
+        }
+      } catch {
+        size = null;
+      }
+    }
+
     return {
       uri: asset.uri,
       mediaType,
+      size,
     };
   } catch (error: any) {
     throw new Error(error?.message ? String(error.message) : "Selettore media non disponibile");
@@ -57,6 +77,8 @@ export default function CreateScreen() {
   const [text, setText] = useState("");
   const [media, setMedia] = useState<DraftMedia[]>([]);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [publishStep, setPublishStep] = useState("");
+  const [publishError, setPublishError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -81,30 +103,54 @@ export default function CreateScreen() {
   }, [isPublishing, media.length, text]);
 
   const onAddMedia = async () => {
+    if (isPublishing) return;
+
     if (media.length >= MAX_MEDIA) {
-      Alert.alert("Limite raggiunto", `Puoi aggiungere massimo ${MAX_MEDIA} media.`);
+      Alert.alert("Massimo 6 media", "Puoi aggiungere al massimo 6 media.");
       return;
     }
 
     try {
       const selected = await pickMediaFromDevice();
       if (!selected) return;
-      setMedia((prev) => [...prev, selected].slice(0, MAX_MEDIA));
+
+      if (selected.mediaType === "image" && typeof selected.size === "number" && selected.size > MAX_IMAGE_SIZE_BYTES) {
+        Alert.alert("File troppo grande", "Le immagini possono essere al massimo di 8MB.");
+        return;
+      }
+
+      if (selected.mediaType === "video" && typeof selected.size === "number" && selected.size > MAX_VIDEO_SIZE_BYTES) {
+        Alert.alert("File troppo grande", "I video possono essere al massimo di 80MB.");
+        return;
+      }
+
+      setMedia((prev) => {
+        if (prev.length >= MAX_MEDIA) {
+          Alert.alert("Massimo 6 media", "Puoi aggiungere al massimo 6 media.");
+          return prev;
+        }
+        return [...prev, selected];
+      });
     } catch (error: any) {
       Alert.alert("Errore", error?.message ? String(error.message) : "Impossibile selezionare media");
     }
   };
 
   const onRemoveMedia = (index: number) => {
+    if (isPublishing) return;
     setMedia((prev) => prev.filter((_, idx) => idx !== index));
   };
 
   const resetForm = () => {
     setText("");
     setMedia([]);
+    setPublishError(null);
+    setPublishStep("");
   };
 
   const onPublish = async () => {
+    if (isPublishing) return;
+
     if (!isLoggedIn) {
       Alert.alert("Accedi per pubblicare", "Per creare un post devi prima effettuare il login.");
       router.replace("/(auth)/login");
@@ -117,16 +163,23 @@ export default function CreateScreen() {
     }
 
     try {
+      setPublishError(null);
       setIsPublishing(true);
+      setPublishStep("Creazione post…");
+
       await createPost({
         text,
         media,
         supabase,
+        onProgress: (step) => setPublishStep(step),
       });
+
+      setPublishStep("Completato");
       resetForm();
-      router.replace(`/(tabs)/feed?refresh=${Date.now()}`);
+      emit("feed:refresh");
+      router.replace("/(tabs)/feed");
     } catch (error: any) {
-      Alert.alert("Errore pubblicazione", error?.message ? String(error.message) : "Operazione non riuscita");
+      setPublishError(error?.message ? String(error.message) : "Operazione non riuscita");
     } finally {
       setIsPublishing(false);
     }
@@ -146,6 +199,48 @@ export default function CreateScreen() {
       contentContainerStyle={{ padding: 24, paddingBottom: 32, gap: 16 }}
     >
       <Text style={{ fontSize: 28, fontWeight: "800" }}>Crea</Text>
+
+      {(isPublishing || publishError) && (
+        <View
+          style={{
+            borderWidth: 1,
+            borderColor: publishError ? "#fecaca" : "#bfdbfe",
+            backgroundColor: publishError ? "#fef2f2" : "#eff6ff",
+            borderRadius: 12,
+            padding: 12,
+            gap: 8,
+          }}
+        >
+          {isPublishing ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <ActivityIndicator size="small" color="#111827" />
+              <Text style={{ fontWeight: "700", color: "#111827" }}>Pubblicazione in corso…</Text>
+            </View>
+          ) : null}
+
+          {publishStep ? <Text style={{ color: "#1f2937" }}>Step: {publishStep}</Text> : null}
+
+          {publishError ? <Text style={{ color: "#b91c1c", fontWeight: "700" }}>{publishError}</Text> : null}
+
+          {publishError ? (
+            <Pressable
+              onPress={onPublish}
+              disabled={isPublishing}
+              style={{
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+                borderWidth: 1,
+                borderColor: "#b91c1c",
+                borderRadius: 10,
+                alignSelf: "flex-start",
+                opacity: isPublishing ? 0.6 : 1,
+              }}
+            >
+              <Text style={{ color: "#b91c1c", fontWeight: "700" }}>Riprova</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      )}
 
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 10 }}>
         <Text style={{ fontSize: 16, fontWeight: "700" }}>Nuovo post</Text>

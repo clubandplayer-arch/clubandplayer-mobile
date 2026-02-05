@@ -20,6 +20,7 @@ import {
   type FeedPost,
 } from "../../../src/lib/feed/getFeedPosts";
 import { isCertifiedClub } from "../../../src/lib/profiles/certification";
+import { on } from "../../../src/lib/events/appEvents";
 
 function formatWhen(iso?: string | null) {
   if (!iso) return "";
@@ -251,6 +252,15 @@ export default function FeedScreen() {
     setLoading(true);
     load(feedMode);
   }, [feedMode, load, reloadToken, session]);
+
+  useEffect(() => {
+    const unsubscribe = on("feed:refresh", () => {
+      setLoading(true);
+      load(feedMode);
+    });
+
+    return unsubscribe;
+  }, [feedMode, load]);
 
   const onRefresh = useCallback(async () => {
     try {
