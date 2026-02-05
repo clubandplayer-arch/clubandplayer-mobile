@@ -141,6 +141,13 @@ async function discoverCommentSource(
   return null;
 }
 
+export async function getCachedOrDiscoverCommentSource(
+  supabase: SupabaseClient,
+  postId: string,
+): Promise<CommentSource | null> {
+  return discoverCommentSource(supabase, postId);
+}
+
 export async function getPostSocial(
   postId: string,
   supabase: SupabaseClient,
@@ -180,7 +187,7 @@ export async function getPostSocial(
 
     let commentCount = 0;
     let comments: PostSocialComment[] = [];
-    const commentSource = await discoverCommentSource(supabase, postId);
+    const commentSource = await getCachedOrDiscoverCommentSource(supabase, postId);
     if (commentSource) {
       const { count, error: countErr } = await supabase
         .from(commentSource.table)

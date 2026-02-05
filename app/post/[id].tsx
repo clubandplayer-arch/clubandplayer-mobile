@@ -9,6 +9,7 @@ import {
   Image,
   Dimensions,
   Alert,
+  TextInput,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
@@ -16,6 +17,7 @@ import { getAuthorName, getPostText, type FeedAuthor, type FeedMediaItem } from 
 import { asString, normalizeMediaRow } from "../../src/lib/media/normalizeMedia";
 import { resolveProfileByAuthorId } from "../../src/lib/profiles/resolveProfile";
 import { getPostSocial, type PostSocialResult } from "../../src/lib/posts/getPostSocial";
+import { createPostComment } from "../../src/lib/posts/createPostComment";
 import { togglePostLike } from "../../src/lib/posts/togglePostLike";
 import { isCertifiedClub } from "../../src/lib/profiles/certification";
 
@@ -80,6 +82,10 @@ export default function PostDetailScreen() {
     viewerHasLiked: false,
   });
   const [isLiking, setIsLiking] = useState(false);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [viewerUserId, setViewerUserId] = useState<string | null>(null);
+  const [viewerAuthor, setViewerAuthor] = useState<FeedAuthor | null>(null);
 
   const when = useMemo(() => formatWhen(post?.created_at ?? null), [post?.created_at]);
   const text = useMemo(() => (post ? getPostText(post as any) : ""), [post]);
@@ -188,6 +194,98 @@ export default function PostDetailScreen() {
     }
   }, [load]);
 
+  const ensureViewer = useCallback(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const currentViewerUserId = user?.id ? String(user.id) : null;
+    setViewerUserId(currentViewerUserId);
+
+    if (!currentViewerUserId) return { viewerId: null, viewerFeedAuthor: null as FeedAuthor | null };
+
+    if (viewerAuthor && viewerUserId === currentViewerUserId) {
+      return { viewerId: currentViewerUserId, viewerFeedAuthor: viewerAuthor };
+    }
+
+    const profile = await resolveProfileByAuthorId(currentViewerUserId, supabase);
+    const mappedAuthor: FeedAuthor | null = profile
+      ? {
+          id: profile.id,
+          user_id: profile.user_id ?? undefined,
+          full_name: profile.full_name,
+          display_name: profile.display_name,
+          avatar_url: profile.avatar_url,
+          type: profile.type,
+          account_type: profile.account_type,
+          role: profile.role,
+          verified_until: profile.verified_until,
+          certified: profile.certified,
+          certification_status: profile.certification_status,
+        }
+      : null;
+
+    setViewerAuthor(mappedAuthor);
+    return { viewerId: currentViewerUserId, viewerFeedAuthor: mappedAuthor };
+  }, [viewerAuthor, viewerUserId]);
+
+  const onSubmitComment = useCallback(async () => {
+    if (!postId || isSubmittingComment) return;
+
+    const trimmedDraft = commentDraft.trim();
+    if (!trimmedDraft) return;
+
+    let optimisticId: string | null = null;
+
+    try {
+      setIsSubmittingComment(true);
+
+      const { viewerId, viewerFeedAuthor } = await ensureViewer();
+      if (!viewerId) {
+        Alert.alert("Accedi per commentare");
+        router.push("/(auth)/login");
+        return;
+      }
+
+      optimisticId = `optimistic-${Date.now()}`;
+      const optimisticCreatedAt = new Date().toISOString();
+      setCommentDraft("");
+      setSocial((prev) => ({
+        ...prev,
+        commentCount: (prev.commentCount ?? 0) + 1,
+        comments: [
+          {
+            id: optimisticId as string,
+            post_id: postId,
+            author_id: viewerId,
+            created_at: optimisticCreatedAt,
+            content: trimmedDraft,
+            author: viewerFeedAuthor,
+          },
+          ...prev.comments,
+        ],
+      }));
+
+      await createPostComment({ postId, content: trimmedDraft, supabase });
+
+      const refreshedSocial = await getPostSocial(postId, supabase);
+      setSocial((prev) => ({
+        ...prev,
+        ...refreshedSocial,
+      }));
+    } catch (e: any) {
+      if (optimisticId) {
+        setSocial((prev) => ({
+          ...prev,
+          commentCount: Math.max(0, (prev.commentCount ?? 0) - 1),
+          comments: prev.comments.filter((comment) => comment.id !== optimisticId),
+        }));
+      }
+      Alert.alert("Commenti", e?.message ? String(e.message) : "Impossibile pubblicare il commento");
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  }, [commentDraft, ensureViewer, isSubmittingComment, postId, router]);
 
   const onToggleLike = useCallback(async () => {
     if (!postId || isLiking) return;
@@ -228,6 +326,7 @@ export default function PostDetailScreen() {
   const likeCount = social.likeCount ?? 0;
   const commentCount = social.commentCount ?? 0;
   const liked = Boolean(social.viewerHasLiked);
+  const isCommentSubmitDisabled = isSubmittingComment || !commentDraft.trim();
 
   if (loading) {
     return (
@@ -375,6 +474,46 @@ export default function PostDetailScreen() {
       {!error && post ? (
         <View style={{ borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 12, padding: 16, gap: 12 }}>
           <Text style={{ fontSize: 16, fontWeight: "800" }}>Commenti</Text>
+
+          <View style={{ gap: 10 }}>
+            <TextInput
+              value={commentDraft}
+              onChangeText={setCommentDraft}
+              placeholder="Scrivi un commento…"
+              multiline
+              editable={!isSubmittingComment}
+              maxLength={2000}
+              textAlignVertical="top"
+              style={{
+                minHeight: 88,
+                borderWidth: 1,
+                borderColor: "#d1d5db",
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                color: "#111827",
+                backgroundColor: isSubmittingComment ? "#f9fafb" : "#ffffff",
+              }}
+            />
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <Text style={{ fontSize: 12, color: "#6b7280" }}>{commentDraft.trim().length}/2000</Text>
+              <Pressable
+                onPress={onSubmitComment}
+                disabled={isCommentSubmitDisabled}
+                style={{
+                  paddingVertical: 8,
+                  paddingHorizontal: 14,
+                  borderRadius: 8,
+                  backgroundColor: isCommentSubmitDisabled ? "#d1d5db" : "#0284c7",
+                }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "800" }}>
+                  {isSubmittingComment ? "Pubblicazione..." : "Pubblica"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+
           {social.comments.length > 0 ? (
             <View style={{ gap: 12 }}>
               {social.comments.map((comment) => {
