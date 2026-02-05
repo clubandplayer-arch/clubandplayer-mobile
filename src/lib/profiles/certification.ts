@@ -1,6 +1,14 @@
 import type { FeedAuthor } from "../feed/getFeedPosts";
 
-const CLUB_TYPES = new Set(["club", "societa", "società", "team"]);
+const CLUB_TYPES = new Set([
+  "club",
+  "team",
+  "societa",
+  "società",
+  "organization",
+  "org",
+  "society",
+]);
 
 function asTimestamp(value?: string | null): number | null {
   if (!value) return null;
@@ -18,13 +26,19 @@ export function isClubAuthor(author?: FeedAuthor | null): boolean {
 export function isCertifiedClub(author: FeedAuthor): boolean {
   if (!isClubAuthor(author)) return false;
 
-  const explicitCertified = author.certified === true;
   const expiresAt = asTimestamp(author.verified_until);
-  const notExpired = expiresAt != null && expiresAt > Date.now();
-  if (explicitCertified && notExpired) return true;
+  const hasVerifiedUntil = expiresAt != null;
+
+  // strict mode only when verified_until is present
+  if (hasVerifiedUntil && (expiresAt as number) <= Date.now()) return false;
+
+  if (author.certified === true) return true;
 
   const status = (author.certification_status ?? "").trim().toLowerCase();
-  if (status === "certified" && notExpired) return true;
+  if (status === "certified") return true;
 
-  return notExpired;
+  // if verified_until exists and is not expired, it is considered certified
+  if (hasVerifiedUntil) return true;
+
+  return false;
 }
