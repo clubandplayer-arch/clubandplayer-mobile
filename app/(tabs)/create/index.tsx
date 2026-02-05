@@ -174,8 +174,8 @@ export default function CreateScreen() {
         onProgress: (step) => setPublishStep(step),
       });
 
-      setPublishStep("Completato");
       resetForm();
+      setPublishStep("Completato");
       emit("feed:refresh");
       router.replace("/(tabs)/feed");
     } catch (error: any) {

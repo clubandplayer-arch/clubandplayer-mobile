@@ -17,9 +17,9 @@ type UploadPostMediaResult = {
   height?: number | null;
 };
 
-// Default bucket per media post: "post-media".
+// Default bucket per media post: "posts".
 // Può essere sovrascritto con EXPO_PUBLIC_POST_MEDIA_BUCKET.
-const POST_MEDIA_BUCKET = process.env.EXPO_PUBLIC_POST_MEDIA_BUCKET || "post-media";
+const POST_MEDIA_BUCKET = process.env.EXPO_PUBLIC_POST_MEDIA_BUCKET || "posts";
 
 function inferFileExtension(uri: string, mediaType: "image" | "video") {
   const clean = uri.split("?")[0] ?? "";
