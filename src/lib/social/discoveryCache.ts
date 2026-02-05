@@ -15,6 +15,7 @@ export type FollowSource = {
 };
 
 let likeSourceCache: LikeSource | null = null;
+let likeUserColumnCache: string | null = null;
 let commentSourceCache: CommentSource | null = null;
 let followSourceCache: FollowSource | null = null;
 
@@ -24,6 +25,14 @@ export function getCachedLikeSource(): LikeSource | null {
 
 export function setCachedLikeSource(source: LikeSource | null) {
   likeSourceCache = source;
+}
+
+export function getCachedLikeUserColumn(): string | null {
+  return likeUserColumnCache;
+}
+
+export function setCachedLikeUserColumn(column: string | null) {
+  likeUserColumnCache = column;
 }
 
 export function getCachedCommentSource(): CommentSource | null {

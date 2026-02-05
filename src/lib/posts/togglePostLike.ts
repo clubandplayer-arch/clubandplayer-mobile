@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { discoverPostLikeSource } from "./getPostSocial";
+import { getCachedLikeUserColumn, setCachedLikeUserColumn } from "../social/discoveryCache";
 
 type TogglePostLikeParams = {
   postId: string;
@@ -37,8 +38,13 @@ async function discoverLikeUserColumn(
   postId: string,
   viewerUserId: string,
 ): Promise<string> {
+  const cachedColumn = getCachedLikeUserColumn();
+  const columnsToTry = cachedColumn
+    ? [cachedColumn, ...LIKE_USER_COLUMNS.filter((column) => column !== cachedColumn)]
+    : LIKE_USER_COLUMNS;
+
   let lastError = "";
-  for (const userColumn of LIKE_USER_COLUMNS) {
+  for (const userColumn of columnsToTry) {
     const { error } = await supabase
       .from(table)
       .select("id")
@@ -47,6 +53,7 @@ async function discoverLikeUserColumn(
       .limit(1);
 
     if (!error) {
+      setCachedLikeUserColumn(userColumn);
       return userColumn;
     }
     lastError = asErrorMessage(error);

@@ -5,8 +5,10 @@ import { devLog, devWarn } from "../debug/devLog";
 import {
   getCachedCommentSource,
   getCachedLikeSource,
+  getCachedLikeUserColumn,
   setCachedCommentSource,
   setCachedLikeSource,
+  setCachedLikeUserColumn,
   type CommentSource,
   type LikeSource,
 } from "../social/discoveryCache";
@@ -171,15 +173,37 @@ export async function getPostSocial(
       } = await supabase.auth.getUser();
       const viewerUserId = asString(user?.id);
       if (viewerUserId) {
-        for (const userColumn of ["user_id", "author_id", "profile_id", "liker_id"]) {
+        const cachedUserColumn = getCachedLikeUserColumn();
+        const columnsToTry = cachedUserColumn
+          ? [cachedUserColumn]
+          : ["user_id", "author_id", "profile_id", "liker_id"];
+
+        for (const userColumn of columnsToTry) {
           const { count: viewerLikeCount, error: viewerLikeErr } = await supabase
             .from(likeSource.table)
             .select("id", { count: "exact", head: true })
             .eq(likeSource.postColumn, postId)
             .eq(userColumn, viewerUserId);
           if (!viewerLikeErr) {
+            setCachedLikeUserColumn(userColumn);
             viewerHasLiked = typeof viewerLikeCount === "number" && viewerLikeCount > 0;
             break;
+          }
+        }
+
+        if (!cachedUserColumn && !viewerHasLiked) {
+          for (const userColumn of ["user_id", "author_id", "profile_id", "liker_id"]) {
+            if (columnsToTry.includes(userColumn)) continue;
+            const { count: viewerLikeCount, error: viewerLikeErr } = await supabase
+              .from(likeSource.table)
+              .select("id", { count: "exact", head: true })
+              .eq(likeSource.postColumn, postId)
+              .eq(userColumn, viewerUserId);
+            if (!viewerLikeErr) {
+              setCachedLikeUserColumn(userColumn);
+              viewerHasLiked = typeof viewerLikeCount === "number" && viewerLikeCount > 0;
+              break;
+            }
           }
         }
       }
