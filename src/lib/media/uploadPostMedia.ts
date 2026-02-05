@@ -1,3 +1,4 @@
+import { readAsStringAsync, EncodingType } from "expo-file-system/legacy";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type UploadPostMediaParams = {
@@ -15,14 +16,9 @@ type UploadPostMediaResult = {
   height?: number | null;
 };
 
-const BUCKET_NAME_CANDIDATES = [
-  "post-media",
-  "post_media",
-  "posts",
-  "media",
-  "feed-media",
-  "feed_media",
-];
+// Default bucket per media post: "post-media".
+// Può essere sovrascritto con EXPO_PUBLIC_POST_MEDIA_BUCKET.
+const POST_MEDIA_BUCKET = process.env.EXPO_PUBLIC_POST_MEDIA_BUCKET || "post-media";
 
 function inferFileExtension(uri: string, mediaType: "image" | "video") {
   const clean = uri.split("?")[0] ?? "";
@@ -48,25 +44,32 @@ function inferContentType(ext: string, mediaType: "image" | "video") {
   return map[ext] ?? (mediaType === "video" ? "video/mp4" : "image/jpeg");
 }
 
-async function discoverBucketName(supabase: SupabaseClient): Promise<string> {
-  const { data: buckets, error } = await supabase.storage.listBuckets();
-  if (!error && Array.isArray(buckets) && buckets.length > 0) {
-    for (const candidate of BUCKET_NAME_CANDIDATES) {
-      const hit = buckets.find((bucket) => bucket?.name === candidate);
-      if (hit?.name) return hit.name;
-    }
+function base64ToUint8Array(base64: string): Uint8Array {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+  let str = base64.replace(/[^A-Za-z0-9+/=]/g, "");
+  let output = "";
 
-    const fuzzy = buckets.find((bucket) => {
-      const name = String(bucket?.name ?? "").toLowerCase();
-      return name.includes("post") || name.includes("media");
-    });
-    if (fuzzy?.name) return fuzzy.name;
+  let i = 0;
+  while (i < str.length) {
+    const enc1 = chars.indexOf(str.charAt(i++));
+    const enc2 = chars.indexOf(str.charAt(i++));
+    const enc3 = chars.indexOf(str.charAt(i++));
+    const enc4 = chars.indexOf(str.charAt(i++));
 
-    const first = buckets[0];
-    if (first?.name) return first.name;
+    const chr1 = (enc1 << 2) | (enc2 >> 4);
+    const chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+    const chr3 = ((enc3 & 3) << 6) | enc4;
+
+    output += String.fromCharCode(chr1);
+    if (enc3 !== 64) output += String.fromCharCode(chr2);
+    if (enc4 !== 64) output += String.fromCharCode(chr3);
   }
 
-  return BUCKET_NAME_CANDIDATES[0];
+  const bytes = new Uint8Array(output.length);
+  for (let j = 0; j < output.length; j += 1) {
+    bytes[j] = output.charCodeAt(j);
+  }
+  return bytes;
 }
 
 async function getStoredUrl(
@@ -102,26 +105,26 @@ export async function uploadPostMedia({
 
   const ext = inferFileExtension(uri, mediaType);
   const contentType = inferContentType(ext, mediaType);
-  const bucket = await discoverBucketName(supabase);
   const path = `posts/${postId}/${position}-${Date.now()}.${ext}`;
 
-  const response = await fetch(uri);
-  if (!response.ok) {
-    throw new Error("Impossibile leggere il file selezionato");
-  }
-
-  const body = await response.arrayBuffer();
-
-  const { error: uploadError } = await supabase.storage.from(bucket).upload(path, body, {
-    contentType,
-    upsert: false,
+  const base64 = await readAsStringAsync(uri, {
+    encoding: EncodingType.Base64,
   });
+
+  const bytes = base64ToUint8Array(base64);
+
+  const { error: uploadError } = await supabase.storage
+    .from(POST_MEDIA_BUCKET)
+    .upload(path, bytes, {
+      contentType,
+      upsert: false,
+    });
 
   if (uploadError) {
     throw new Error(uploadError.message || "Upload media fallito");
   }
 
-  const publicUrlOrSignedUrl = await getStoredUrl(supabase, bucket, path);
+  const publicUrlOrSignedUrl = await getStoredUrl(supabase, POST_MEDIA_BUCKET, path);
 
   return {
     publicUrlOrSignedUrl,

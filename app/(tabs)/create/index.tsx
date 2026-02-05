@@ -22,7 +22,7 @@ const MAX_MEDIA = 6;
 
 async function pickMediaFromDevice(): Promise<DraftMedia | null> {
   try {
-    const ImagePicker = await import("expo-image-picker");
+    const ImagePicker = (await new Function("return import(\"expo-image-picker\")")()) as any;
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       throw new Error("Permesso galleria non concesso");
