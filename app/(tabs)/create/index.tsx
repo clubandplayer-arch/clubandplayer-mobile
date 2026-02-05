@@ -10,6 +10,8 @@ import {
   Image,
 } from "react-native";
 import { useRouter } from "expo-router";
+import * as FileSystem from "expo-file-system";
+import * as ImagePicker from "expo-image-picker";
 import { supabase } from "../../../src/lib/supabase";
 import { emit } from "../../../src/lib/events/appEvents";
 import { createPost } from "../../../src/lib/posts/createPost";
@@ -26,7 +28,6 @@ const MAX_VIDEO_SIZE_BYTES = 80 * 1024 * 1024;
 
 async function pickMediaFromDevice(): Promise<DraftMedia | null> {
   try {
-    const ImagePicker = (await new Function("return import(\"expo-image-picker\")")()) as any;
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       throw new Error("Permesso galleria non concesso");
@@ -49,8 +50,7 @@ async function pickMediaFromDevice(): Promise<DraftMedia | null> {
     let size = sizeFromAsset;
     if (size == null) {
       try {
-        const FileSystem = (await new Function("return import(\"expo-file-system\")")()) as any;
-        const info = await FileSystem.getInfoAsync(asset.uri, { size: true });
+        const info = await FileSystem.getInfoAsync(asset.uri, { size: true } as any);
         if (info?.exists && typeof info.size === "number") {
           size = info.size;
         }
