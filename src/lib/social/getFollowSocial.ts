@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveProfileByAuthorId } from "../profiles/resolveProfile";
+import { devLog, devWarn } from "../debug/devLog";
+import { getCachedFollowSource, setCachedFollowSource } from "./discoveryCache";
 
 export type FollowSocial = {
   isFollowing: boolean;
@@ -40,15 +42,39 @@ async function discoverFollowSource(
   supabase: SupabaseClient,
   targetIds: string[],
 ): Promise<{ candidate: FollowQueryCandidate; targetId: string } | null> {
+  const cached = getCachedFollowSource();
+  if (cached) {
+    return {
+      candidate: {
+        table: cached.table,
+        followerColumn: cached.followerColumn,
+        followedColumn: cached.followedColumn,
+      },
+      targetId: targetIds[0] ?? "",
+    };
+  }
+
+  let lastError: string | undefined;
   for (const candidate of FOLLOW_TABLE_CANDIDATES) {
     for (const targetId of targetIds) {
       const { error } = await supabase
         .from(candidate.table)
         .select("id", { count: "exact", head: true })
         .eq(candidate.followedColumn, targetId);
-      if (!error) return { candidate, targetId };
+      if (!error) {
+        setCachedFollowSource(candidate);
+        devLog("discovered follow source", candidate);
+        return { candidate, targetId };
+      }
+      lastError = error?.message ?? String(error);
     }
   }
+
+  devWarn("follow discovery failed", {
+    triedCandidates: FOLLOW_TABLE_CANDIDATES,
+    targetIds,
+    lastError,
+  });
   return null;
 }
 
