@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
-import { supabase } from "../src/lib/supabase";
+import { supabase } from "../../../src/lib/supabase";
 
 type CheckStatus = "ok" | "fail" | "pending";
 
