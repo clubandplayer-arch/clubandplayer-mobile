@@ -262,10 +262,10 @@ export async function getPostSocial(
             profileMap.set(authorId, profile);
           }),
         );
-        const profileIds = Array.from(profileMap.values())
+        const clubIds = Array.from(profileMap.values())
           .map((profile) => asString(profile?.id))
           .filter(Boolean) as string[];
-        const verifiedMap = await fetchClubVerificationMap(supabase, profileIds);
+        const verifiedMap = await fetchClubVerificationMap(supabase, clubIds);
         const authorMap = new Map<string, FeedAuthor | null>();
         for (const [authorId, profile] of profileMap.entries()) {
           const profileId = asString(profile?.id);

@@ -27,7 +27,7 @@ const initialChecks: DebugCheck[] = [
     message: null,
   },
   {
-    label: "club_verification_requests (status=approved)",
+    label: "club_verification_requests_view",
     status: "pending",
     message: null,
   },
@@ -62,7 +62,7 @@ export default function DebugScreen() {
 
         const postMediaResult = await supabase
           .from("post_media")
-          .select("id,post_id,url,media_path,media_bucket,media_type")
+          .select("id,post_id,url,poster_url,media_type")
           .limit(1);
         results.push({
           label: "post_media",
@@ -83,12 +83,11 @@ export default function DebugScreen() {
         });
 
         const verificationResult = await supabase
-          .from("club_verification_requests")
-          .select("profile_id,status,payment_status,verified_until")
-          .eq("status", "approved")
+          .from("club_verification_requests_view")
+          .select("club_id,is_verified")
           .limit(1);
         results.push({
-          label: "club_verification_requests (status=approved)",
+          label: "club_verification_requests_view",
           status: verificationResult.error ? "fail" : "ok",
           message: verificationResult.error?.message ?? null,
         });
