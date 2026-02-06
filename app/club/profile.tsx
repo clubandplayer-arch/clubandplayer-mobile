@@ -8,7 +8,12 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { fetchMyProfile, fetchWhoami, patchMyProfile } from "../../src/lib/api";
+import {
+  fetchMyProfile,
+  fetchWhoami,
+  patchMyProfile,
+  syncSession,
+} from "../../src/lib/api";
 import {
   PROFILE_PATCH_FIELDS,
   type ProfilePatchField,
@@ -161,6 +166,7 @@ export default function ClubProfileScreen() {
         return;
       }
 
+      await syncSession();
       const response = await fetchMyProfile();
       if (!isMounted) return;
 
