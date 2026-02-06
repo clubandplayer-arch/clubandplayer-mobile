@@ -17,10 +17,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 if (__DEV__) {
   void (async () => {
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
+    const { data: sessionData } = await supabase.auth.getSession();
+    const { data: userData } = await supabase.auth.getUser();
 
-    console.log("[Supabase][DEV] getSession", { sessionData, sessionError });
-    console.log("[Supabase][DEV] getUser", { userData, userError });
+    console.log("[Supabase][DEV] sessionPresent", Boolean(sessionData.session));
+    console.log("[Supabase][DEV] userId", userData.user?.id ?? null);
   })();
 }

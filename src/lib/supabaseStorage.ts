@@ -6,8 +6,12 @@ type SecureStoreAdapter = {
   removeItem: (key: string) => Promise<void>;
 };
 
+const OPTIONS: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK,
+};
+
 export const secureStoreAdapter: SecureStoreAdapter = {
-  getItem: (key) => SecureStore.getItemAsync(key),
-  setItem: (key, value) => SecureStore.setItemAsync(key, value),
-  removeItem: (key) => SecureStore.deleteItemAsync(key),
+  getItem: (key) => SecureStore.getItemAsync(key, OPTIONS),
+  setItem: (key, value) => SecureStore.setItemAsync(key, value, OPTIONS),
+  removeItem: (key) => SecureStore.deleteItemAsync(key, OPTIONS),
 };
