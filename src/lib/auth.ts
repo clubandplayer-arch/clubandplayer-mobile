@@ -62,7 +62,8 @@ function waitForRedirectUrl({
       try {
         const parsed = new URL(url);
         if (parsed.protocol.replace(":", "") !== expectedScheme) return;
-        if (parsed.host !== expectedHost) return;
+        if (expectedHost && parsed.host !== expectedHost) return;
+        if (parsed.pathname !== "/callback") return;
       } catch {
         // If URL() fails, still accept the string and let parser try.
       }
@@ -84,7 +85,7 @@ function waitForRedirectUrl({
 }
 
 export async function signInWithGoogle() {
-  const redirectTo = Linking.createURL("callback", { scheme: "clubandplayer" });
+  const redirectTo = Linking.createURL("/callback", { scheme: "clubandplayer" });
 
   if (__DEV__) {
     console.log("[auth] redirectTo:", redirectTo);
@@ -109,7 +110,7 @@ export async function signInWithGoogle() {
   const redirectPromise = waitForRedirectUrl({
     timeoutMs: 45_000,
     expectedScheme: "clubandplayer",
-    expectedHost: "callback",
+    expectedHost: "",
   });
 
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);

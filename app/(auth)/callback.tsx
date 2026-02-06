@@ -35,7 +35,7 @@ export default function AuthCallback() {
       if (!url || handledRef.current) return;
 
       if (url.includes("expo-development-client")) return;
-      if (!url.includes("/auth/callback")) return;
+      if (!url.includes("/callback") && !url.includes("/auth/callback")) return;
 
       const parsed = Linking.parse(url);
       const code = parsed.queryParams?.code;
