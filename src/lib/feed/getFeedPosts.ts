@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveProfilesByAuthorIds } from '../profiles/resolveProfile';
 import { asString, normalizeMediaRow, type NormalizedMediaItem } from '../media/normalizeMedia';
 import { devLog, devWarn } from '../debug/devLog';
+import { fetchClubVerificationMap } from '../profiles/verification';
 import {
   getCachedCommentSource,
   getCachedLikeSource,
@@ -24,6 +25,7 @@ export type FeedAuthor = {
   verified_until?: string | null;
   certified?: boolean | null;
   certification_status?: string | null;
+  is_verified?: boolean | null;
 };
 
 export type FeedPost = {
@@ -377,14 +379,21 @@ export async function getFeedPosts(
   if (postIds.length) {
     const { data: mediaRows, error: mediaErr } = await supabase
       .from('post_media')
-      .select('id, post_id, media_type, url, poster_url, width, height, position')
+      .select('id, post_id, media_type, url, poster_url, width, height, position, media_path, media_bucket')
       .in('post_id', postIds)
       .order('position', { ascending: true });
 
     if (!mediaErr && Array.isArray(mediaRows)) {
       for (const mr of mediaRows) {
         const postId = asString((mr as any)?.post_id);
-        const normalized = normalizeMediaRow(mr);
+        const mediaPath = asString((mr as any)?.media_path);
+        const mediaBucket = asString((mr as any)?.media_bucket) ?? 'posts';
+        let url = asString((mr as any)?.url);
+        if (!url && mode === 'all' && mediaPath) {
+          const publicUrl = supabase.storage.from(mediaBucket).getPublicUrl(mediaPath).data.publicUrl;
+          url = publicUrl ? String(publicUrl) : null;
+        }
+        const normalized = normalizeMediaRow({ ...(mr as any), url });
         if (!postId || !normalized) continue;
         const list = mediaByPost.get(postId) ?? [];
         list.push(normalized);
@@ -397,7 +406,14 @@ export async function getFeedPosts(
   const authorById = new Map<string, FeedAuthor>();
   if (authorIds.length) {
     const profilesById = await resolveProfilesByAuthorIds(authorIds, supabase);
+    const profileIds = uniq(
+      Array.from(profilesById.values())
+        .map((profile) => asString(profile?.id))
+        .filter(Boolean) as string[],
+    );
+    const verifiedMap = await fetchClubVerificationMap(supabase, profileIds);
     for (const [key, profile] of profilesById.entries()) {
+      const profileId = asString(profile?.id);
       authorById.set(key, {
         id: profile.id,
         user_id: profile.user_id ?? undefined,
@@ -410,6 +426,7 @@ export async function getFeedPosts(
         verified_until: profile.verified_until,
         certified: profile.certified,
         certification_status: profile.certification_status,
+        is_verified: profileId ? verifiedMap.get(profileId) ?? false : false,
       });
     }
   }

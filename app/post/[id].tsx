@@ -20,6 +20,7 @@ import { getPostSocial, type PostSocialResult } from "../../src/lib/posts/getPos
 import { createPostComment } from "../../src/lib/posts/createPostComment";
 import { togglePostLike } from "../../src/lib/posts/togglePostLike";
 import { isCertifiedClub } from "../../src/lib/profiles/certification";
+import { fetchClubVerificationMap } from "../../src/lib/profiles/verification";
 
 type PostRow = {
   id: string;
@@ -153,6 +154,8 @@ export default function PostDetailScreen() {
       }
 
       const resolved = await resolveProfileByAuthorId(authorId, supabase);
+      const verifiedMap = resolved?.id ? await fetchClubVerificationMap(supabase, [resolved.id]) : new Map();
+      const isVerified = resolved?.id ? verifiedMap.get(resolved.id) ?? false : false;
       setAuthor(
         resolved
           ? {
@@ -167,6 +170,7 @@ export default function PostDetailScreen() {
               verified_until: resolved.verified_until,
               certified: resolved.certified,
               certification_status: resolved.certification_status,
+              is_verified: isVerified,
             }
           : null,
       );
@@ -209,6 +213,8 @@ export default function PostDetailScreen() {
     }
 
     const profile = await resolveProfileByAuthorId(currentViewerUserId, supabase);
+    const verifiedMap = profile?.id ? await fetchClubVerificationMap(supabase, [profile.id]) : new Map();
+    const isVerified = profile?.id ? verifiedMap.get(profile.id) ?? false : false;
     const mappedAuthor: FeedAuthor | null = profile
       ? {
           id: profile.id,
@@ -222,6 +228,7 @@ export default function PostDetailScreen() {
           verified_until: profile.verified_until,
           certified: profile.certified,
           certification_status: profile.certification_status,
+          is_verified: isVerified,
         }
       : null;
 

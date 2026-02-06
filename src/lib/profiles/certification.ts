@@ -26,6 +26,8 @@ export function isClubAuthor(author?: FeedAuthor | null): boolean {
 export function isCertifiedClub(author: FeedAuthor): boolean {
   if (!isClubAuthor(author)) return false;
 
+  if (author.is_verified) return true;
+
   const expiresAt = asTimestamp(author.verified_until);
   const hasVerifiedUntil = expiresAt != null;
 
