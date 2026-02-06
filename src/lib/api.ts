@@ -18,6 +18,102 @@ export type WhoamiResponse = {
   admin?: boolean;
 };
 
+export type ProfileMe = {
+  id?: string | null;
+  user_id?: string | null;
+  full_name?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  bio?: string | null;
+  country?: string | null;
+  region?: string | null;
+  province?: string | null;
+  birth_year?: number | null;
+  birth_place?: string | null;
+  city?: string | null;
+  residence_region_id?: number | null;
+  residence_province_id?: number | null;
+  residence_municipality_id?: number | null;
+  birth_country?: string | null;
+  birth_region_id?: number | null;
+  birth_province_id?: number | null;
+  birth_municipality_id?: number | null;
+  foot?: string | null;
+  height_cm?: number | null;
+  weight_kg?: number | null;
+  sport?: string | null;
+  role?: string | null;
+  visibility?: string | null;
+  interest_country?: string | null;
+  interest_region_id?: number | null;
+  interest_province_id?: number | null;
+  interest_municipality_id?: number | null;
+  interest_region?: string | null;
+  interest_province?: string | null;
+  interest_city?: string | null;
+  links?: unknown;
+  skills?: unknown;
+  notify_email_new_message?: boolean | null;
+  account_type?: string | null;
+  club_foundation_year?: number | null;
+  club_stadium?: string | null;
+  club_stadium_address?: string | null;
+  club_stadium_lat?: number | null;
+  club_stadium_lng?: number | null;
+  club_league_category?: string | null;
+  club_motto?: string | null;
+};
+
+export type ProfileMeResponse = {
+  data: ProfileMe;
+};
+
+export const PROFILE_ME_PATCH_FIELDS = [
+  "full_name",
+  "display_name",
+  "avatar_url",
+  "bio",
+  "country",
+  "region",
+  "province",
+  "birth_year",
+  "birth_place",
+  "city",
+  "residence_region_id",
+  "residence_province_id",
+  "residence_municipality_id",
+  "birth_country",
+  "birth_region_id",
+  "birth_province_id",
+  "birth_municipality_id",
+  "foot",
+  "height_cm",
+  "weight_kg",
+  "sport",
+  "role",
+  "visibility",
+  "interest_country",
+  "interest_region_id",
+  "interest_province_id",
+  "interest_municipality_id",
+  "interest_region",
+  "interest_province",
+  "interest_city",
+  "links",
+  "skills",
+  "notify_email_new_message",
+  "account_type",
+  "club_foundation_year",
+  "club_stadium",
+  "club_stadium_address",
+  "club_stadium_lat",
+  "club_stadium_lng",
+  "club_league_category",
+  "club_motto",
+] as const;
+
+export type ProfileMePatch = Partial<Pick<ProfileMe, (typeof PROFILE_ME_PATCH_FIELDS)[number]>>;
+
 export function getWebBaseUrl(): string {
   const raw = process.env.EXPO_PUBLIC_WEB_BASE_URL || DEFAULT_WEB_BASE_URL;
   return raw.replace(/\/+$/, "");
@@ -95,6 +191,21 @@ export async function clearSession(): Promise<ApiResponse<{ ok: boolean; cleared
 export async function fetchWhoami(): Promise<ApiResponse<WhoamiResponse>> {
   return apiFetch<WhoamiResponse>("/api/auth/whoami", {
     method: "GET",
+  });
+}
+
+export async function fetchProfileMe(): Promise<ApiResponse<ProfileMeResponse>> {
+  return apiFetch<ProfileMeResponse>("/api/profiles/me", {
+    method: "GET",
+  });
+}
+
+export async function patchProfileMe(
+  payload: ProfileMePatch
+): Promise<ApiResponse<ProfileMeResponse>> {
+  return apiFetch<ProfileMeResponse>("/api/profiles/me", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
   });
 }
 

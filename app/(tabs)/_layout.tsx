@@ -24,7 +24,7 @@ export default function TabsLayout() {
             case "notifications/index":
               iconName = focused ? "notifications" : "notifications-outline";
               break;
-            case "me/index":
+            case "player/profile/index":
               iconName = focused ? "person" : "person-outline";
               break;
           }
@@ -50,7 +50,7 @@ export default function TabsLayout() {
         options={{ title: "Notifiche", tabBarLabel: "Notifiche" }}
       />
       <Tabs.Screen
-        name="me/index"
+        name="player/profile/index"
         options={{ title: "Profilo", tabBarLabel: "Profilo" }}
       />
     </Tabs>
