@@ -98,6 +98,21 @@ export async function fetchWhoami(): Promise<ApiResponse<WhoamiResponse>> {
   });
 }
 
+export async function fetchMyProfile(): Promise<ApiResponse<Record<string, unknown>>> {
+  return apiFetch<Record<string, unknown>>("/api/profiles/me", {
+    method: "GET",
+  });
+}
+
+export async function patchMyProfile(
+  body: Record<string, unknown>,
+): Promise<ApiResponse<Record<string, unknown>>> {
+  return apiFetch<Record<string, unknown>>("/api/profiles/me", {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
 export function useWhoami() {
   const [data, setData] = useState<WhoamiResponse | null>(null);
   const [loading, setLoading] = useState(true);
