@@ -416,7 +416,7 @@ export default function MeScreen() {
         </Text>
 
         <Pressable
-          onPress={() => router.push("/debug")}
+          onPress={() => router.push("/(tabs)/me/debug")}
           style={{
             paddingVertical: 10,
             paddingHorizontal: 14,
