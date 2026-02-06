@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { supabase } from "../../../src/lib/supabase";
+import { fetchWhoami, getWebBaseUrl, syncSession } from "../../../src/lib/api";
 
 type CheckStatus = "ok" | "fail" | "pending";
 
@@ -38,6 +45,11 @@ export default function DebugScreen() {
   const [sessionPresent, setSessionPresent] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [checks, setChecks] = useState<DebugCheck[]>(initialChecks);
+  const [webBaseUrl] = useState(() => getWebBaseUrl());
+  const [syncResult, setSyncResult] = useState<string>("");
+  const [whoamiResult, setWhoamiResult] = useState<string>("");
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isLoadingWhoami, setIsLoadingWhoami] = useState(false);
 
   useEffect(() => {
     const runChecks = async () => {
@@ -101,6 +113,56 @@ export default function DebugScreen() {
     runChecks();
   }, []);
 
+  const handleSyncSession = async () => {
+    setIsSyncing(true);
+    setSyncResult("");
+    try {
+      const result = await syncSession();
+      if (result.ok) {
+        setSyncResult(
+          `OK (status ${result.status})\n${JSON.stringify(
+            result.data ?? null,
+            null,
+            2,
+          )}`,
+        );
+      } else {
+        setSyncResult(
+          `ERROR (status ${result.status})\n${result.errorText ?? "Unknown error"}`,
+        );
+      }
+    } catch (error) {
+      setSyncResult(`ERROR\n${String(error)}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleWhoami = async () => {
+    setIsLoadingWhoami(true);
+    setWhoamiResult("");
+    try {
+      const result = await fetchWhoami();
+      if (result.ok) {
+        setWhoamiResult(
+          `OK (status ${result.status})\n${JSON.stringify(
+            result.data ?? null,
+            null,
+            2,
+          )}`,
+        );
+      } else {
+        setWhoamiResult(
+          `ERROR (status ${result.status})\n${result.errorText ?? "Unknown error"}`,
+        );
+      }
+    } catch (error) {
+      setWhoamiResult(`ERROR\n${String(error)}`);
+    } finally {
+      setIsLoadingWhoami(false);
+    }
+  };
+
   return (
     <ScrollView
       style={{ flex: 1 }}
@@ -135,6 +197,60 @@ export default function DebugScreen() {
             </View>
           ))
         )}
+      </View>
+
+      <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 12 }}>
+        <Text style={{ fontSize: 16, fontWeight: "700" }}>
+          WEB Session (PR1)
+        </Text>
+        <Text>baseUrl: {webBaseUrl}</Text>
+
+        <View style={{ flexDirection: "row", gap: 12, flexWrap: "wrap" }}>
+          <Pressable
+            onPress={handleSyncSession}
+            disabled={isSyncing}
+            style={{
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              borderRadius: 8,
+              backgroundColor: isSyncing ? "#9ca3af" : "#111827",
+            }}
+          >
+            <Text style={{ color: "#ffffff", fontWeight: "600" }}>
+              {isSyncing ? "Syncing…" : "Sync WEB session"}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={handleWhoami}
+            disabled={isLoadingWhoami}
+            style={{
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              borderRadius: 8,
+              backgroundColor: isLoadingWhoami ? "#9ca3af" : "#1f2937",
+            }}
+          >
+            <Text style={{ color: "#ffffff", fontWeight: "600" }}>
+              {isLoadingWhoami ? "Loading…" : "WEB whoami"}
+            </Text>
+          </Pressable>
+        </View>
+
+        <View style={{ gap: 10 }}>
+          <View>
+            <Text style={{ fontWeight: "700" }}>Sync output</Text>
+            <Text style={{ fontFamily: "Courier", color: "#111827" }}>
+              {syncResult || "—"}
+            </Text>
+          </View>
+          <View>
+            <Text style={{ fontWeight: "700" }}>Whoami output</Text>
+            <Text style={{ fontFamily: "Courier", color: "#111827" }}>
+              {whoamiResult || "—"}
+            </Text>
+          </View>
+        </View>
       </View>
     </ScrollView>
   );
