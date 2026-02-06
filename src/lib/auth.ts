@@ -84,7 +84,7 @@ function waitForRedirectUrl({
 }
 
 export async function signInWithGoogle() {
-  const redirectTo = Linking.createURL("callback", { scheme: "clubandplayer" });
+  const redirectTo = Linking.createURL("/callback", { scheme: "clubandplayer" });
 
   if (__DEV__) {
     console.log("[auth] redirectTo:", redirectTo);
