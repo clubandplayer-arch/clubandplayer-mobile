@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useRouter } from "expo-router";
 
-export default function ProfileTabRedirect() {
+export default function LegacyProfileRedirect() {
   const router = useRouter();
 
   useEffect(() => {

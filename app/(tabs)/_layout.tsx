@@ -51,7 +51,7 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="me/index"
-        options={{ title: "Profilo", tabBarLabel: "Profilo" }}
+        options={{ title: "Profilo", tabBarLabel: "Profilo", href: "/player/profile" }}
       />
     </Tabs>
   );
