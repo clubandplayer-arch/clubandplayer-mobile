@@ -3,10 +3,11 @@ import { supabase } from "./supabase";
 
 const DEFAULT_WEB_BASE_URL = "https://www.clubandplayer.com";
 
-type ApiResponse<T> = {
+export type ApiResponse<T> = {
   ok: boolean;
+  status: number;
   data?: T;
-  error?: string;
+  errorText?: string;
 };
 
 export type WhoamiResponse = {
@@ -17,7 +18,7 @@ export type WhoamiResponse = {
   admin?: boolean;
 };
 
-function getWebBaseUrl(): string {
+export function getWebBaseUrl(): string {
   const raw = process.env.EXPO_PUBLIC_WEB_BASE_URL || DEFAULT_WEB_BASE_URL;
   return raw.replace(/\/+$/, "");
 }
@@ -42,15 +43,32 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<ApiRespons
     },
   });
 
+  const status = response.status;
+  let responseText = "";
+
+  try {
+    responseText = await response.text();
+  } catch (error) {
+    return { ok: false, status, errorText: String(error) };
+  }
+
   if (!response.ok) {
-    return { ok: false, error: `HTTP ${response.status}` };
+    return {
+      ok: false,
+      status,
+      errorText: responseText || `HTTP ${status}`,
+    };
+  }
+
+  if (!responseText) {
+    return { ok: true, status };
   }
 
   try {
-    const json = (await response.json()) as T;
-    return { ok: true, data: json };
+    const json = JSON.parse(responseText) as T;
+    return { ok: true, status, data: json };
   } catch (error) {
-    return { ok: false, error: String(error) };
+    return { ok: false, status, errorText: String(error) };
   }
 }
 
@@ -93,7 +111,7 @@ export function useWhoami() {
       setData(response.data ?? null);
     } else {
       setData(null);
-      setError(response.error ?? "Unknown error");
+      setError(response.errorText ?? "Unknown error");
     }
     setLoading(false);
   }, []);
