@@ -408,6 +408,27 @@ export default function MeScreen() {
 
         <Text style={{ fontSize: 12, color: "#6b7280" }}>{appVersionLabel}</Text>
       </View>
+
+      <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 10 }}>
+        <Text style={{ fontSize: 16, fontWeight: "700" }}>Internal tools</Text>
+        <Text style={{ color: "#374151" }}>
+          Debug rapido per verificare le query Supabase in produzione.
+        </Text>
+
+        <Pressable
+          onPress={() => router.push("/debug")}
+          style={{
+            paddingVertical: 10,
+            paddingHorizontal: 14,
+            borderWidth: 1,
+            borderColor: "#111827",
+            borderRadius: 10,
+            alignSelf: "flex-start",
+          }}
+        >
+          <Text style={{ color: "#111827", fontWeight: "700" }}>Apri Debug</Text>
+        </Pressable>
+      </View>
     </ScrollView>
   );
 }
