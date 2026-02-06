@@ -12,19 +12,19 @@ export default function TabsLayout() {
           let iconName: keyof typeof Ionicons.glyphMap = "apps";
 
           switch (route.name) {
-            case "feed":
+            case "feed/index":
               iconName = focused ? "home" : "home-outline";
               break;
-            case "search":
+            case "search/index":
               iconName = focused ? "search" : "search-outline";
               break;
-            case "create":
+            case "create/index":
               iconName = focused ? "add-circle" : "add-circle-outline";
               break;
-            case "notifications":
+            case "notifications/index":
               iconName = focused ? "notifications" : "notifications-outline";
               break;
-            case "me":
+            case "me/index":
               iconName = focused ? "person" : "person-outline";
               break;
           }
@@ -33,17 +33,26 @@ export default function TabsLayout() {
         },
       })}
     >
-      <Tabs.Screen name="feed" options={{ title: "Feed", tabBarLabel: "Feed" }} />
       <Tabs.Screen
-        name="search"
+        name="feed/index"
+        options={{ title: "Feed", tabBarLabel: "Feed" }}
+      />
+      <Tabs.Screen
+        name="search/index"
         options={{ title: "Cerca", tabBarLabel: "Cerca" }}
       />
-      <Tabs.Screen name="create" options={{ title: "Crea", tabBarLabel: "Crea" }} />
       <Tabs.Screen
-        name="notifications"
+        name="create/index"
+        options={{ title: "Crea", tabBarLabel: "Crea" }}
+      />
+      <Tabs.Screen
+        name="notifications/index"
         options={{ title: "Notifiche", tabBarLabel: "Notifiche" }}
       />
-      <Tabs.Screen name="me" options={{ title: "Profilo", tabBarLabel: "Profilo" }} />
+      <Tabs.Screen
+        name="me/index"
+        options={{ title: "Profilo", tabBarLabel: "Profilo" }}
+      />
     </Tabs>
   );
 }
