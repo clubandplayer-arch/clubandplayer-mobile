@@ -8,14 +8,20 @@ type WhoamiProfile = {
   type?: string | null;
 };
 
-function resolveAccountType(profile: unknown, role: string | null): string | null {
+type WhoamiData = {
+  user?: unknown;
+  role?: string | null;
+  profile?: unknown;
+};
+
+function resolveAccountType(profile: unknown, role: string | null | undefined): string | null {
   if (role) return role;
   if (!profile || typeof profile !== "object") return null;
   const candidate = profile as WhoamiProfile;
   return candidate.account_type ?? candidate.type ?? null;
 }
 
-function isClubAccount(profile: unknown, role: string | null): boolean {
+function isClubAccount(profile: unknown, role: string | null | undefined): boolean {
   const accountType = resolveAccountType(profile, role);
   return accountType === "club";
 }
@@ -29,22 +35,37 @@ export default function MeScreen() {
     let isMounted = true;
 
     const load = async () => {
-      const response = await fetchWhoami();
-      if (!isMounted) return;
+      setLoading(true);
+      setError(null);
 
-      if (!response.ok) {
-        setError(response.errorText ?? "Errore nel caricamento profilo");
-        setLoading(false);
-        return;
-      }
+      try {
+        const response = await fetchWhoami();
+        if (!response.ok) {
+          throw new Error(response.errorText ?? "Errore nel caricamento profilo");
+        }
 
-      const profile = response.data?.profile ?? null;
-      const role = response.data?.role ?? null;
+        const data = response.data as WhoamiData | undefined;
+        if (!data?.user) {
+          router.replace("/(auth)/login");
+          return;
+        }
 
-      if (isClubAccount(profile, role)) {
-        router.replace("/club/profile");
-      } else {
+        const profile = data.profile ?? null;
+        const role = data.role ?? null;
+
+        if (isClubAccount(profile, role)) {
+          router.replace("/club/profile");
+          return;
+        }
+
         router.replace("/player/profile");
+      } catch (err) {
+        if (!isMounted) return;
+        setError(err instanceof Error ? err.message : "Errore nel caricamento profilo");
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
