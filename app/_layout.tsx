@@ -71,7 +71,7 @@ function AuthGate() {
       if (inCallback) {
         target = null;
       } else if (!onboardingSeen) {
-        target = "/(onboarding)";
+        target = "/(onboarding)/index";
       } else {
         target = "/(auth)/login";
       }
@@ -90,7 +90,7 @@ function AuthGate() {
     if (!session && !inCallback) {
       const inAuth = currentGroup === "(auth)";
       const inOnboarding = currentGroup === "(onboarding)";
-      if ((target === "/(auth)/login" && inAuth) || (target === "/(onboarding)" && inOnboarding)) {
+      if ((target === "/(auth)/login" && inAuth) || (target === "/(onboarding)/index" && inOnboarding)) {
         return;
       }
     }
