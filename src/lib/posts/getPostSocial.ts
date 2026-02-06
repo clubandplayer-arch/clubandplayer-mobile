@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FeedAuthor } from "../feed/getFeedPosts";
 import { resolveProfileByAuthorId } from "../profiles/resolveProfile";
 import { devLog, devWarn } from "../debug/devLog";
+import { fetchClubVerificationMap } from "../profiles/verification";
 import {
   getCachedCommentSource,
   getCachedLikeSource,
@@ -48,7 +49,10 @@ function asString(value: unknown): string | null {
   }
 }
 
-function mapToFeedAuthor(profile: Awaited<ReturnType<typeof resolveProfileByAuthorId>>): FeedAuthor | null {
+function mapToFeedAuthor(
+  profile: Awaited<ReturnType<typeof resolveProfileByAuthorId>>,
+  isVerified: boolean,
+): FeedAuthor | null {
   if (!profile) return null;
   return {
     id: profile.id,
@@ -62,6 +66,7 @@ function mapToFeedAuthor(profile: Awaited<ReturnType<typeof resolveProfileByAuth
     verified_until: profile.verified_until,
     certified: profile.certified,
     certification_status: profile.certification_status,
+    is_verified: isVerified,
   };
 }
 
@@ -250,13 +255,23 @@ export async function getPostSocial(
         new Set(comments.map((comment) => comment.author_id).filter(Boolean) as string[]),
       );
       if (uniqueAuthorIds.length) {
-        const authorMap = new Map<string, FeedAuthor | null>();
+        const profileMap = new Map<string, Awaited<ReturnType<typeof resolveProfileByAuthorId>> | null>();
         await Promise.all(
           uniqueAuthorIds.map(async (authorId) => {
             const profile = await resolveProfileByAuthorId(authorId, supabase);
-            authorMap.set(authorId, mapToFeedAuthor(profile));
+            profileMap.set(authorId, profile);
           }),
         );
+        const profileIds = Array.from(profileMap.values())
+          .map((profile) => asString(profile?.id))
+          .filter(Boolean) as string[];
+        const verifiedMap = await fetchClubVerificationMap(supabase, profileIds);
+        const authorMap = new Map<string, FeedAuthor | null>();
+        for (const [authorId, profile] of profileMap.entries()) {
+          const profileId = asString(profile?.id);
+          const isVerified = profileId ? verifiedMap.get(profileId) ?? false : false;
+          authorMap.set(authorId, mapToFeedAuthor(profile, isVerified));
+        }
         comments = comments.map((comment) => ({
           ...comment,
           author: comment.author_id ? authorMap.get(comment.author_id) ?? null : null,
