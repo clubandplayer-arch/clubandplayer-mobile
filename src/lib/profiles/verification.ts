@@ -12,25 +12,22 @@ function asString(value: unknown): string | null {
 
 export async function fetchClubVerificationMap(
   supabase: SupabaseClient,
-  profileIds: string[],
+  clubIds: string[],
 ): Promise<Map<string, boolean>> {
   const map = new Map<string, boolean>();
-  if (!profileIds.length) return map;
+  if (!clubIds.length) return map;
 
   const { data, error } = await supabase
-    .from("club_verification_requests")
-    .select("profile_id")
-    .in("profile_id", profileIds)
-    .eq("status", "approved")
-    .in("payment_status", ["paid", "waived"])
-    .gt("verified_until", new Date().toISOString());
+    .from("club_verification_requests_view")
+    .select("club_id,is_verified")
+    .in("club_id", clubIds);
 
   if (error || !Array.isArray(data)) return map;
 
   for (const row of data) {
-    const profileId = asString((row as any)?.profile_id);
-    if (profileId) {
-      map.set(profileId, true);
+    const clubId = asString((row as any)?.club_id);
+    if (clubId) {
+      map.set(clubId, Boolean((row as any)?.is_verified));
     }
   }
 

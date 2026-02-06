@@ -379,21 +379,14 @@ export async function getFeedPosts(
   if (postIds.length) {
     const { data: mediaRows, error: mediaErr } = await supabase
       .from('post_media')
-      .select('id, post_id, media_type, url, poster_url, width, height, position, media_path, media_bucket')
+      .select('id, post_id, media_type, url, poster_url, width, height, position')
       .in('post_id', postIds)
       .order('position', { ascending: true });
 
     if (!mediaErr && Array.isArray(mediaRows)) {
       for (const mr of mediaRows) {
         const postId = asString((mr as any)?.post_id);
-        const mediaPath = asString((mr as any)?.media_path);
-        const mediaBucket = asString((mr as any)?.media_bucket) ?? 'posts';
-        let url = asString((mr as any)?.url);
-        if (!url && mode === 'all' && mediaPath) {
-          const publicUrl = supabase.storage.from(mediaBucket).getPublicUrl(mediaPath).data.publicUrl;
-          url = publicUrl ? String(publicUrl) : null;
-        }
-        const normalized = normalizeMediaRow({ ...(mr as any), url });
+        const normalized = normalizeMediaRow(mr);
         if (!postId || !normalized) continue;
         const list = mediaByPost.get(postId) ?? [];
         list.push(normalized);
@@ -406,12 +399,12 @@ export async function getFeedPosts(
   const authorById = new Map<string, FeedAuthor>();
   if (authorIds.length) {
     const profilesById = await resolveProfilesByAuthorIds(authorIds, supabase);
-    const profileIds = uniq(
+    const clubIds = uniq(
       Array.from(profilesById.values())
         .map((profile) => asString(profile?.id))
         .filter(Boolean) as string[],
     );
-    const verifiedMap = await fetchClubVerificationMap(supabase, profileIds);
+    const verifiedMap = await fetchClubVerificationMap(supabase, clubIds);
     for (const [key, profile] of profilesById.entries()) {
       const profileId = asString(profile?.id);
       authorById.set(key, {
