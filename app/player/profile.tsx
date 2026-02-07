@@ -8,35 +8,15 @@ import {
   View,
   Pressable,
 } from "react-native";
-import { useRouter } from "expo-router";
-import { fetchProfileMe, fetchWhoami, patchProfileMe, type ProfileMe } from "../../src/lib/api";
+import { fetchProfileMe, patchProfileMe, type ProfileMe } from "../../src/lib/api";
 
 export default function PlayerProfileScreen() {
-  const router = useRouter();
-  const [roleChecked, setRoleChecked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<ProfileMe | null>(null);
 
   const [displayName, setDisplayName] = useState("");
-
-  useEffect(() => {
-    let active = true;
-    const checkRole = async () => {
-      const response = await fetchWhoami();
-      if (!active) return;
-      if (response.ok && response.data?.role === "club") {
-        router.replace("/club/profile");
-        return;
-      }
-      setRoleChecked(true);
-    };
-    checkRole();
-    return () => {
-      active = false;
-    };
-  }, [router]);
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -54,9 +34,8 @@ export default function PlayerProfileScreen() {
   }, []);
 
   useEffect(() => {
-    if (!roleChecked) return;
     void loadProfile();
-  }, [loadProfile, roleChecked]);
+  }, [loadProfile]);
 
   const onSave = useCallback(async () => {
     setSaving(true);
@@ -64,10 +43,12 @@ export default function PlayerProfileScreen() {
       display_name: displayName.trim() || null,
     });
     setSaving(false);
+
     if (!response.ok) {
       Alert.alert("Errore", response.errorText ?? "Salvataggio fallito.");
       return;
     }
+
     const data = response.data ?? profile;
     setProfile(data ?? null);
     if (data?.display_name !== undefined && data?.display_name !== null) {
@@ -76,28 +57,21 @@ export default function PlayerProfileScreen() {
     Alert.alert("Salvato", "Profilo aggiornato.");
   }, [displayName, profile]);
 
-  if (!roleChecked || loading) {
+  if (loading) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator />
-        <Text style={{ marginTop: 12, color: "#6b7280" }}>
-          Reindirizzamento…
-        </Text>
       </View>
     );
   }
 
   return (
-    <ScrollView
-      contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 48 }}
-    >
+    <ScrollView contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 48 }}>
       <Text style={{ fontSize: 28, fontWeight: "800" }}>Profilo Player</Text>
 
       {error ? (
         <View style={{ padding: 12, borderWidth: 1, borderColor: "#fecaca", borderRadius: 10 }}>
-          <Text style={{ color: "#b91c1c", fontWeight: "700" }}>
-            {error}
-          </Text>
+          <Text style={{ color: "#b91c1c", fontWeight: "700" }}>{error}</Text>
         </View>
       ) : null}
 

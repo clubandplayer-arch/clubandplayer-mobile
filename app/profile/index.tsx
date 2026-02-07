@@ -1,5 +1,5 @@
 import { Redirect } from "expo-router";
 
 export default function LegacyProfileRedirect() {
-  return <Redirect href="/player/profile" />;
+  return <Redirect href="/me" />;
 }
