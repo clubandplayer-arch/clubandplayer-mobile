@@ -245,3 +245,31 @@ export function useWhoami() {
 
   return { data, loading, error, reload: load };
 }
+
+export function useWebSession() {
+  const [ready, setReady] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const ensure = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    const res = await syncSession();
+    if (!res.ok) {
+      setReady(false);
+      setError(res.errorText ?? "Sync session failed");
+      setLoading(false);
+      return;
+    }
+
+    setReady(true);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    void ensure();
+  }, [ensure]);
+
+  return { ready, loading, error, retry: ensure };
+}
