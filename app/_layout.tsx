@@ -7,6 +7,8 @@ import {
   getOnboardingSeen,
   subscribeOnboardingSeen,
 } from "../src/lib/onboarding";
+import { setCrashLog } from "../src/lib/crashlog";
+import { CrashBoundary } from "../src/components/CrashBoundary";
 
 function AuthGate() {
   const router = useRouter();
@@ -111,14 +113,62 @@ function AuthGate() {
 }
 
 export default function RootLayout() {
+  useEffect(() => {
+    const errorUtils = (globalThis as typeof globalThis & { ErrorUtils?: any }).ErrorUtils;
+    const defaultHandler = errorUtils?.getGlobalHandler?.();
+    type UnhandledRejectionEvent = { reason?: unknown };
+
+    if (errorUtils?.setGlobalHandler) {
+      errorUtils.setGlobalHandler((error: Error, isFatal: boolean) => {
+        void setCrashLog({
+          message: error?.message || "Unknown error",
+          stack: error?.stack ?? null,
+          name: error?.name ?? null,
+        });
+        if (defaultHandler) {
+          defaultHandler(error, isFatal);
+        }
+      });
+    }
+
+    const previousUnhandled = (globalThis as typeof globalThis & {
+      onunhandledrejection?: ((event: UnhandledRejectionEvent) => void) | null;
+    }).onunhandledrejection;
+
+    (globalThis as typeof globalThis & {
+      onunhandledrejection?: ((event: UnhandledRejectionEvent) => void) | null;
+    }).onunhandledrejection = (event) => {
+      const reason = event?.reason;
+      const error =
+        reason instanceof Error ? reason : new Error(String(reason ?? "Unknown rejection"));
+      void setCrashLog({
+        message: error.message || "Unhandled rejection",
+        stack: error.stack ?? null,
+        name: error.name ?? null,
+      });
+      if (previousUnhandled) {
+        previousUnhandled(event);
+      }
+    };
+
+    return () => {
+      if (errorUtils?.setGlobalHandler && defaultHandler) {
+        errorUtils.setGlobalHandler(defaultHandler);
+      }
+      (globalThis as typeof globalThis & {
+        onunhandledrejection?: ((event: UnhandledRejectionEvent) => void) | null;
+      }).onunhandledrejection = previousUnhandled ?? null;
+    };
+  }, []);
+
   return (
-    <>
+    <CrashBoundary>
       <AuthGate />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(onboarding)" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
       </Stack>
-    </>
+    </CrashBoundary>
   );
 }

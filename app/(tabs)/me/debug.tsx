@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { supabase } from "../../../src/lib/supabase";
 import { fetchWhoami, getWebBaseUrl, syncSession } from "../../../src/lib/api";
+import { clearCrashLog, getCrashLog, type CrashLog } from "../../../src/lib/crashlog";
 
 type CheckStatus = "ok" | "fail" | "pending";
 
@@ -50,6 +51,7 @@ export default function DebugScreen() {
   const [whoamiResult, setWhoamiResult] = useState<string>("");
   const [isSyncing, setIsSyncing] = useState(false);
   const [isLoadingWhoami, setIsLoadingWhoami] = useState(false);
+  const [crashLog, setCrashLogState] = useState<CrashLog | null>(null);
 
   useEffect(() => {
     const runChecks = async () => {
@@ -113,6 +115,14 @@ export default function DebugScreen() {
     runChecks();
   }, []);
 
+  useEffect(() => {
+    const loadCrash = async () => {
+      const latest = await getCrashLog();
+      setCrashLogState(latest);
+    };
+    loadCrash();
+  }, []);
+
   const handleSyncSession = async () => {
     setIsSyncing(true);
     setSyncResult("");
@@ -161,6 +171,11 @@ export default function DebugScreen() {
     } finally {
       setIsLoadingWhoami(false);
     }
+  };
+
+  const handleClearCrash = async () => {
+    await clearCrashLog();
+    setCrashLogState(null);
   };
 
   return (
@@ -251,6 +266,36 @@ export default function DebugScreen() {
             </Text>
           </View>
         </View>
+      </View>
+
+      <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 12 }}>
+        <Text style={{ fontSize: 16, fontWeight: "700" }}>Last crash</Text>
+        {crashLog ? (
+          <View style={{ gap: 8 }}>
+            <Text style={{ color: "#6b7280" }}>{crashLog.time}</Text>
+            <Text style={{ fontWeight: "700" }}>Message</Text>
+            <Text style={{ color: "#b91c1c" }}>{crashLog.message}</Text>
+            <Text style={{ fontWeight: "700" }}>Stack</Text>
+            <Text style={{ fontFamily: "Courier", color: "#111827" }}>
+              {crashLog.stack || "—"}
+            </Text>
+          </View>
+        ) : (
+          <Text style={{ color: "#6b7280" }}>Nessun crash registrato.</Text>
+        )}
+
+        <Pressable
+          onPress={handleClearCrash}
+          style={{
+            paddingVertical: 10,
+            paddingHorizontal: 14,
+            borderRadius: 8,
+            backgroundColor: "#111827",
+            alignSelf: "flex-start",
+          }}
+        >
+          <Text style={{ color: "#ffffff", fontWeight: "600" }}>Clear</Text>
+        </Pressable>
       </View>
     </ScrollView>
   );
