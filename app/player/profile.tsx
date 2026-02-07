@@ -80,6 +80,9 @@ export default function PlayerProfileScreen() {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator />
+        <Text style={{ marginTop: 12, color: "#6b7280" }}>
+          Reindirizzamento…
+        </Text>
       </View>
     );
   }
