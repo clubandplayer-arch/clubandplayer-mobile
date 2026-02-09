@@ -399,57 +399,6 @@ export default function FeedScreen() {
           )}
         </View>
 
-        <View
-          style={{
-            borderWidth: 1,
-            borderColor: "#e5e7eb",
-            borderRadius: 12,
-            padding: 16,
-            gap: 12,
-          }}
-        >
-          <Text style={{ fontSize: 16, fontWeight: "700" }}>Azioni rapide</Text>
-
-          <Pressable
-            onPress={() => router.push("/(tabs)/create")}
-            style={{
-              borderWidth: 1,
-              borderColor: "#e5e7eb",
-              borderRadius: 12,
-              padding: 14,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ fontWeight: "700" }}>Crea post</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => router.push("/(tabs)/search")}
-            style={{
-              borderWidth: 1,
-              borderColor: "#e5e7eb",
-              borderRadius: 12,
-              padding: 14,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ fontWeight: "700" }}>Cerca</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => router.push("/(tabs)/notifications")}
-            style={{
-              borderWidth: 1,
-              borderColor: "#e5e7eb",
-              borderRadius: 12,
-              padding: 14,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ fontWeight: "700" }}>Notifiche</Text>
-          </Pressable>
-        </View>
-
         {error ? (
           <View
             style={{
@@ -463,29 +412,11 @@ export default function FeedScreen() {
           >
             <Text style={{ fontWeight: "800", color: "#b91c1c" }}>Errore</Text>
             <Text style={{ color: "#b91c1c" }}>{error}</Text>
-            <Pressable
-              onPress={() => load(feedMode)}
-              style={{ alignSelf: "flex-start" }}
-            >
+            <Pressable onPress={() => load(feedMode)} style={{ alignSelf: "flex-start" }}>
               <Text style={{ color: "#036f9a", fontWeight: "800" }}>
                 Riprova
               </Text>
             </Pressable>
-          </View>
-        ) : null}
-
-        {!loading && !error && items.length === 0 ? (
-          <View
-            style={{
-              borderWidth: 1,
-              borderColor: "#e5e7eb",
-              borderRadius: 12,
-              padding: 16,
-              gap: 8,
-            }}
-          >
-            <Text style={{ fontSize: 16, fontWeight: "700" }}>Contenuti</Text>
-            <Text style={{ color: "#374151" }}>{emptyMessage}</Text>
           </View>
         ) : null}
       </View>
@@ -525,14 +456,7 @@ export default function FeedScreen() {
 
   if (loading || web.loading) {
     return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 10,
-        }}
-      >
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
         <ActivityIndicator />
         <Text style={{ color: "#6b7280" }}>Caricamento feed…</Text>
       </View>
@@ -546,9 +470,7 @@ export default function FeedScreen() {
       renderItem={({ item }) => <FeedCard item={item} />}
       ListHeaderComponent={header}
       ListFooterComponent={footer}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       onEndReachedThreshold={0.6}
       onEndReached={loadMore}
     />

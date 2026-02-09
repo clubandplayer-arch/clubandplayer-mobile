@@ -61,12 +61,17 @@ function AuthGate() {
 
     const currentGroup = segments[0]; // "(tabs)" | "(auth)" | "(onboarding)" | undefined
     const inTabs = currentGroup === "(tabs)";
-    const inCallback = pathname === "/callback"; // expo-router strips groups in pathname
+    const inCallback = pathname === "/callback";
+
+    // ✅ Allow authenticated users to visit post detail outside tabs
+    const allowAuthedOutsideTabs =
+      pathname?.startsWith("/posts/") || pathname === "/posts";
 
     let target: string | null = null;
 
     if (session) {
-      if (!inTabs) target = "/(tabs)/feed";
+      // ✅ If user is authed and is visiting /posts/[id], do NOT redirect back to feed
+      if (!inTabs && !allowAuthedOutsideTabs) target = "/(tabs)/feed";
     } else {
       if (inCallback) {
         target = null;
@@ -82,10 +87,8 @@ function AuthGate() {
       return;
     }
 
-    // Prevent loops / repeated replaces
     if (lastTargetRef.current === target) return;
 
-    // If we're already in the correct group, avoid over-navigating
     if (session && inTabs) return;
     if (!session && !inCallback) {
       const inAuth = currentGroup === "(auth)";
@@ -118,12 +121,11 @@ export default function RootLayout() {
     <>
       <AuthGate />
       <Stack screenOptions={{ headerShown: false }}>
-        {/* main groups */}
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="(onboarding)" />
         <Stack.Screen name="(auth)" />
 
-        {/* PR4: post detail route (outside tabs) */}
+        {/* ✅ PR4 route */}
         <Stack.Screen name="posts/[id]" />
       </Stack>
     </>
