@@ -17,7 +17,11 @@ import {
   useWebSession,
   useWhoami,
 } from "../../src/lib/api";
-import { getAuthorName, getPostText, type FeedAuthor } from "../../src/lib/feed/getFeedPosts";
+import {
+  getAuthorName,
+  getPostText,
+  type FeedAuthor,
+} from "../../src/lib/feed/getFeedPosts";
 
 const POST_FIELDS =
   "id, content, created_at, author_id, media_url, media_type, media_aspect, kind, event_payload, quoted_post_id";
@@ -95,6 +99,26 @@ function sumCountsObject(value: Record<string, unknown>): number {
 function parseCountsForPost(counts: unknown, postId: string): number {
   if (typeof counts === "number" && Number.isFinite(counts)) return counts;
 
+  // Object form:
+  // - { [postId]: number }
+  // - { [postId]: { like: number, ... } }
+  // - { like: number, ... } (single object)
+  if (counts && typeof counts === "object" && !Array.isArray(counts)) {
+    const obj = counts as Record<string, unknown>;
+
+    if (postId in obj) {
+      const v = obj[postId];
+      if (typeof v === "number" && Number.isFinite(v)) return v;
+      if (v && typeof v === "object" && !Array.isArray(v)) {
+        return sumCountsObject(v as Record<string, unknown>);
+      }
+      return 0;
+    }
+
+    return sumCountsObject(obj);
+  }
+
+  // Array form: [{ post_id, count }, ...] or similar
   if (Array.isArray(counts)) {
     const match = counts.find((item) => {
       if (!item || typeof item !== "object") return false;
@@ -106,35 +130,58 @@ function parseCountsForPost(counts: unknown, postId: string): number {
       );
     }) as Record<string, unknown> | undefined;
 
-    if (match) {
-      const directCount = (match as any).count ?? (match as any).counts ?? (match as any).reactions_count;
-      if (typeof directCount === "number" && Number.isFinite(directCount)) {
-        return directCount;
-      }
-      if (directCount && typeof directCount === "object") {
-        return sumCountsObject(directCount as Record<string, unknown>);
-      }
+    if (!match) return 0;
+
+    const directCount =
+      (match as any).count ??
+      (match as any).counts ??
+      (match as any).reactions_count;
+
+    if (typeof directCount === "number" && Number.isFinite(directCount)) {
+      return directCount;
+    }
+
+    if (directCount && typeof directCount === "object") {
+      return sumCountsObject(directCount as Record<string, unknown>);
     }
 
     return 0;
   }
 
-  if (counts && typeof counts === "object") {
-    return sumCountsObject(counts as Record<string, unknown>);
-  }
-
   return 0;
 }
 
-function parseViewerHasLiked(mine: unknown): boolean {
+function parseViewerHasLiked(mine: unknown, postId: string): boolean {
   if (!mine) return false;
-  if (typeof mine === "string") return mine.length > 0;
-  if (Array.isArray(mine)) return mine.length > 0;
-  if (typeof mine === "object") return Object.keys(mine).length > 0;
+
+  // keyed object: { [postId]: true } or { [postId]: "like" } etc
+  if (mine && typeof mine === "object" && !Array.isArray(mine)) {
+    const obj = mine as Record<string, unknown>;
+    if (postId in obj) return Boolean(obj[postId]);
+    // fallback: any truthy value means liked (best-effort)
+    return Object.values(obj).some(Boolean);
+  }
+
+  // array: [postId] or [{post_id:...}] etc
+  if (Array.isArray(mine)) {
+    return mine.some((item) => {
+      if (item === postId) return true;
+      if (item && typeof item === "object") {
+        const r = item as Record<string, unknown>;
+        return r.post_id === postId || r.postId === postId || r.id === postId;
+      }
+      return false;
+    });
+  }
+
+  // string or boolean
+  if (typeof mine === "string") return mine.includes(postId) || mine.length > 0;
   return Boolean(mine);
 }
 
-async function fetchAuthorProfile(authorId: string | null): Promise<FeedAuthor | null> {
+async function fetchAuthorProfile(
+  authorId: string | null
+): Promise<FeedAuthor | null> {
   if (!authorId) return null;
 
   const primary = await supabase
@@ -159,9 +206,11 @@ async function fetchAuthorProfile(authorId: string | null): Promise<FeedAuthor |
     id: asString((data as any).id) ?? undefined,
     user_id: asString((data as any).user_id) ?? undefined,
     full_name: typeof (data as any).full_name === "string" ? (data as any).full_name : null,
-    display_name: typeof (data as any).display_name === "string" ? (data as any).display_name : null,
+    display_name:
+      typeof (data as any).display_name === "string" ? (data as any).display_name : null,
     avatar_url: typeof (data as any).avatar_url === "string" ? (data as any).avatar_url : null,
-    account_type: typeof (data as any).account_type === "string" ? (data as any).account_type : null,
+    account_type:
+      typeof (data as any).account_type === "string" ? (data as any).account_type : null,
     type: typeof (data as any).type === "string" ? (data as any).type : null,
   };
 }
@@ -225,7 +274,9 @@ function PostCard({ post, title }: { post: PostDetail; title?: string }) {
       </View>
 
       {text ? (
-        <Text style={{ fontSize: 15, lineHeight: 20, color: "#111827" }}>{text}</Text>
+        <Text style={{ fontSize: 15, lineHeight: 20, color: "#111827" }}>
+          {text}
+        </Text>
       ) : (
         <Text style={{ fontSize: 14, color: "#9ca3af" }}>
           Nessun contenuto testuale.
@@ -291,10 +342,14 @@ export default function PostDetailScreen() {
       ]);
 
       if (!reactionsRes.ok) {
-        throw new Error(reactionsRes.errorText ?? `Reactions HTTP ${reactionsRes.status}`);
+        throw new Error(
+          reactionsRes.errorText ?? `Reactions HTTP ${reactionsRes.status}`
+        );
       }
       if (!commentsRes.ok) {
-        throw new Error(commentsRes.errorText ?? `Comments HTTP ${commentsRes.status}`);
+        throw new Error(
+          commentsRes.errorText ?? `Comments HTTP ${commentsRes.status}`
+        );
       }
 
       const counts = (reactionsRes.data as any)?.counts;
@@ -304,7 +359,7 @@ export default function PostDetailScreen() {
       setSocial({
         likeCount: parseCountsForPost(counts, targetPostId),
         commentCount: parseCountsForPost(commentCounts, targetPostId),
-        viewerHasLiked: parseViewerHasLiked(mine),
+        viewerHasLiked: parseViewerHasLiked(mine, targetPostId),
         loading: false,
         error: null,
       });
@@ -345,7 +400,9 @@ export default function PostDetailScreen() {
     } catch (err) {
       setPost(null);
       setQuotedPost(null);
-      setError(err instanceof Error ? err.message : "Errore nel caricamento post");
+      setError(
+        err instanceof Error ? err.message : "Errore nel caricamento post"
+      );
     } finally {
       setLoading(false);
     }
@@ -442,7 +499,9 @@ export default function PostDetailScreen() {
             alignSelf: "flex-start",
           }}
         >
-          <Text style={{ color: "#ffffff", fontWeight: "700" }}>Vai al login</Text>
+          <Text style={{ color: "#ffffff", fontWeight: "700" }}>
+            Vai al login
+          </Text>
         </Pressable>
       </View>
     );
@@ -473,8 +532,12 @@ export default function PostDetailScreen() {
   if (!post) {
     return (
       <View style={{ flex: 1, padding: 24, gap: 12, justifyContent: "center" }}>
-        <Text style={{ fontSize: 18, fontWeight: "800" }}>Post non disponibile</Text>
-        <Text style={{ color: "#6b7280" }}>Questo post non esiste o non è accessibile.</Text>
+        <Text style={{ fontSize: 18, fontWeight: "800" }}>
+          Post non disponibile
+        </Text>
+        <Text style={{ color: "#6b7280" }}>
+          Questo post non esiste o non è accessibile.
+        </Text>
         <Pressable
           onPress={() => router.back()}
           style={{
@@ -538,7 +601,9 @@ export default function PostDetailScreen() {
           </View>
         )}
 
-        {social.error ? <Text style={{ color: "#b91c1c" }}>{social.error}</Text> : null}
+        {social.error ? (
+          <Text style={{ color: "#b91c1c" }}>{social.error}</Text>
+        ) : null}
 
         <Pressable
           onPress={handleLikeToggle}
