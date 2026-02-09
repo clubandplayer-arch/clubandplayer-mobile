@@ -315,12 +315,10 @@ export default function PostDetailScreen() {
     const nextHasLiked = !social.viewerHasLiked;
 
     try {
-      // ✅ WEB parity:
-      // unlike = reaction null
+      // ✅ WEB parity: unlike = reaction null
       const res = await setPostReaction(postId, nextHasLiked ? "like" : null);
       if (!res.ok) throw new Error(res.errorText ?? `Toggle HTTP ${res.status}`);
 
-      // POST returns counts for the single post + mine string|null
       const likeCount =
         (res.data?.counts ?? []).find((x) => x.post_id === postId && x.reaction === "like")?.count ?? 0;
 
@@ -332,7 +330,6 @@ export default function PostDetailScreen() {
         viewerHasLiked,
       }));
 
-      // refresh feed (web parity: feed reads reactions separately)
       emit("feed:refresh");
     } catch (e: any) {
       setSocial((prev) => ({
@@ -341,7 +338,6 @@ export default function PostDetailScreen() {
       }));
     } finally {
       setIsToggling(false);
-      // and re-sync from GET
       await loadSocial(postId);
     }
   };
@@ -362,7 +358,14 @@ export default function PostDetailScreen() {
         <Text style={{ color: "#b91c1c" }}>Sessione web non disponibile.</Text>
         <Pressable
           onPress={handleRetry}
-          style={{ paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10, borderWidth: 1, borderColor: "#111827", alignSelf: "flex-start" }}
+          style={{
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: "#111827",
+            alignSelf: "flex-start",
+          }}
         >
           <Text style={{ fontWeight: "700", color: "#111827" }}>Riprova</Text>
         </Pressable>
@@ -374,10 +377,18 @@ export default function PostDetailScreen() {
     return (
       <View style={{ flex: 1, padding: 24, gap: 16, justifyContent: "center" }}>
         <Text style={{ fontSize: 20, fontWeight: "800" }}>Login richiesto</Text>
-        <Text style={{ color: "#374151" }}>Per vedere il dettaglio del post devi effettuare l'accesso.</Text>
+        <Text style={{ color: "#374151" }}>
+          Per vedere il dettaglio del post devi effettuare l'accesso.
+        </Text>
         <Pressable
           onPress={() => router.replace("/(auth)/login")}
-          style={{ paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10, backgroundColor: "#111827", alignSelf: "flex-start" }}
+          style={{
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: 10,
+            backgroundColor: "#111827",
+            alignSelf: "flex-start",
+          }}
         >
           <Text style={{ color: "#ffffff", fontWeight: "700" }}>Vai al login</Text>
         </Pressable>
@@ -392,7 +403,14 @@ export default function PostDetailScreen() {
         <Text style={{ color: "#b91c1c" }}>{error}</Text>
         <Pressable
           onPress={handleRetry}
-          style={{ paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10, borderWidth: 1, borderColor: "#111827", alignSelf: "flex-start" }}
+          style={{
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: "#111827",
+            alignSelf: "flex-start",
+          }}
         >
           <Text style={{ fontWeight: "700", color: "#111827" }}>Riprova</Text>
         </Pressable>
@@ -404,10 +422,19 @@ export default function PostDetailScreen() {
     return (
       <View style={{ flex: 1, padding: 24, gap: 12, justifyContent: "center" }}>
         <Text style={{ fontSize: 18, fontWeight: "800" }}>Post non disponibile</Text>
-        <Text style={{ color: "#6b7280" }}>Questo post non esiste o non è accessibile.</Text>
+        <Text style={{ color: "#6b7280" }}>
+          Questo post non esiste o non è accessibile.
+        </Text>
         <Pressable
           onPress={() => router.back()}
-          style={{ paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10, borderWidth: 1, borderColor: "#111827", alignSelf: "flex-start" }}
+          style={{
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: "#111827",
+            alignSelf: "flex-start",
+          }}
         >
           <Text style={{ fontWeight: "700", color: "#111827" }}>Indietro</Text>
         </Pressable>
@@ -416,7 +443,10 @@ export default function PostDetailScreen() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: "#ffffff" }} contentContainerStyle={{ padding: 24, paddingBottom: 32, gap: 18 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: "#ffffff" }}
+      contentContainerStyle={{ padding: 24, paddingBottom: 32, gap: 18 }}
+    >
       <Pressable onPress={() => router.back()} style={{ alignSelf: "flex-start" }}>
         <Text style={{ fontWeight: "700", color: "#111827" }}>← Indietro</Text>
       </Pressable>
@@ -424,7 +454,16 @@ export default function PostDetailScreen() {
       <PostCard post={post} />
       {quotedPost ? <PostCard post={quotedPost} title="Post citato" /> : null}
 
-      <View style={{ borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 14, padding: 16, gap: 12, backgroundColor: "#f9fafb" }}>
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: "#e5e7eb",
+          borderRadius: 14,
+          padding: 16,
+          gap: 12,
+          backgroundColor: "#f9fafb",
+        }}
+      >
         <Text style={{ fontSize: 16, fontWeight: "800" }}>Reazioni</Text>
 
         {social.loading ? (

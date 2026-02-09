@@ -238,7 +238,11 @@ export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
   }
 
   if (!response.ok) {
-    return { ok: false, status, errorText: typeof json === "string" && json ? json : `HTTP ${status}` };
+    return {
+      ok: false,
+      status,
+      errorText: typeof json === "string" && json ? json : `HTTP ${status}`,
+    };
   }
 
   const payload = json && typeof json === "object" && "data" in (json as any) ? (json as any).data : json;
