@@ -4,8 +4,8 @@ import { useWhoami, useWebSession } from "../../../src/lib/api";
 import PlayerProfileScreen from "../../player/profile";
 import ClubProfileScreen from "../../club/profile";
 
-function normalizeRole(role: string | null | undefined) {
-  return (role ?? "").toString().toLowerCase();
+function normalizeRole(role: unknown) {
+  return (role ?? "").toString().toLowerCase().trim();
 }
 
 export default function MeProfileDispatcher() {
@@ -95,17 +95,14 @@ export default function MeProfileDispatcher() {
     );
   }
 
-  const role = normalizeRole(who.data?.role);
+  const role = normalizeRole((who.data as any)?.role);
+
+  // Web whoami può restituire role "athlete" (player) oppure "club"
   const isClub = role === "club";
-  const isPlayer = role === "player";
+  const isPlayer = role === "player" || role === "athlete";
 
-  if (isClub) {
-    return <ClubProfileScreen />;
-  }
-
-  if (isPlayer) {
-    return <PlayerProfileScreen />;
-  }
+  if (isClub) return <ClubProfileScreen />;
+  if (isPlayer) return <PlayerProfileScreen />;
 
   return (
     <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>

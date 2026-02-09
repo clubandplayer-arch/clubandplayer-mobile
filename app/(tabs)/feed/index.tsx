@@ -10,8 +10,6 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import type { Session } from "@supabase/supabase-js";
-import { supabase } from "../../../src/lib/supabase";
 
 import {
   getFeedPosts,
@@ -21,6 +19,7 @@ import {
 } from "../../../src/lib/feed/getFeedPosts";
 import { isCertifiedClub } from "../../../src/lib/profiles/certification";
 import { on } from "../../../src/lib/events/appEvents";
+import { clearSession, useWebSession, useWhoami } from "../../../src/lib/api";
 
 function formatWhen(iso?: string | null) {
   if (!iso) return "";
@@ -58,23 +57,14 @@ function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
   );
 }
 
-function FeedCard({
-  item,
-  onOpenAuthor,
-  onOpenPost,
-}: {
-  item: FeedPost;
-  onOpenAuthor: (authorId: string) => void;
-  onOpenPost: (postId: string) => void;
-}) {
+function FeedCard({ item }: { item: FeedPost }) {
   const authorName = getAuthorName(item.author);
   const text = getPostText(item.raw);
   const when = formatWhen(item.created_at);
   const firstMedia = item.media?.[0] ?? null;
   const likeCount = typeof item.likeCount === "number" ? item.likeCount : 0;
-  const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
-
-  const authorId = (item.author_id ?? "").toString();
+  const commentCount =
+    typeof item.commentCount === "number" ? item.commentCount : 0;
 
   return (
     <View
@@ -87,55 +77,50 @@ function FeedCard({
         gap: 10,
       }}
     >
-      <Pressable
-        onPress={() => authorId && onOpenAuthor(authorId)}
-        disabled={!authorId}
-        style={{ flexDirection: "row", gap: 10, alignItems: "center" }}
-      >
+      <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
         <Avatar url={item.author?.avatar_url ?? null} size={40} />
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Text style={{ fontSize: 15, fontWeight: "800", color: "#111827" }}>
-            {authorName}
-          </Text>
-          {item.author && isCertifiedClub(item.author) ? (
-            <Text style={{ fontSize: 11, fontWeight: "900", color: "#111827" }}>C</Text>
-          ) : null}
+              {authorName}
+            </Text>
+            {item.author && isCertifiedClub(item.author) ? (
+              <Text style={{ fontSize: 11, fontWeight: "900", color: "#111827" }}>
+                C
+              </Text>
+            ) : null}
           </View>
           <Text style={{ fontSize: 12, color: "#6b7280" }}>{when}</Text>
         </View>
-      </Pressable>
+      </View>
 
+      {/* TAP POST DISABILITATO FINO A PR4 (route /posts/[id]) */}
       {!!text ? (
-        <Pressable onPress={() => onOpenPost(item.id)}>
-          <Text style={{ fontSize: 14, lineHeight: 19, color: "#111827" }}>
-            {text}
-          </Text>
-        </Pressable>
+        <Text style={{ fontSize: 14, lineHeight: 19, color: "#111827" }}>
+          {text}
+        </Text>
       ) : null}
 
       {firstMedia?.url ? (
-        <Pressable onPress={() => onOpenPost(item.id)}>
-          <View
-            style={{
-              borderRadius: 12,
-              overflow: "hidden",
-              backgroundColor: "#f3f4f6",
-            }}
-          >
-            <Image
-              source={{ uri: firstMedia.poster_url || firstMedia.url }}
-              style={{ width: "100%", height: 220 }}
-              resizeMode="cover"
-            />
-            <View style={{ padding: 10 }}>
-              <Text style={{ fontSize: 12, color: "#6b7280" }}>
-                {firstMedia.media_type === "video" ? "🎬 Video" : "🖼️ Foto"}
-                {item.media.length > 1 ? ` • +${item.media.length - 1}` : ""}
-              </Text>
-            </View>
+        <View
+          style={{
+            borderRadius: 12,
+            overflow: "hidden",
+            backgroundColor: "#f3f4f6",
+          }}
+        >
+          <Image
+            source={{ uri: firstMedia.poster_url || firstMedia.url }}
+            style={{ width: "100%", height: 220 }}
+            resizeMode="cover"
+          />
+          <View style={{ padding: 10 }}>
+            <Text style={{ fontSize: 12, color: "#6b7280" }}>
+              {firstMedia.media_type === "video" ? "🎬 Video" : "🖼️ Foto"}
+              {item.media.length > 1 ? ` • +${item.media.length - 1}` : ""}
+            </Text>
           </View>
-        </Pressable>
+        </View>
       ) : null}
 
       <View style={{ flexDirection: "row", gap: 14 }}>
@@ -152,106 +137,71 @@ export default function FeedScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const [email, setEmail] = useState<string | null>(null);
   const [feedMode, setFeedMode] = useState<"all" | "following">("all");
-  const [followedCount, setFollowedCount] = useState<number | null>(null);
-  const [followDiscoveryStatus, setFollowDiscoveryStatus] = useState<
-    "ok" | "no_follow_rows" | "discovery_failed" | null
-  >(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [reloadToken, setReloadToken] = useState(0);
 
   const [items, setItems] = useState<FeedPost[]>([]);
   const [error, setError] = useState<string | null>(null);
-
-  const [nextOffset, setNextOffset] = useState<number | null>(0);
+  const [nextPage, setNextPage] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const load = useCallback(async (mode: "all" | "following") => {
-    setError(null);
-    setNextOffset(0);
-    setLoadingMore(false);
-    setFollowedCount(null);
-    setFollowDiscoveryStatus(null);
+  const web = useWebSession();
+  const whoami = useWhoami(web.ready);
 
-    try {
-      const { data, error: userErr } = await supabase.auth.getUser();
-      if (userErr) {
-        setEmail(null);
-      } else {
-        setEmail(data.user?.email ?? null);
+  const load = useCallback(
+    async (mode: "all" | "following") => {
+      if (!web.ready) return;
+      setError(null);
+      setLoadingMore(false);
+
+      try {
+        const res = await getFeedPosts({
+          scope: mode,
+        });
+        setItems(res.items);
+        setNextPage(res.nextPage);
+      } catch (e: any) {
+        setError(e?.message ? String(e.message) : "Errore nel caricamento feed");
+        setItems([]);
+        setNextPage(null);
+      } finally {
+        setLoading(false);
       }
-
-      const res = await getFeedPosts(supabase, {
-        limit: 15,
-        offset: 0,
-        mode,
-      });
-      setItems(res.items);
-      setNextOffset(res.nextOffset);
-      setFollowedCount(
-        typeof res.meta.followedIdsCount === "number"
-          ? res.meta.followedIdsCount
-          : null
-      );
-      setFollowDiscoveryStatus(res.meta.followDiscoveryStatus ?? null);
-    } catch (e: any) {
-      setError(e?.message ? String(e.message) : "Errore nel caricamento feed");
-      setItems([]);
-      setNextOffset(null);
-      setFollowedCount(null);
-      setFollowDiscoveryStatus(null);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [web.ready],
+  );
 
   const loadMore = useCallback(async () => {
     if (loadingMore) return;
-    if (nextOffset == null) return;
+    if (!nextPage) return;
     if (refreshing) return;
     if (loading) return;
     if (error) return;
 
     try {
       setLoadingMore(true);
-      const res = await getFeedPosts(supabase, {
-        limit: 15,
-        offset: nextOffset,
-        mode: feedMode,
+      const res = await getFeedPosts({
+        scope: feedMode,
+        nextPage,
       });
       setItems((prev) => [...prev, ...res.items]);
-      setNextOffset(res.nextOffset);
+      setNextPage(res.nextPage);
     } catch (e: any) {
       setError(e?.message ? String(e.message) : "Errore nel caricamento feed");
     } finally {
       setLoadingMore(false);
     }
-  }, [error, feedMode, loading, loadingMore, nextOffset, refreshing]);
+  }, [error, feedMode, loading, loadingMore, nextPage, refreshing]);
 
   useEffect(() => {
-    let isMounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (!isMounted) return;
-      setSession(data.session ?? null);
-    });
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
-      setLoading(true);
-      setReloadToken((prev) => prev + 1);
-    });
-
-    return () => {
-      isMounted = false;
-      sub.subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
+    if (!web.ready) {
+      if (web.error) {
+        setLoading(false);
+      }
+      return;
+    }
     setLoading(true);
     load(feedMode);
-  }, [feedMode, load, reloadToken, session]);
+  }, [feedMode, load, web.error, web.ready]);
 
   useEffect(() => {
     const unsubscribe = on("feed:refresh", () => {
@@ -273,11 +223,7 @@ export default function FeedScreen() {
 
   const onLogout = async () => {
     try {
-      const { error: signOutErr } = await supabase.auth.signOut();
-      if (signOutErr) {
-        Alert.alert("Errore", "Logout fallito");
-        return;
-      }
+      await clearSession();
       router.replace("/(auth)/login");
     } catch {
       Alert.alert("Errore", "Logout fallito");
@@ -286,12 +232,9 @@ export default function FeedScreen() {
 
   const header = useMemo(() => {
     const isFollowing = feedMode === "following";
-    const emptyMessage =
-      isFollowing && followDiscoveryStatus === "discovery_failed"
-        ? "Impossibile caricare i seguiti in questo momento."
-        : isFollowing && followedCount === 0
-        ? "Non segui ancora nessuno."
-        : "Nessun contenuto ancora. Qui compariranno i post delle persone e dei club che segui.";
+    const emptyMessage = isFollowing
+      ? "Nessun contenuto nel feed dei seguiti."
+      : "Nessun contenuto ancora. Qui compariranno i post delle persone e dei club che segui.";
 
     return (
       <View
@@ -377,16 +320,37 @@ export default function FeedScreen() {
         >
           <Text style={{ fontSize: 16, fontWeight: "700" }}>Accesso</Text>
 
-          {loading ? (
+          {web.loading ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <ActivityIndicator />
-              <Text>Verifico sessione…</Text>
+              <Text>Verifico sessione web…</Text>
             </View>
-          ) : email ? (
+          ) : web.error ? (
+            <>
+              <Text style={{ color: "#b91c1c" }}>Sessione web non disponibile.</Text>
+              <Pressable
+                onPress={web.retry}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderWidth: 1,
+                  borderColor: "#111827",
+                  borderRadius: 10,
+                  alignSelf: "flex-start",
+                }}
+              >
+                <Text style={{ color: "#111827", fontWeight: "700" }}>
+                  Riprova
+                </Text>
+              </Pressable>
+            </>
+          ) : whoami.data?.user ? (
             <>
               <Text style={{ color: "#111827" }}>
-                Sei loggato come:{" "}
-                <Text style={{ fontWeight: "700" }}>{email}</Text>
+                Sei loggato.{" "}
+                {whoami.data?.role ? (
+                  <Text style={{ fontWeight: "700" }}>{whoami.data.role}</Text>
+                ) : null}
               </Text>
 
               <Pressable
@@ -493,9 +457,7 @@ export default function FeedScreen() {
             <Text style={{ fontWeight: "800", color: "#b91c1c" }}>Errore</Text>
             <Text style={{ color: "#b91c1c" }}>{error}</Text>
             <Pressable onPress={() => load(feedMode)} style={{ alignSelf: "flex-start" }}>
-              <Text
-                style={{ color: "#036f9a", fontWeight: "800" }}
-              >
+              <Text style={{ color: "#036f9a", fontWeight: "800" }}>
                 Riprova
               </Text>
             </Pressable>
@@ -513,23 +475,23 @@ export default function FeedScreen() {
             }}
           >
             <Text style={{ fontSize: 16, fontWeight: "700" }}>Contenuti</Text>
-            <Text style={{ color: "#374151" }}>
-              {emptyMessage}
-            </Text>
+            <Text style={{ color: "#374151" }}>{emptyMessage}</Text>
           </View>
         ) : null}
       </View>
     );
   }, [
-    email,
     error,
     feedMode,
-    followedCount,
-    followDiscoveryStatus,
     items.length,
     loading,
     onLogout,
     router,
+    web.error,
+    web.loading,
+    web.retry,
+    whoami.data?.role,
+    whoami.data?.user,
   ]);
 
   const footer = useMemo(() => {
@@ -537,13 +499,11 @@ export default function FeedScreen() {
       return (
         <View style={{ paddingVertical: 18, alignItems: "center" }}>
           <ActivityIndicator />
-          <Text style={{ marginTop: 8, color: "#6b7280" }}>
-            Carico altri post…
-          </Text>
+          <Text style={{ marginTop: 8, color: "#6b7280" }}>Carico altri post…</Text>
         </View>
       );
     }
-    if (nextOffset == null && items.length > 0) {
+    if (!nextPage && items.length > 0) {
       return (
         <View style={{ paddingVertical: 18, alignItems: "center" }}>
           <Text style={{ color: "#6b7280" }}>Hai visto tutto ✅</Text>
@@ -551,9 +511,9 @@ export default function FeedScreen() {
       );
     }
     return <View style={{ height: 16 }} />;
-  }, [items.length, loadingMore, nextOffset]);
+  }, [items.length, loadingMore, nextPage]);
 
-  if (loading) {
+  if (loading || web.loading) {
     return (
       <View
         style={{
@@ -573,18 +533,10 @@ export default function FeedScreen() {
     <FlatList
       data={items}
       keyExtractor={(it) => it.id}
-      renderItem={({ item }) => (
-        <FeedCard
-          item={item}
-          onOpenAuthor={(authorId) => router.push(`/profile/${authorId}`)}
-          onOpenPost={(postId) => router.push(`/post/${postId}`)}
-        />
-      )}
+      renderItem={({ item }) => <FeedCard item={item} />}
       ListHeaderComponent={header}
       ListFooterComponent={footer}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       onEndReachedThreshold={0.6}
       onEndReached={loadMore}
     />
