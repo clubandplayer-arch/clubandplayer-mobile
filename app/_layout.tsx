@@ -90,7 +90,10 @@ function AuthGate() {
     if (!session && !inCallback) {
       const inAuth = currentGroup === "(auth)";
       const inOnboarding = currentGroup === "(onboarding)";
-      if ((target === "/(auth)/login" && inAuth) || (target === "/(onboarding)" && inOnboarding)) {
+      if (
+        (target === "/(auth)/login" && inAuth) ||
+        (target === "/(onboarding)" && inOnboarding)
+      ) {
         return;
       }
     }
@@ -115,9 +118,13 @@ export default function RootLayout() {
     <>
       <AuthGate />
       <Stack screenOptions={{ headerShown: false }}>
+        {/* main groups */}
+        <Stack.Screen name="(tabs)" />
         <Stack.Screen name="(onboarding)" />
         <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(tabs)" />
+
+        {/* PR4: post detail route (outside tabs) */}
+        <Stack.Screen name="posts/[id]" />
       </Stack>
     </>
   );
