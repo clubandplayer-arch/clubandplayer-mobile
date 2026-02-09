@@ -143,10 +143,7 @@ function buildUrl(path: string): string {
   return `${base}${normalized}`;
 }
 
-async function apiFetch<T>(
-  path: string,
-  init?: RequestInit,
-): Promise<ApiResponse<T>> {
+async function apiFetch<T>(path: string, init?: RequestInit): Promise<ApiResponse<T>> {
   const url = buildUrl(path);
   const response = await fetch(url, {
     ...init,
@@ -188,9 +185,7 @@ async function apiFetch<T>(
   }
 }
 
-export async function syncSession(): Promise<
-  ApiResponse<{ ok: boolean; cleared?: boolean }>
-> {
+export async function syncSession(): Promise<ApiResponse<{ ok: boolean; cleared?: boolean }>> {
   const { data } = await supabase.auth.getSession();
   const session = data.session;
   const payload = session
@@ -203,9 +198,7 @@ export async function syncSession(): Promise<
   });
 }
 
-export async function clearSession(): Promise<
-  ApiResponse<{ ok: boolean; cleared?: boolean }>
-> {
+export async function clearSession(): Promise<ApiResponse<{ ok: boolean; cleared?: boolean }>> {
   return apiFetch<{ ok: boolean; cleared?: boolean }>("/api/auth/session", {
     method: "POST",
     body: JSON.stringify({ access_token: null, refresh_token: null }),
@@ -213,9 +206,7 @@ export async function clearSession(): Promise<
 }
 
 export async function fetchWhoami(): Promise<ApiResponse<WhoamiResponse>> {
-  return apiFetch<WhoamiResponse>("/api/auth/whoami", {
-    method: "GET",
-  });
+  return apiFetch<WhoamiResponse>("/api/auth/whoami", { method: "GET" });
 }
 
 export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
@@ -232,7 +223,6 @@ export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
   const status = response.status;
 
   let json: unknown;
-
   try {
     json = await response.json();
   } catch (error) {
@@ -240,11 +230,7 @@ export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
   }
 
   if (!response.ok) {
-    return {
-      ok: false,
-      status,
-      errorText: typeof json === "string" && json ? json : `HTTP ${status}`,
-    };
+    return { ok: false, status, errorText: typeof json === "string" && json ? json : `HTTP ${status}` };
   }
 
   const payload =
@@ -260,15 +246,11 @@ export async function fetchFeedPosts(params?: {
     const base = getWebBaseUrl();
     const target = params.nextPage;
     let url = "";
-    if (target.startsWith("http://") || target.startsWith("https://")) {
-      url = target;
-    } else if (target.startsWith("?")) {
-      url = `${base}/api/feed/posts${target}`;
-    } else if (target.startsWith("/")) {
-      url = `${base}${target}`;
-    } else {
-      url = `${base}/${target}`;
-    }
+    if (target.startsWith("http://") || target.startsWith("https://")) url = target;
+    else if (target.startsWith("?")) url = `${base}/api/feed/posts${target}`;
+    else if (target.startsWith("/")) url = `${base}${target}`;
+    else url = `${base}/${target}`;
+
     return apiFetch<FeedPostsApiResponse>(url, { method: "GET" });
   }
 
@@ -284,27 +266,17 @@ export async function fetchFeedPosts(params?: {
  * - /api/feed/reactions (GET/POST)
  * - /api/feed/comments/counts (GET)
  */
-export async function fetchReactionsSummary(
-  postId: string,
-): Promise<ApiResponse<FeedReactionsResponse>> {
+export async function fetchReactionsSummary(postId: string): Promise<ApiResponse<FeedReactionsResponse>> {
   const search = new URLSearchParams();
-  // IMPORTANT: endpoint expects postIds (comma-separated list)
+  // ✅ IMPORTANT: GET endpoint expects postIds (comma-separated list)
   search.set("postIds", postId);
-  return apiFetch<FeedReactionsResponse>(
-    `/api/feed/reactions?${search.toString()}`,
-    { method: "GET" },
-  );
+  return apiFetch<FeedReactionsResponse>(`/api/feed/reactions?${search.toString()}`, { method: "GET" });
 }
 
-export async function fetchCommentCounts(
-  postId: string,
-): Promise<ApiResponse<FeedCommentCountsResponse>> {
+export async function fetchCommentCounts(postId: string): Promise<ApiResponse<FeedCommentCountsResponse>> {
   const search = new URLSearchParams();
   search.set("postIds", postId);
-  return apiFetch<FeedCommentCountsResponse>(
-    `/api/feed/comments/counts?${search.toString()}`,
-    { method: "GET" },
-  );
+  return apiFetch<FeedCommentCountsResponse>(`/api/feed/comments/counts?${search.toString()}`, { method: "GET" });
 }
 
 export async function toggleLike(postId: string): Promise<ApiResponse<unknown>> {
@@ -321,9 +293,7 @@ export function buildProfilePatch(
   for (const field of PROFILE_PATCH_FIELDS) {
     if (Object.prototype.hasOwnProperty.call(input, field)) {
       const value = input[field];
-      if (value !== undefined) {
-        payload[field] = value;
-      }
+      if (value !== undefined) payload[field] = value;
     }
   }
   return payload;
@@ -348,9 +318,8 @@ export function useWhoami(enabled: boolean = true) {
     setLoading(true);
     setError(null);
     const response = await fetchWhoami();
-    if (response.ok) {
-      setData(response.data ?? null);
-    } else {
+    if (response.ok) setData(response.data ?? null);
+    else {
       setData(null);
       setError(response.errorText ?? "Unknown error");
     }
