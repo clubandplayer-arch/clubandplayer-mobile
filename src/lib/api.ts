@@ -249,7 +249,7 @@ export async function patchProfileMe(
   });
 }
 
-export function useWhoami() {
+export function useWhoami(enabled: boolean = true) {
   const [data, setData] = useState<WhoamiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -268,8 +268,14 @@ export function useWhoami() {
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      setData(null);
+      setError(null);
+      return;
+    }
     void load();
-  }, [load]);
+  }, [enabled, load]);
 
   return { data, loading, error, reload: load };
 }

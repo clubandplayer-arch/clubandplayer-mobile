@@ -13,7 +13,7 @@ export default function MeProfileDispatcher() {
   const web = useWebSession();
 
   // 2) SOLO dopo che la session è pronta, chiedi whoami
-  const who = useWhoami();
+  const who = useWhoami(web.ready);
 
   // Se stiamo ancora facendo sync, mostra loader
   if (web.loading) {
@@ -45,6 +45,17 @@ export default function MeProfileDispatcher() {
         >
           <Text style={{ color: "#fff", fontWeight: "700" }}>Riprova</Text>
         </Pressable>
+      </View>
+    );
+  }
+
+  if (!web.ready) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator />
+        <Text style={{ marginTop: 12, color: "#6b7280" }}>
+          Sincronizzazione sessione…
+        </Text>
       </View>
     );
   }
@@ -87,6 +98,22 @@ export default function MeProfileDispatcher() {
 
   const role = normalizeRole(who.data?.role);
   const isClub = role === "club";
+  const isPlayer = role === "player";
 
-  return isClub ? <ClubProfileScreen /> : <PlayerProfileScreen />;
+  if (isClub) {
+    return <ClubProfileScreen />;
+  }
+
+  if (isPlayer) {
+    return <PlayerProfileScreen />;
+  }
+
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+      <ActivityIndicator />
+      <Text style={{ marginTop: 12, color: "#6b7280" }}>
+        Caricamento profilo…
+      </Text>
+    </View>
+  );
 }
