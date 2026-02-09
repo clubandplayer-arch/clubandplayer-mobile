@@ -58,6 +58,7 @@ function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
 }
 
 function FeedCard({ item }: { item: FeedPost }) {
+  const router = useRouter();
   const authorName = getAuthorName(item.author);
   const text = getPostText(item.raw);
   const when = formatWhen(item.created_at);
@@ -67,7 +68,8 @@ function FeedCard({ item }: { item: FeedPost }) {
     typeof item.commentCount === "number" ? item.commentCount : 0;
 
   return (
-    <View
+    <Pressable
+      onPress={() => router.push(`/posts/${item.id}`)}
       style={{
         borderBottomWidth: 1,
         borderBottomColor: "#f3f4f6",
@@ -94,7 +96,6 @@ function FeedCard({ item }: { item: FeedPost }) {
         </View>
       </View>
 
-      {/* TAP POST DISABILITATO FINO A PR4 (route /posts/[id]) */}
       {!!text ? (
         <Text style={{ fontSize: 14, lineHeight: 19, color: "#111827" }}>
           {text}
@@ -127,7 +128,7 @@ function FeedCard({ item }: { item: FeedPost }) {
         <Text style={{ fontSize: 12, color: "#6b7280" }}>👍 {likeCount}</Text>
         <Text style={{ fontSize: 12, color: "#6b7280" }}>💬 {commentCount}</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
