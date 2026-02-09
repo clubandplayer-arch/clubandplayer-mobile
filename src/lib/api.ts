@@ -191,9 +191,37 @@ export async function fetchWhoami(): Promise<ApiResponse<WhoamiResponse>> {
 }
 
 export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
-  return apiFetch<ProfileMe>("/api/profiles/me", {
+  const url = buildUrl("/api/profiles/me");
+  const response = await fetch(url, {
     method: "GET",
+    credentials: "include",
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
   });
+  const status = response.status;
+
+  let json: unknown;
+
+  try {
+    json = await response.json();
+  } catch (error) {
+    return { ok: false, status, errorText: String(error) };
+  }
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      status,
+      errorText: typeof json === "string" && json ? json : `HTTP ${status}`,
+    };
+  }
+
+  const payload =
+    json && typeof json === "object" && "data" in json ? (json as any).data : json;
+  return { ok: true, status, data: payload as ProfileMe };
 }
 
 export function buildProfilePatch(
@@ -221,7 +249,7 @@ export async function patchProfileMe(
   });
 }
 
-export function useWhoami() {
+export function useWhoami(enabled: boolean = true) {
   const [data, setData] = useState<WhoamiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -240,8 +268,14 @@ export function useWhoami() {
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      setData(null);
+      setError(null);
+      return;
+    }
     void load();
-  }, [load]);
+  }, [enabled, load]);
 
   return { data, loading, error, reload: load };
 }
