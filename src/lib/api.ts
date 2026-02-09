@@ -76,12 +76,15 @@ export type FeedPostsApiResponse =
 
 // /api/feed/reactions payloads (best-effort typing, spec-only)
 export type FeedReactionsResponse = {
+  ok?: boolean;
   counts?: unknown;
   mine?: unknown;
+  postId?: string;
 };
 
 // /api/feed/comments/counts payload (best-effort typing)
 export type FeedCommentCountsResponse = {
+  ok?: boolean;
   counts?: unknown;
 };
 
@@ -265,18 +268,29 @@ export async function fetchFeedPosts(params?: {
  * PR4 helpers (spec-only):
  * - /api/feed/reactions (GET/POST)
  * - /api/feed/comments/counts (GET)
+ *
+ * IMPORTANT: The backend seems to NOT recognize a single "postId=" parameter.
+ * We send multiple equivalent keys to satisfy any parser implementation.
  */
+function buildPostIdsQuery(postId: string): string {
+  const sp = new URLSearchParams();
+  // common variants
+  sp.append("postIds", postId);
+  sp.append("postIds[]", postId);
+  sp.append("post_ids", postId);
+  sp.append("post_ids[]", postId);
+  sp.append("postId", postId);
+  return sp.toString();
+}
+
 export async function fetchReactionsSummary(postId: string): Promise<ApiResponse<FeedReactionsResponse>> {
-  const search = new URLSearchParams();
-  // ✅ IMPORTANT: GET endpoint expects postIds (comma-separated list)
-  search.set("postIds", postId);
-  return apiFetch<FeedReactionsResponse>(`/api/feed/reactions?${search.toString()}`, { method: "GET" });
+  const q = buildPostIdsQuery(postId);
+  return apiFetch<FeedReactionsResponse>(`/api/feed/reactions?${q}`, { method: "GET" });
 }
 
 export async function fetchCommentCounts(postId: string): Promise<ApiResponse<FeedCommentCountsResponse>> {
-  const search = new URLSearchParams();
-  search.set("postIds", postId);
-  return apiFetch<FeedCommentCountsResponse>(`/api/feed/comments/counts?${search.toString()}`, { method: "GET" });
+  const q = buildPostIdsQuery(postId);
+  return apiFetch<FeedCommentCountsResponse>(`/api/feed/comments/counts?${q}`, { method: "GET" });
 }
 
 export async function toggleLike(postId: string): Promise<ApiResponse<unknown>> {

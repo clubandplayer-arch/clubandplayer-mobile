@@ -117,27 +117,16 @@ function parseCountsForPost(counts: unknown, postId: string): number {
   if (Array.isArray(counts)) {
     const match = counts.find((item) => {
       if (!item || typeof item !== "object") return false;
-      const candidate = item as Record<string, unknown>;
-      const samePost =
-        candidate.post_id === postId ||
-        candidate.postId === postId ||
-        candidate.id === postId;
-
-      // ✅ counts array can include multiple reactions; we want like only
-      const isLike = candidate.reaction === "like";
+      const c = item as Record<string, unknown>;
+      const samePost = c.post_id === postId || c.postId === postId || c.id === postId;
+      const isLike = c.reaction === "like";
       return samePost && isLike;
     }) as Record<string, unknown> | undefined;
 
     if (!match) return 0;
 
-    const directCount =
-      (match as any).count ??
-      (match as any).counts ??
-      (match as any).reactions_count;
-
-    if (typeof directCount === "number" && Number.isFinite(directCount)) {
-      return directCount;
-    }
+    const directCount = (match as any).count ?? (match as any).counts ?? (match as any).reactions_count;
+    if (typeof directCount === "number" && Number.isFinite(directCount)) return directCount;
 
     if (directCount && typeof directCount === "object") {
       return sumCountsObject(directCount as Record<string, unknown>);
@@ -311,6 +300,7 @@ export default function PostDetailScreen() {
   const [quotedPost, setQuotedPost] = useState<PostDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
   const [social, setSocial] = useState<SocialState>({
     likeCount: 0,
     commentCount: 0,
@@ -318,12 +308,8 @@ export default function PostDetailScreen() {
     loading: true,
     error: null,
   });
-  const [isToggling, setIsToggling] = useState(false);
 
-  // DEBUG (visible) — keep for now until confirmed
-  const [debugReactions, setDebugReactions] = useState<string | null>(null);
-  const [debugComments, setDebugComments] = useState<string | null>(null);
-  const [debugToggle, setDebugToggle] = useState<string | null>(null);
+  const [isToggling, setIsToggling] = useState(false);
 
   const loadSocial = useCallback(async (targetPostId: string) => {
     setSocial((prev) => ({ ...prev, loading: true, error: null }));
@@ -333,32 +319,6 @@ export default function PostDetailScreen() {
         fetchReactionsSummary(targetPostId),
         fetchCommentCounts(targetPostId),
       ]);
-
-      setDebugReactions(
-        JSON.stringify(
-          {
-            ok: reactionsRes.ok,
-            status: reactionsRes.status,
-            data: reactionsRes.data ?? null,
-            errorText: reactionsRes.errorText ?? null,
-          },
-          null,
-          2,
-        ),
-      );
-
-      setDebugComments(
-        JSON.stringify(
-          {
-            ok: commentsRes.ok,
-            status: commentsRes.status,
-            data: commentsRes.data ?? null,
-            errorText: commentsRes.errorText ?? null,
-          },
-          null,
-          2,
-        ),
-      );
 
       if (!reactionsRes.ok) {
         throw new Error(reactionsRes.errorText ?? `Reactions HTTP ${reactionsRes.status}`);
@@ -371,12 +331,21 @@ export default function PostDetailScreen() {
       const mine = (reactionsRes.data as any)?.mine;
       const commentCounts = (commentsRes.data as any)?.counts;
 
-      setSocial({
-        likeCount: parseCountsForPost(counts, targetPostId),
-        commentCount: parseCountsForPost(commentCounts, targetPostId),
-        viewerHasLiked: parseViewerHasLiked(mine, targetPostId),
-        loading: false,
-        error: null,
+      const nextLikeCount = parseCountsForPost(counts, targetPostId);
+      const nextMine = parseViewerHasLiked(mine, targetPostId);
+      const nextCommentCount = parseCountsForPost(commentCounts, targetPostId);
+
+      // IMPORTANT: do not overwrite local optimistic like with empty GET
+      setSocial((prev) => {
+        const shouldKeepLike = prev.likeCount > 0 && nextLikeCount === 0;
+        const shouldKeepMine = prev.viewerHasLiked && !nextMine;
+        return {
+          likeCount: shouldKeepLike ? prev.likeCount : nextLikeCount,
+          commentCount: nextCommentCount,
+          viewerHasLiked: shouldKeepMine ? prev.viewerHasLiked : nextMine,
+          loading: false,
+          error: null,
+        };
       });
     } catch (err) {
       setSocial((prev) => ({
@@ -439,24 +408,22 @@ export default function PostDetailScreen() {
     if (!postId || isToggling) return;
     setIsToggling(true);
     setSocial((prev) => ({ ...prev, error: null }));
-    setDebugToggle(null);
 
     try {
       const res = await toggleLike(postId);
-      setDebugToggle(
-        JSON.stringify(
-          {
-            ok: res.ok,
-            status: res.status,
-            data: res.data ?? null,
-            errorText: res.errorText ?? null,
-          },
-          null,
-          2,
-        ),
-      );
-
       if (!res.ok) throw new Error(res.errorText ?? `Toggle HTTP ${res.status}`);
+
+      // optimistic update from POST payload (this one is reliable)
+      const payload = (res.data as any) ?? {};
+      const counts = payload.counts ?? payload?.data?.counts ?? payload;
+      const mine = payload.mine ?? payload?.data?.mine ?? null;
+
+      const newLikeCount = parseCountsForPost(counts, postId);
+      setSocial((prev) => ({
+        ...prev,
+        likeCount: newLikeCount || Math.max(prev.likeCount, 1),
+        viewerHasLiked: mine ? parseViewerHasLiked(mine, postId) : true,
+      }));
     } catch (err) {
       setSocial((prev) => ({
         ...prev,
@@ -583,25 +550,6 @@ export default function PostDetailScreen() {
             {social.viewerHasLiked ? "Hai messo 👍" : "Metti 👍"}
           </Text>
         </Pressable>
-
-        {debugToggle ? (
-          <Text style={{ fontSize: 10, color: "#6b7280" }}>
-            DEBUG toggle:{"\n"}
-            {debugToggle}
-          </Text>
-        ) : null}
-        {debugReactions ? (
-          <Text style={{ fontSize: 10, color: "#6b7280" }}>
-            DEBUG reactions:{"\n"}
-            {debugReactions}
-          </Text>
-        ) : null}
-        {debugComments ? (
-          <Text style={{ fontSize: 10, color: "#6b7280" }}>
-            DEBUG comments:{"\n"}
-            {debugComments}
-          </Text>
-        ) : null}
       </View>
     </ScrollView>
   );
