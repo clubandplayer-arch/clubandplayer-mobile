@@ -57,19 +57,14 @@ function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
   );
 }
 
-function FeedCard({
-  item,
-  onOpenPost,
-}: {
-  item: FeedPost;
-  onOpenPost: (postId: string) => void;
-}) {
+function FeedCard({ item }: { item: FeedPost }) {
   const authorName = getAuthorName(item.author);
   const text = getPostText(item.raw);
   const when = formatWhen(item.created_at);
   const firstMedia = item.media?.[0] ?? null;
   const likeCount = typeof item.likeCount === "number" ? item.likeCount : 0;
-  const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
+  const commentCount =
+    typeof item.commentCount === "number" ? item.commentCount : 0;
 
   return (
     <View
@@ -90,43 +85,42 @@ function FeedCard({
               {authorName}
             </Text>
             {item.author && isCertifiedClub(item.author) ? (
-              <Text style={{ fontSize: 11, fontWeight: "900", color: "#111827" }}>C</Text>
+              <Text style={{ fontSize: 11, fontWeight: "900", color: "#111827" }}>
+                C
+              </Text>
             ) : null}
           </View>
           <Text style={{ fontSize: 12, color: "#6b7280" }}>{when}</Text>
         </View>
       </View>
 
+      {/* TAP POST DISABILITATO FINO A PR4 (route /posts/[id]) */}
       {!!text ? (
-        <Pressable onPress={() => onOpenPost(item.id)}>
-          <Text style={{ fontSize: 14, lineHeight: 19, color: "#111827" }}>
-            {text}
-          </Text>
-        </Pressable>
+        <Text style={{ fontSize: 14, lineHeight: 19, color: "#111827" }}>
+          {text}
+        </Text>
       ) : null}
 
       {firstMedia?.url ? (
-        <Pressable onPress={() => onOpenPost(item.id)}>
-          <View
-            style={{
-              borderRadius: 12,
-              overflow: "hidden",
-              backgroundColor: "#f3f4f6",
-            }}
-          >
-            <Image
-              source={{ uri: firstMedia.poster_url || firstMedia.url }}
-              style={{ width: "100%", height: 220 }}
-              resizeMode="cover"
-            />
-            <View style={{ padding: 10 }}>
-              <Text style={{ fontSize: 12, color: "#6b7280" }}>
-                {firstMedia.media_type === "video" ? "🎬 Video" : "🖼️ Foto"}
-                {item.media.length > 1 ? ` • +${item.media.length - 1}` : ""}
-              </Text>
-            </View>
+        <View
+          style={{
+            borderRadius: 12,
+            overflow: "hidden",
+            backgroundColor: "#f3f4f6",
+          }}
+        >
+          <Image
+            source={{ uri: firstMedia.poster_url || firstMedia.url }}
+            style={{ width: "100%", height: 220 }}
+            resizeMode="cover"
+          />
+          <View style={{ padding: 10 }}>
+            <Text style={{ fontSize: 12, color: "#6b7280" }}>
+              {firstMedia.media_type === "video" ? "🎬 Video" : "🖼️ Foto"}
+              {item.media.length > 1 ? ` • +${item.media.length - 1}` : ""}
+            </Text>
           </View>
-        </Pressable>
+        </View>
       ) : null}
 
       <View style={{ flexDirection: "row", gap: 14 }}>
@@ -153,25 +147,28 @@ export default function FeedScreen() {
   const web = useWebSession();
   const whoami = useWhoami(web.ready);
 
-  const load = useCallback(async (mode: "all" | "following") => {
-    if (!web.ready) return;
-    setError(null);
-    setLoadingMore(false);
+  const load = useCallback(
+    async (mode: "all" | "following") => {
+      if (!web.ready) return;
+      setError(null);
+      setLoadingMore(false);
 
-    try {
-      const res = await getFeedPosts({
-        scope: mode,
-      });
-      setItems(res.items);
-      setNextPage(res.nextPage);
-    } catch (e: any) {
-      setError(e?.message ? String(e.message) : "Errore nel caricamento feed");
-      setItems([]);
-      setNextPage(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [web.ready]);
+      try {
+        const res = await getFeedPosts({
+          scope: mode,
+        });
+        setItems(res.items);
+        setNextPage(res.nextPage);
+      } catch (e: any) {
+        setError(e?.message ? String(e.message) : "Errore nel caricamento feed");
+        setItems([]);
+        setNextPage(null);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [web.ready],
+  );
 
   const loadMore = useCallback(async () => {
     if (loadingMore) return;
@@ -460,9 +457,7 @@ export default function FeedScreen() {
             <Text style={{ fontWeight: "800", color: "#b91c1c" }}>Errore</Text>
             <Text style={{ color: "#b91c1c" }}>{error}</Text>
             <Pressable onPress={() => load(feedMode)} style={{ alignSelf: "flex-start" }}>
-              <Text
-                style={{ color: "#036f9a", fontWeight: "800" }}
-              >
+              <Text style={{ color: "#036f9a", fontWeight: "800" }}>
                 Riprova
               </Text>
             </Pressable>
@@ -480,9 +475,7 @@ export default function FeedScreen() {
             }}
           >
             <Text style={{ fontSize: 16, fontWeight: "700" }}>Contenuti</Text>
-            <Text style={{ color: "#374151" }}>
-              {emptyMessage}
-            </Text>
+            <Text style={{ color: "#374151" }}>{emptyMessage}</Text>
           </View>
         ) : null}
       </View>
@@ -506,9 +499,7 @@ export default function FeedScreen() {
       return (
         <View style={{ paddingVertical: 18, alignItems: "center" }}>
           <ActivityIndicator />
-          <Text style={{ marginTop: 8, color: "#6b7280" }}>
-            Carico altri post…
-          </Text>
+          <Text style={{ marginTop: 8, color: "#6b7280" }}>Carico altri post…</Text>
         </View>
       );
     }
@@ -532,7 +523,7 @@ export default function FeedScreen() {
           gap: 10,
         }}
       >
-          <ActivityIndicator />
+        <ActivityIndicator />
         <Text style={{ color: "#6b7280" }}>Caricamento feed…</Text>
       </View>
     );
@@ -542,17 +533,10 @@ export default function FeedScreen() {
     <FlatList
       data={items}
       keyExtractor={(it) => it.id}
-      renderItem={({ item }) => (
-        <FeedCard
-          item={item}
-          onOpenPost={(postId) => router.push(`/posts/${postId}`)}
-        />
-      )}
+      renderItem={({ item }) => <FeedCard item={item} />}
       ListHeaderComponent={header}
       ListFooterComponent={footer}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       onEndReachedThreshold={0.6}
       onEndReached={loadMore}
     />
