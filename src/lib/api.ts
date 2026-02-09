@@ -64,6 +64,14 @@ export type ProfileMe = {
   club_motto?: string | null;
 };
 
+export type FeedPostsResponse = {
+  items?: unknown[];
+  nextPage?: number | string | null;
+  _debug?: unknown;
+};
+
+export type FeedPostsApiResponse = FeedPostsResponse | { data?: FeedPostsResponse | unknown[] };
+
 export const PROFILE_PATCH_FIELDS = [
   "full_name",
   "display_name",
@@ -222,6 +230,22 @@ export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
   const payload =
     json && typeof json === "object" && "data" in json ? (json as any).data : json;
   return { ok: true, status, data: payload as ProfileMe };
+}
+
+export async function fetchFeedPosts(params?: {
+  scope?: "all" | "following";
+  page?: number | string;
+  limit?: number;
+  cursor?: string;
+}): Promise<ApiResponse<FeedPostsApiResponse>> {
+  const searchParams = new URLSearchParams();
+  if (params?.scope) searchParams.set("scope", params.scope);
+  if (params?.page !== undefined) searchParams.set("page", String(params.page));
+  if (params?.limit !== undefined) searchParams.set("limit", String(params.limit));
+  if (params?.cursor) searchParams.set("cursor", params.cursor);
+  const query = searchParams.toString();
+  const path = query ? `/api/feed/posts?${query}` : "/api/feed/posts";
+  return apiFetch<FeedPostsApiResponse>(path, { method: "GET" });
 }
 
 export function buildProfilePatch(

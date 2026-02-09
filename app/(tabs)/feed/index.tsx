@@ -10,7 +10,6 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../../../src/lib/supabase";
 
 import {
@@ -21,6 +20,7 @@ import {
 } from "../../../src/lib/feed/getFeedPosts";
 import { isCertifiedClub } from "../../../src/lib/profiles/certification";
 import { on } from "../../../src/lib/events/appEvents";
+import { clearSession, useWebSession, useWhoami } from "../../../src/lib/api";
 
 function formatWhen(iso?: string | null) {
   if (!iso) return "";
@@ -152,106 +152,54 @@ export default function FeedScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const [email, setEmail] = useState<string | null>(null);
   const [feedMode, setFeedMode] = useState<"all" | "following">("all");
-  const [followedCount, setFollowedCount] = useState<number | null>(null);
-  const [followDiscoveryStatus, setFollowDiscoveryStatus] = useState<
-    "ok" | "no_follow_rows" | "discovery_failed" | null
-  >(null);
-  const [session, setSession] = useState<Session | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
   const [items, setItems] = useState<FeedPost[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const [nextOffset, setNextOffset] = useState<number | null>(0);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const web = useWebSession();
+  const whoami = useWhoami(web.ready);
 
   const load = useCallback(async (mode: "all" | "following") => {
+    if (!web.ready) return;
     setError(null);
-    setNextOffset(0);
-    setLoadingMore(false);
-    setFollowedCount(null);
-    setFollowDiscoveryStatus(null);
 
     try {
-      const { data, error: userErr } = await supabase.auth.getUser();
-      if (userErr) {
-        setEmail(null);
-      } else {
-        setEmail(data.user?.email ?? null);
-      }
-
-      const res = await getFeedPosts(supabase, {
-        limit: 15,
-        offset: 0,
+      const res = await getFeedPosts({
         mode,
       });
       setItems(res.items);
-      setNextOffset(res.nextOffset);
-      setFollowedCount(
-        typeof res.meta.followedIdsCount === "number"
-          ? res.meta.followedIdsCount
-          : null
-      );
-      setFollowDiscoveryStatus(res.meta.followDiscoveryStatus ?? null);
     } catch (e: any) {
       setError(e?.message ? String(e.message) : "Errore nel caricamento feed");
       setItems([]);
-      setNextOffset(null);
-      setFollowedCount(null);
-      setFollowDiscoveryStatus(null);
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  const loadMore = useCallback(async () => {
-    if (loadingMore) return;
-    if (nextOffset == null) return;
-    if (refreshing) return;
-    if (loading) return;
-    if (error) return;
-
-    try {
-      setLoadingMore(true);
-      const res = await getFeedPosts(supabase, {
-        limit: 15,
-        offset: nextOffset,
-        mode: feedMode,
-      });
-      setItems((prev) => [...prev, ...res.items]);
-      setNextOffset(res.nextOffset);
-    } catch (e: any) {
-      setError(e?.message ? String(e.message) : "Errore nel caricamento feed");
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [error, feedMode, loading, loadingMore, nextOffset, refreshing]);
+  }, [web.ready]);
 
   useEffect(() => {
-    let isMounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (!isMounted) return;
-      setSession(data.session ?? null);
-    });
-
     const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
+      void nextSession;
       setLoading(true);
       setReloadToken((prev) => prev + 1);
     });
 
     return () => {
-      isMounted = false;
       sub.subscription.unsubscribe();
     };
   }, []);
 
   useEffect(() => {
+    if (!web.ready) {
+      if (web.error) {
+        setLoading(false);
+      }
+      return;
+    }
     setLoading(true);
     load(feedMode);
-  }, [feedMode, load, reloadToken, session]);
+  }, [feedMode, load, reloadToken, web.error, web.ready]);
 
   useEffect(() => {
     const unsubscribe = on("feed:refresh", () => {
@@ -278,6 +226,7 @@ export default function FeedScreen() {
         Alert.alert("Errore", "Logout fallito");
         return;
       }
+      await clearSession();
       router.replace("/(auth)/login");
     } catch {
       Alert.alert("Errore", "Logout fallito");
@@ -286,12 +235,9 @@ export default function FeedScreen() {
 
   const header = useMemo(() => {
     const isFollowing = feedMode === "following";
-    const emptyMessage =
-      isFollowing && followDiscoveryStatus === "discovery_failed"
-        ? "Impossibile caricare i seguiti in questo momento."
-        : isFollowing && followedCount === 0
-        ? "Non segui ancora nessuno."
-        : "Nessun contenuto ancora. Qui compariranno i post delle persone e dei club che segui.";
+    const emptyMessage = isFollowing
+      ? "Nessun contenuto nel feed dei seguiti."
+      : "Nessun contenuto ancora. Qui compariranno i post delle persone e dei club che segui.";
 
     return (
       <View
@@ -377,16 +323,37 @@ export default function FeedScreen() {
         >
           <Text style={{ fontSize: 16, fontWeight: "700" }}>Accesso</Text>
 
-          {loading ? (
+          {web.loading ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <ActivityIndicator />
-              <Text>Verifico sessione…</Text>
+              <Text>Verifico sessione web…</Text>
             </View>
-          ) : email ? (
+          ) : web.error ? (
+            <>
+              <Text style={{ color: "#b91c1c" }}>Sessione web non disponibile.</Text>
+              <Pressable
+                onPress={web.retry}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderWidth: 1,
+                  borderColor: "#111827",
+                  borderRadius: 10,
+                  alignSelf: "flex-start",
+                }}
+              >
+                <Text style={{ color: "#111827", fontWeight: "700" }}>
+                  Riprova
+                </Text>
+              </Pressable>
+            </>
+          ) : whoami.data?.user ? (
             <>
               <Text style={{ color: "#111827" }}>
-                Sei loggato come:{" "}
-                <Text style={{ fontWeight: "700" }}>{email}</Text>
+                Sei loggato.{" "}
+                {whoami.data?.role ? (
+                  <Text style={{ fontWeight: "700" }}>{whoami.data.role}</Text>
+                ) : null}
               </Text>
 
               <Pressable
@@ -521,39 +488,20 @@ export default function FeedScreen() {
       </View>
     );
   }, [
-    email,
     error,
     feedMode,
-    followedCount,
-    followDiscoveryStatus,
     items.length,
     loading,
     onLogout,
     router,
+    web.error,
+    web.loading,
+    web.retry,
+    whoami.data?.role,
+    whoami.data?.user,
   ]);
 
-  const footer = useMemo(() => {
-    if (loadingMore) {
-      return (
-        <View style={{ paddingVertical: 18, alignItems: "center" }}>
-          <ActivityIndicator />
-          <Text style={{ marginTop: 8, color: "#6b7280" }}>
-            Carico altri post…
-          </Text>
-        </View>
-      );
-    }
-    if (nextOffset == null && items.length > 0) {
-      return (
-        <View style={{ paddingVertical: 18, alignItems: "center" }}>
-          <Text style={{ color: "#6b7280" }}>Hai visto tutto ✅</Text>
-        </View>
-      );
-    }
-    return <View style={{ height: 16 }} />;
-  }, [items.length, loadingMore, nextOffset]);
-
-  if (loading) {
+  if (loading || web.loading) {
     return (
       <View
         style={{
@@ -563,7 +511,7 @@ export default function FeedScreen() {
           gap: 10,
         }}
       >
-        <ActivityIndicator />
+          <ActivityIndicator />
         <Text style={{ color: "#6b7280" }}>Caricamento feed…</Text>
       </View>
     );
@@ -581,12 +529,10 @@ export default function FeedScreen() {
         />
       )}
       ListHeaderComponent={header}
-      ListFooterComponent={footer}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
       onEndReachedThreshold={0.6}
-      onEndReached={loadMore}
     />
   );
 }
