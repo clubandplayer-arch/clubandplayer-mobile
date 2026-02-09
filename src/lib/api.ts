@@ -268,13 +268,10 @@ export async function fetchFeedPosts(params?: {
  * PR4 helpers (spec-only):
  * - /api/feed/reactions (GET/POST)
  * - /api/feed/comments/counts (GET)
- *
- * IMPORTANT: The backend seems to NOT recognize a single "postId=" parameter.
- * We send multiple equivalent keys to satisfy any parser implementation.
  */
 function buildPostIdsQuery(postId: string): string {
   const sp = new URLSearchParams();
-  // common variants
+  // common variants to satisfy any parser implementation
   sp.append("postIds", postId);
   sp.append("postIds[]", postId);
   sp.append("post_ids", postId);
@@ -293,10 +290,18 @@ export async function fetchCommentCounts(postId: string): Promise<ApiResponse<Fe
   return apiFetch<FeedCommentCountsResponse>(`/api/feed/comments/counts?${q}`, { method: "GET" });
 }
 
-export async function toggleLike(postId: string): Promise<ApiResponse<unknown>> {
+export async function toggleLike(
+  postId: string,
+  mode: "like" | "unlike" = "like",
+): Promise<ApiResponse<unknown>> {
+  const body =
+    mode === "like"
+      ? { postId, reaction: "like" }
+      : { postId, reaction: "like", remove: true };
+
   return apiFetch<unknown>("/api/feed/reactions", {
     method: "POST",
-    body: JSON.stringify({ postId, reaction: "like" }),
+    body: JSON.stringify(body),
   });
 }
 

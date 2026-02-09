@@ -320,12 +320,8 @@ export default function PostDetailScreen() {
         fetchCommentCounts(targetPostId),
       ]);
 
-      if (!reactionsRes.ok) {
-        throw new Error(reactionsRes.errorText ?? `Reactions HTTP ${reactionsRes.status}`);
-      }
-      if (!commentsRes.ok) {
-        throw new Error(commentsRes.errorText ?? `Comments HTTP ${commentsRes.status}`);
-      }
+      if (!reactionsRes.ok) throw new Error(reactionsRes.errorText ?? `Reactions HTTP ${reactionsRes.status}`);
+      if (!commentsRes.ok) throw new Error(commentsRes.errorText ?? `Comments HTTP ${commentsRes.status}`);
 
       const counts = (reactionsRes.data as any)?.counts;
       const mine = (reactionsRes.data as any)?.mine;
@@ -335,14 +331,14 @@ export default function PostDetailScreen() {
       const nextMine = parseViewerHasLiked(mine, targetPostId);
       const nextCommentCount = parseCountsForPost(commentCounts, targetPostId);
 
-      // IMPORTANT: do not overwrite local optimistic like with empty GET
+      // do not overwrite an optimistic like/unlike with empty GET payloads
       setSocial((prev) => {
-        const shouldKeepLike = prev.likeCount > 0 && nextLikeCount === 0;
-        const shouldKeepMine = prev.viewerHasLiked && !nextMine;
+        const keepLike = prev.likeCount > 0 && nextLikeCount === 0;
+        const keepMine = prev.viewerHasLiked && !nextMine;
         return {
-          likeCount: shouldKeepLike ? prev.likeCount : nextLikeCount,
+          likeCount: keepLike ? prev.likeCount : nextLikeCount,
           commentCount: nextCommentCount,
-          viewerHasLiked: shouldKeepMine ? prev.viewerHasLiked : nextMine,
+          viewerHasLiked: keepMine ? prev.viewerHasLiked : nextMine,
           loading: false,
           error: null,
         };
@@ -409,21 +405,32 @@ export default function PostDetailScreen() {
     setIsToggling(true);
     setSocial((prev) => ({ ...prev, error: null }));
 
+    const nextMode: "like" | "unlike" = social.viewerHasLiked ? "unlike" : "like";
+
     try {
-      const res = await toggleLike(postId);
+      const res = await toggleLike(postId, nextMode);
       if (!res.ok) throw new Error(res.errorText ?? `Toggle HTTP ${res.status}`);
 
-      // optimistic update from POST payload (this one is reliable)
       const payload = (res.data as any) ?? {};
       const counts = payload.counts ?? payload?.data?.counts ?? payload;
       const mine = payload.mine ?? payload?.data?.mine ?? null;
 
       const newLikeCount = parseCountsForPost(counts, postId);
-      setSocial((prev) => ({
-        ...prev,
-        likeCount: newLikeCount || Math.max(prev.likeCount, 1),
-        viewerHasLiked: mine ? parseViewerHasLiked(mine, postId) : true,
-      }));
+
+      setSocial((prev) => {
+        if (nextMode === "like") {
+          return {
+            ...prev,
+            likeCount: newLikeCount || Math.max(prev.likeCount, 1),
+            viewerHasLiked: mine ? parseViewerHasLiked(mine, postId) : true,
+          };
+        }
+        return {
+          ...prev,
+          likeCount: Math.max(0, (newLikeCount || prev.likeCount) - 1),
+          viewerHasLiked: false,
+        };
+      });
     } catch (err) {
       setSocial((prev) => ({
         ...prev,
