@@ -60,9 +60,8 @@ export default function MeProfileDispatcher() {
     );
   }
 
-  // Ora che la sessione web è pronta, ricarichiamo whoami (una volta sola)
-  // Nota: useWhoami() nel file attuale carica on-mount; dopo sync serve reload
-  // quindi: se whoami è ancora loading, aspetta; se errore, mostra e consenti retry.
+  // Ora che la sessione web è pronta, useWhoami(web.ready) partirà automaticamente.
+  // Se whoami è ancora loading, aspetta; se errore, mostra e consenti retry.
   if (who.loading) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
