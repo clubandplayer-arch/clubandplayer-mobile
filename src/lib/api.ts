@@ -74,18 +74,29 @@ export type FeedPostsApiResponse =
   | FeedPostsResponse
   | { data?: FeedPostsResponse | unknown[] };
 
-// /api/feed/reactions payloads (best-effort typing, spec-only)
-export type FeedReactionsResponse = {
-  ok?: boolean;
-  counts?: unknown;
-  mine?: unknown;
-  postId?: string;
+// WEB truth:
+// GET /api/feed/reactions?ids=...
+// => { ok:true, counts:[{post_id,reaction,count}], mine:[{post_id,reaction}], missingTable?:true }
+export type FeedReactionsGetResponse = {
+  ok: true;
+  counts: Array<{ post_id: string; reaction: string; count: number }>;
+  mine: Array<{ post_id: string; reaction: string }>;
+  missingTable?: boolean;
 };
 
-// /api/feed/comments/counts payload (best-effort typing)
-export type FeedCommentCountsResponse = {
-  ok?: boolean;
-  counts?: unknown;
+export type FeedCommentsCountsGetResponse = {
+  ok: true;
+  counts: Array<{ post_id: string; count: number }>;
+};
+
+// WEB truth:
+// POST /api/feed/reactions body: {postId, reaction?: 'like' | ... | '' | null}
+// => { ok:true, postId, counts:[{post_id,reaction,count}] (only that post), mine: string|null }
+export type FeedReactionsPostResponse = {
+  ok: true;
+  postId: string;
+  counts: Array<{ post_id: string; reaction: string; count: number }>;
+  mine: string | null;
 };
 
 export const PROFILE_PATCH_FIELDS = [
@@ -169,11 +180,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<ApiRespons
   }
 
   if (!response.ok) {
-    return {
-      ok: false,
-      status,
-      errorText: responseText || `HTTP ${status}`,
-    };
+    return { ok: false, status, errorText: responseText || `HTTP ${status}` };
   }
 
   if (!responseText) {
@@ -218,14 +225,12 @@ export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
     method: "GET",
     credentials: "include",
     cache: "no-store",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
   });
-  const status = response.status;
 
+  const status = response.status;
   let json: unknown;
+
   try {
     json = await response.json();
   } catch (error) {
@@ -236,8 +241,7 @@ export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
     return { ok: false, status, errorText: typeof json === "string" && json ? json : `HTTP ${status}` };
   }
 
-  const payload =
-    json && typeof json === "object" && "data" in json ? (json as any).data : json;
+  const payload = json && typeof json === "object" && "data" in (json as any) ? (json as any).data : json;
   return { ok: true, status, data: payload as ProfileMe };
 }
 
@@ -257,49 +261,40 @@ export async function fetchFeedPosts(params?: {
     return apiFetch<FeedPostsApiResponse>(url, { method: "GET" });
   }
 
-  const searchParams = new URLSearchParams();
-  if (params?.scope) searchParams.set("scope", params.scope);
-  const query = searchParams.toString();
+  const sp = new URLSearchParams();
+  if (params?.scope) sp.set("scope", params.scope);
+  const query = sp.toString();
   const path = query ? `/api/feed/posts?${query}` : "/api/feed/posts";
   return apiFetch<FeedPostsApiResponse>(path, { method: "GET" });
 }
 
-/**
- * PR4 helpers (spec-only):
- * - /api/feed/reactions (GET/POST)
- * - /api/feed/comments/counts (GET)
- */
-function buildPostIdsQuery(postId: string): string {
+function buildIdsQuery(ids: string[]): string {
+  const uniq = Array.from(new Set(ids.map((s) => String(s).trim()).filter(Boolean)));
   const sp = new URLSearchParams();
-  // common variants to satisfy any parser implementation
-  sp.append("postIds", postId);
-  sp.append("postIds[]", postId);
-  sp.append("post_ids", postId);
-  sp.append("post_ids[]", postId);
-  sp.append("postId", postId);
+  sp.set("ids", uniq.join(","));
   return sp.toString();
 }
 
-export async function fetchReactionsSummary(postId: string): Promise<ApiResponse<FeedReactionsResponse>> {
-  const q = buildPostIdsQuery(postId);
-  return apiFetch<FeedReactionsResponse>(`/api/feed/reactions?${q}`, { method: "GET" });
+// ✅ WEB parity: ONLY ids=...
+export async function fetchReactionsForIds(ids: string[]): Promise<ApiResponse<FeedReactionsGetResponse>> {
+  const q = buildIdsQuery(ids);
+  return apiFetch<FeedReactionsGetResponse>(`/api/feed/reactions?${q}`, { method: "GET" });
 }
 
-export async function fetchCommentCounts(postId: string): Promise<ApiResponse<FeedCommentCountsResponse>> {
-  const q = buildPostIdsQuery(postId);
-  return apiFetch<FeedCommentCountsResponse>(`/api/feed/comments/counts?${q}`, { method: "GET" });
+export async function fetchCommentCountsForIds(ids: string[]): Promise<ApiResponse<FeedCommentsCountsGetResponse>> {
+  const q = buildIdsQuery(ids);
+  return apiFetch<FeedCommentsCountsGetResponse>(`/api/feed/comments/counts?${q}`, { method: "GET" });
 }
 
-export async function toggleLike(
+export async function setPostReaction(
   postId: string,
-  mode: "like" | "unlike" = "like",
-): Promise<ApiResponse<unknown>> {
-  const body =
-    mode === "like"
-      ? { postId, reaction: "like" }
-      : { postId, reaction: "like", remove: true };
+  reaction: "like" | null,
+): Promise<ApiResponse<FeedReactionsPostResponse>> {
+  // ✅ WEB parity:
+  // reaction null or '' => remove
+  const body = reaction ? { postId, reaction } : { postId, reaction: null };
 
-  return apiFetch<unknown>("/api/feed/reactions", {
+  return apiFetch<FeedReactionsPostResponse>("/api/feed/reactions", {
     method: "POST",
     body: JSON.stringify(body),
   });

@@ -1,174 +1,188 @@
-import { fetchFeedPosts } from "../api";
-import { asString, normalizeMediaRow, type NormalizedMediaItem } from "../media/normalizeMedia";
-
-export type FeedMediaItem = NormalizedMediaItem;
+import {
+  fetchCommentCountsForIds,
+  fetchFeedPosts,
+  fetchReactionsForIds,
+  type FeedCommentsCountsGetResponse,
+  type FeedReactionsGetResponse,
+} from "../api";
 
 export type FeedAuthor = {
   id?: string;
-  user_id?: string;
+  user_id?: string | null;
   full_name?: string | null;
   display_name?: string | null;
   avatar_url?: string | null;
-  type?: string | null;
   account_type?: string | null;
-  role?: string | null;
-  verified_until?: string | null;
-  certified?: boolean | null;
-  certification_status?: string | null;
-  is_verified?: boolean | null;
+  type?: string | null;
+};
+
+export type FeedMedia = {
+  url: string;
+  poster_url?: string | null;
+  media_type?: "image" | "video" | string;
+  aspect?: number | null;
 };
 
 export type FeedPost = {
   id: string;
-  author_id?: string | null;
   created_at?: string | null;
+  author_id?: string | null;
+
+  author: FeedAuthor | null;
   raw: Record<string, any>;
-  author?: FeedAuthor | null;
-  media: FeedMediaItem[];
+  media: FeedMedia[];
+
+  // computed parity fields (WEB does this client-side)
   likeCount?: number;
   commentCount?: number;
+  viewerHasLiked?: boolean;
 };
 
-type FeedScope = "all" | "following";
-
-function asNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function normalizeMediaList(list: unknown[]): FeedMediaItem[] {
-  return list
-    .map((row) => normalizeMediaRow(row))
-    .filter(Boolean) as FeedMediaItem[];
-}
-
-function extractMedia(item: any): FeedMediaItem[] {
-  if (Array.isArray(item?.media)) {
-    return normalizeMediaList(item.media);
-  }
-  if (Array.isArray(item?.post_media)) {
-    return normalizeMediaList(item.post_media);
-  }
-
-  const mediaType = typeof item?.media_type === "string" ? item.media_type.trim().toLowerCase() : "";
-  const mediaUrl = asString(item?.media_url);
-  if ((mediaType === "image" || mediaType === "video") && mediaUrl) {
-    return [
-      {
-        media_type: mediaType as "image" | "video",
-        url: mediaUrl,
-        poster_url: asString(item?.poster_url) ?? null,
-        width: asNumber(item?.width),
-        height: asNumber(item?.height),
-      },
-    ];
-  }
-
-  return [];
-}
-
-function extractAuthor(item: any): FeedAuthor | null {
-  const candidate =
-    (item?.author && typeof item.author === "object" ? item.author : null) ||
-    (item?.profile && typeof item.profile === "object" ? item.profile : null) ||
-    (item?.author_profile && typeof item.author_profile === "object" ? item.author_profile : null);
-
-  if (!candidate) return null;
-
-  return {
-    id: asString(candidate?.id) ?? undefined,
-    user_id: asString(candidate?.user_id) ?? undefined,
-    full_name: typeof candidate?.full_name === "string" ? candidate.full_name : null,
-    display_name: typeof candidate?.display_name === "string" ? candidate.display_name : null,
-    avatar_url: typeof candidate?.avatar_url === "string" ? candidate.avatar_url : null,
-    type: typeof candidate?.type === "string" ? candidate.type : null,
-    account_type: typeof candidate?.account_type === "string" ? candidate.account_type : null,
-    role: typeof candidate?.role === "string" ? candidate.role : null,
-    verified_until: typeof candidate?.verified_until === "string" ? candidate.verified_until : null,
-    certified: typeof candidate?.certified === "boolean" ? candidate.certified : null,
-    certification_status:
-      typeof candidate?.certification_status === "string" ? candidate.certification_status : null,
-    is_verified: typeof candidate?.is_verified === "boolean" ? candidate.is_verified : null,
-  };
-}
-
-export async function getFeedPosts({
-  scope,
-  nextPage,
-}: {
-  scope: FeedScope;
-  nextPage?: string | null;
-}): Promise<{
-  items: FeedPost[];
-  nextPage: string | null;
-}> {
-  const response = await fetchFeedPosts({
-    scope,
-    nextPage: nextPage ?? undefined,
-  });
-
-  if (!response.ok) {
-    throw new Error(response.errorText ?? "Errore nel recupero del feed");
-  }
-
-  const payload = response.data as any;
-  const unwrapped =
-    payload && typeof payload === "object" && "data" in payload ? (payload as any).data : payload;
-
-  const rawItems = Array.isArray(unwrapped?.items)
-    ? unwrapped.items
-    : Array.isArray(unwrapped)
-      ? unwrapped
-      : [];
-
-  const items = rawItems
-    .map((item: any) => {
-      const id = asString(item?.id);
-      if (!id) return null;
-
-      const likeCount =
-        asNumber(item?.likeCount) ?? asNumber(item?.like_count) ?? asNumber(item?.reactions_count);
-      const commentCount =
-        asNumber(item?.commentCount) ??
-        asNumber(item?.comment_count) ??
-        asNumber(item?.comments_count);
-
-      return {
-        id,
-        author_id: asString(item?.author_id),
-        created_at: asString(item?.created_at),
-        raw: item ?? {},
-        author: extractAuthor(item),
-        media: extractMedia(item),
-        likeCount: likeCount ?? undefined,
-        commentCount: commentCount ?? undefined,
-      } as FeedPost;
-    })
-    .filter(Boolean) as FeedPost[];
-
-  const nextPageToken = typeof unwrapped?.nextPage === "string" ? unwrapped.nextPage : null;
-
-  return { items, nextPage: nextPageToken };
+export function getAuthorName(author: FeedAuthor | null): string {
+  if (!author) return "Utente";
+  return (
+    author.full_name ||
+    author.display_name ||
+    (author.user_id ? `User ${String(author.user_id).slice(0, 6)}` : "Utente")
+  );
 }
 
 export function getPostText(raw: Record<string, any>): string {
-  const candidates = [raw?.text, raw?.content, raw?.body, raw?.message, raw?.caption, raw?.description];
-  const found = candidates.find((v) => typeof v === "string" && v.trim().length > 0);
-  return (found ?? "").toString().trim();
+  const v = raw?.content;
+  return typeof v === "string" ? v : "";
 }
 
-function isEmailLike(value: string): boolean {
-  return value.includes("@");
+function normalizeFeedPostsPayload(json: any): { items: any[]; nextPage: string | null } {
+  const payload = json && typeof json === "object" && "data" in json ? json.data : json;
+  const items = Array.isArray(payload?.items) ? payload.items : Array.isArray(payload) ? payload : [];
+  const nextPageRaw = payload?.nextPage ?? null;
+  const nextPage =
+    nextPageRaw == null ? null : typeof nextPageRaw === "string" ? nextPageRaw : String(nextPageRaw);
+  return { items, nextPage };
 }
 
-export function getAuthorName(author?: FeedAuthor | null): string {
-  const fullName = author?.full_name?.trim() ?? "";
-  if (fullName && !isEmailLike(fullName)) {
-    return fullName;
+function toStr(v: unknown): string | null {
+  if (typeof v === "string") return v;
+  if (v == null) return null;
+  try {
+    return String(v);
+  } catch {
+    return null;
+  }
+}
+
+function normalizeAuthor(raw: any): FeedAuthor | null {
+  if (!raw || typeof raw !== "object") return null;
+  return {
+    id: toStr(raw.id) ?? undefined,
+    user_id: toStr(raw.user_id) ?? null,
+    full_name: typeof raw.full_name === "string" ? raw.full_name : null,
+    display_name: typeof raw.display_name === "string" ? raw.display_name : null,
+    avatar_url: typeof raw.avatar_url === "string" ? raw.avatar_url : null,
+    account_type: typeof raw.account_type === "string" ? raw.account_type : null,
+    type: typeof raw.type === "string" ? raw.type : null,
+  };
+}
+
+function normalizeMedia(raw: any): FeedMedia[] {
+  const media = raw?.media;
+  if (!Array.isArray(media)) return [];
+  return media
+    .map((m: any) => {
+      const url = toStr(m?.url);
+      if (!url) return null;
+      return {
+        url,
+        poster_url: toStr(m?.poster_url) ?? null,
+        media_type: (toStr(m?.media_type) ?? "image") as any,
+        aspect: typeof m?.aspect === "number" ? m.aspect : null,
+      } as FeedMedia;
+    })
+    .filter(Boolean) as FeedMedia[];
+}
+
+function buildCountsMaps(
+  reactions: FeedReactionsGetResponse | null,
+  comments: FeedCommentsCountsGetResponse | null,
+) {
+  const likeCountByPost = new Map<string, number>();
+  const viewerLikedSet = new Set<string>();
+  const commentCountByPost = new Map<string, number>();
+
+  if (reactions?.ok) {
+    for (const row of reactions.counts || []) {
+      if (row?.reaction === "like" && row?.post_id) {
+        likeCountByPost.set(row.post_id, Number(row.count) || 0);
+      }
+    }
+    for (const m of reactions.mine || []) {
+      if (m?.reaction === "like" && m?.post_id) {
+        viewerLikedSet.add(m.post_id);
+      }
+    }
   }
 
-  const displayName = author?.display_name?.trim() ?? "";
-  const name = displayName && !isEmailLike(displayName) ? displayName : "";
-  return name || "Utente";
+  if (comments?.ok) {
+    for (const row of comments.counts || []) {
+      if (row?.post_id) commentCountByPost.set(row.post_id, Number(row.count) || 0);
+    }
+  }
+
+  return { likeCountByPost, viewerLikedSet, commentCountByPost };
+}
+
+export async function getFeedPosts(params: {
+  scope: "all" | "following";
+  nextPage?: string | null;
+}): Promise<{ items: FeedPost[]; nextPage: string | null }> {
+  const res = await fetchFeedPosts({
+    scope: params.scope,
+    nextPage: params.nextPage ?? undefined,
+  });
+
+  if (!res.ok) {
+    throw new Error(res.errorText ?? `Feed HTTP ${res.status}`);
+  }
+
+  const { items: rawItems, nextPage } = normalizeFeedPostsPayload(res.data);
+
+  const posts: FeedPost[] = rawItems.map((raw: any) => {
+    const id = toStr(raw?.id) ?? "";
+    const author = normalizeAuthor(raw?.author ?? raw?.profiles ?? raw?.profile ?? null);
+
+    return {
+      id,
+      created_at: toStr(raw?.created_at),
+      author_id: toStr(raw?.author_id),
+      author,
+      raw: raw ?? {},
+      media: normalizeMedia(raw),
+      likeCount: 0,
+      commentCount: 0,
+      viewerHasLiked: false,
+    };
+  }).filter((p) => !!p.id);
+
+  // ✅ WEB parity: fetch reactions+comments counts separately using ids=...
+  const ids = posts.map((p) => p.id);
+  if (ids.length === 0) return { items: posts, nextPage };
+
+  const [reactionsRes, commentsRes] = await Promise.all([
+    fetchReactionsForIds(ids),
+    fetchCommentCountsForIds(ids),
+  ]);
+
+  const reactions = reactionsRes.ok ? (reactionsRes.data ?? null) : null;
+  const comments = commentsRes.ok ? (commentsRes.data ?? null) : null;
+
+  const { likeCountByPost, viewerLikedSet, commentCountByPost } = buildCountsMaps(reactions, comments);
+
+  const items = posts.map((p) => ({
+    ...p,
+    likeCount: likeCountByPost.get(p.id) ?? 0,
+    commentCount: commentCountByPost.get(p.id) ?? 0,
+    viewerHasLiked: viewerLikedSet.has(p.id),
+  }));
+
+  return { items, nextPage };
 }
