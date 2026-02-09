@@ -58,6 +58,8 @@ function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
 }
 
 function FeedCard({ item }: { item: FeedPost }) {
+  const router = useRouter();
+
   const authorName = getAuthorName(item.author);
   const text = getPostText(item.raw);
   const when = formatWhen(item.created_at);
@@ -68,9 +70,12 @@ function FeedCard({ item }: { item: FeedPost }) {
 
   return (
     <Pressable
-      onPress={() => {
-        Alert.alert("TAP OK", "postId: " + String(item.id));
-      }}
+      onPress={() =>
+        router.push({
+          pathname: "/posts/[id]",
+          params: { id: item.id },
+        })
+      }
       style={{
         borderBottomWidth: 1,
         borderBottomColor: "#f3f4f6",
@@ -458,7 +463,10 @@ export default function FeedScreen() {
           >
             <Text style={{ fontWeight: "800", color: "#b91c1c" }}>Errore</Text>
             <Text style={{ color: "#b91c1c" }}>{error}</Text>
-            <Pressable onPress={() => load(feedMode)} style={{ alignSelf: "flex-start" }}>
+            <Pressable
+              onPress={() => load(feedMode)}
+              style={{ alignSelf: "flex-start" }}
+            >
               <Text style={{ color: "#036f9a", fontWeight: "800" }}>
                 Riprova
               </Text>
@@ -538,7 +546,9 @@ export default function FeedScreen() {
       renderItem={({ item }) => <FeedCard item={item} />}
       ListHeaderComponent={header}
       ListFooterComponent={footer}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
       onEndReachedThreshold={0.6}
       onEndReached={loadMore}
     />
