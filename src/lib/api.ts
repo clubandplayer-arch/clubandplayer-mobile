@@ -72,6 +72,17 @@ export type FeedPostsResponse = {
 
 export type FeedPostsApiResponse = FeedPostsResponse | { data?: FeedPostsResponse | unknown[] };
 
+// /api/feed/reactions payloads (best-effort typing, spec-only)
+export type FeedReactionsResponse = {
+  counts?: unknown;
+  mine?: unknown;
+};
+
+// /api/feed/comments/counts payload (best-effort typing)
+export type FeedCommentCountsResponse = {
+  counts?: unknown;
+};
+
 export const PROFILE_PATCH_FIELDS = [
   "full_name",
   "display_name",
@@ -257,6 +268,32 @@ export async function fetchFeedPosts(params?: {
   const query = searchParams.toString();
   const path = query ? `/api/feed/posts?${query}` : "/api/feed/posts";
   return apiFetch<FeedPostsApiResponse>(path, { method: "GET" });
+}
+
+/**
+ * PR4 helpers (spec-only):
+ * - /api/feed/reactions (GET/POST)
+ * - /api/feed/comments/counts (GET)
+ */
+export async function fetchReactionsSummary(postId: string): Promise<ApiResponse<FeedReactionsResponse>> {
+  const search = new URLSearchParams();
+  // keep both keys: some implementations accept postId, others postIds
+  search.set("postId", postId);
+  search.set("postIds", postId);
+  return apiFetch<FeedReactionsResponse>(`/api/feed/reactions?${search.toString()}`, { method: "GET" });
+}
+
+export async function fetchCommentCounts(postId: string): Promise<ApiResponse<FeedCommentCountsResponse>> {
+  const search = new URLSearchParams();
+  search.set("postIds", postId);
+  return apiFetch<FeedCommentCountsResponse>(`/api/feed/comments/counts?${search.toString()}`, { method: "GET" });
+}
+
+export async function toggleLike(postId: string): Promise<ApiResponse<unknown>> {
+  return apiFetch<unknown>("/api/feed/reactions", {
+    method: "POST",
+    body: JSON.stringify({ postId, reaction: "like" }),
+  });
 }
 
 export function buildProfilePatch(
