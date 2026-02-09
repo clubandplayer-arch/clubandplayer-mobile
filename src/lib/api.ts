@@ -70,7 +70,9 @@ export type FeedPostsResponse = {
   _debug?: unknown;
 };
 
-export type FeedPostsApiResponse = FeedPostsResponse | { data?: FeedPostsResponse | unknown[] };
+export type FeedPostsApiResponse =
+  | FeedPostsResponse
+  | { data?: FeedPostsResponse | unknown[] };
 
 // /api/feed/reactions payloads (best-effort typing, spec-only)
 export type FeedReactionsResponse = {
@@ -141,7 +143,10 @@ function buildUrl(path: string): string {
   return `${base}${normalized}`;
 }
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<ApiResponse<T>> {
+async function apiFetch<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<ApiResponse<T>> {
   const url = buildUrl(path);
   const response = await fetch(url, {
     ...init,
@@ -183,7 +188,9 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<ApiRespons
   }
 }
 
-export async function syncSession(): Promise<ApiResponse<{ ok: boolean; cleared?: boolean }>> {
+export async function syncSession(): Promise<
+  ApiResponse<{ ok: boolean; cleared?: boolean }>
+> {
   const { data } = await supabase.auth.getSession();
   const session = data.session;
   const payload = session
@@ -196,7 +203,9 @@ export async function syncSession(): Promise<ApiResponse<{ ok: boolean; cleared?
   });
 }
 
-export async function clearSession(): Promise<ApiResponse<{ ok: boolean; cleared?: boolean }>> {
+export async function clearSession(): Promise<
+  ApiResponse<{ ok: boolean; cleared?: boolean }>
+> {
   return apiFetch<{ ok: boolean; cleared?: boolean }>("/api/auth/session", {
     method: "POST",
     body: JSON.stringify({ access_token: null, refresh_token: null }),
@@ -275,18 +284,27 @@ export async function fetchFeedPosts(params?: {
  * - /api/feed/reactions (GET/POST)
  * - /api/feed/comments/counts (GET)
  */
-export async function fetchReactionsSummary(postId: string): Promise<ApiResponse<FeedReactionsResponse>> {
+export async function fetchReactionsSummary(
+  postId: string,
+): Promise<ApiResponse<FeedReactionsResponse>> {
   const search = new URLSearchParams();
-  // keep both keys: some implementations accept postId, others postIds
-  search.set("postId", postId);
+  // IMPORTANT: endpoint expects postIds (comma-separated list)
   search.set("postIds", postId);
-  return apiFetch<FeedReactionsResponse>(`/api/feed/reactions?${search.toString()}`, { method: "GET" });
+  return apiFetch<FeedReactionsResponse>(
+    `/api/feed/reactions?${search.toString()}`,
+    { method: "GET" },
+  );
 }
 
-export async function fetchCommentCounts(postId: string): Promise<ApiResponse<FeedCommentCountsResponse>> {
+export async function fetchCommentCounts(
+  postId: string,
+): Promise<ApiResponse<FeedCommentCountsResponse>> {
   const search = new URLSearchParams();
   search.set("postIds", postId);
-  return apiFetch<FeedCommentCountsResponse>(`/api/feed/comments/counts?${search.toString()}`, { method: "GET" });
+  return apiFetch<FeedCommentCountsResponse>(
+    `/api/feed/comments/counts?${search.toString()}`,
+    { method: "GET" },
+  );
 }
 
 export async function toggleLike(postId: string): Promise<ApiResponse<unknown>> {

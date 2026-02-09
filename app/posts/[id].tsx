@@ -118,11 +118,16 @@ function parseCountsForPost(counts: unknown, postId: string): number {
     const match = counts.find((item) => {
       if (!item || typeof item !== "object") return false;
       const candidate = item as Record<string, unknown>;
-      return (
+      const samePost =
         candidate.post_id === postId ||
         candidate.postId === postId ||
-        candidate.id === postId
-      );
+        candidate.id === postId;
+
+      // counts array might include multiple reactions; we want likes
+      const reaction = candidate.reaction;
+      const isLike = reaction === "like";
+
+      return samePost && isLike;
     }) as Record<string, unknown> | undefined;
 
     if (!match) return 0;
@@ -171,7 +176,7 @@ function parseViewerHasLiked(mine: unknown, postId: string): boolean {
 }
 
 async function fetchAuthorProfile(
-  authorId: string | null
+  authorId: string | null,
 ): Promise<FeedAuthor | null> {
   if (!authorId) return null;
 
@@ -348,8 +353,8 @@ export default function PostDetailScreen() {
             errorText: reactionsRes.errorText ?? null,
           },
           null,
-          2
-        )
+          2,
+        ),
       );
 
       setDebugComments(
@@ -361,18 +366,18 @@ export default function PostDetailScreen() {
             errorText: commentsRes.errorText ?? null,
           },
           null,
-          2
-        )
+          2,
+        ),
       );
 
       if (!reactionsRes.ok) {
         throw new Error(
-          reactionsRes.errorText ?? `Reactions HTTP ${reactionsRes.status}`
+          reactionsRes.errorText ?? `Reactions HTTP ${reactionsRes.status}`,
         );
       }
       if (!commentsRes.ok) {
         throw new Error(
-          commentsRes.errorText ?? `Comments HTTP ${commentsRes.status}`
+          commentsRes.errorText ?? `Comments HTTP ${commentsRes.status}`,
         );
       }
 
@@ -425,7 +430,7 @@ export default function PostDetailScreen() {
       setPost(null);
       setQuotedPost(null);
       setError(
-        err instanceof Error ? err.message : "Errore nel caricamento post"
+        err instanceof Error ? err.message : "Errore nel caricamento post",
       );
     } finally {
       setLoading(false);
@@ -463,8 +468,8 @@ export default function PostDetailScreen() {
             errorText: res.errorText ?? null,
           },
           null,
-          2
-        )
+          2,
+        ),
       );
 
       if (!res.ok) {
