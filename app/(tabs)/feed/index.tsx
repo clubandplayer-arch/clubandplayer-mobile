@@ -9,7 +9,7 @@ import {
   Image,
   Alert,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { Link, useRouter } from "expo-router";
 
 import {
   getFeedPosts,
@@ -58,7 +58,6 @@ function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
 }
 
 function FeedCard({ item }: { item: FeedPost }) {
-  const router = useRouter();
   const authorName = getAuthorName(item.author);
   const text = getPostText(item.raw);
   const when = formatWhen(item.created_at);
@@ -68,67 +67,68 @@ function FeedCard({ item }: { item: FeedPost }) {
     typeof item.commentCount === "number" ? item.commentCount : 0;
 
   return (
-    <Pressable
-      onPress={() => router.push(`/posts/${item.id}`)}
-      style={{
-        borderBottomWidth: 1,
-        borderBottomColor: "#f3f4f6",
-        paddingHorizontal: 24,
-        paddingVertical: 16,
-        backgroundColor: "#ffffff",
-        gap: 10,
-      }}
-    >
-      <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-        <Avatar url={item.author?.avatar_url ?? null} size={40} />
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Text style={{ fontSize: 15, fontWeight: "800", color: "#111827" }}>
-              {authorName}
-            </Text>
-            {item.author && isCertifiedClub(item.author) ? (
-              <Text style={{ fontSize: 11, fontWeight: "900", color: "#111827" }}>
-                C
+    <Link href={`/posts/${item.id}`} asChild>
+      <Pressable
+        style={{
+          borderBottomWidth: 1,
+          borderBottomColor: "#f3f4f6",
+          paddingHorizontal: 24,
+          paddingVertical: 16,
+          backgroundColor: "#ffffff",
+          gap: 10,
+        }}
+      >
+        <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+          <Avatar url={item.author?.avatar_url ?? null} size={40} />
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text style={{ fontSize: 15, fontWeight: "800", color: "#111827" }}>
+                {authorName}
               </Text>
-            ) : null}
-          </View>
-          <Text style={{ fontSize: 12, color: "#6b7280" }}>{when}</Text>
-        </View>
-      </View>
-
-      {!!text ? (
-        <Text style={{ fontSize: 14, lineHeight: 19, color: "#111827" }}>
-          {text}
-        </Text>
-      ) : null}
-
-      {firstMedia?.url ? (
-        <View
-          style={{
-            borderRadius: 12,
-            overflow: "hidden",
-            backgroundColor: "#f3f4f6",
-          }}
-        >
-          <Image
-            source={{ uri: firstMedia.poster_url || firstMedia.url }}
-            style={{ width: "100%", height: 220 }}
-            resizeMode="cover"
-          />
-          <View style={{ padding: 10 }}>
-            <Text style={{ fontSize: 12, color: "#6b7280" }}>
-              {firstMedia.media_type === "video" ? "🎬 Video" : "🖼️ Foto"}
-              {item.media.length > 1 ? ` • +${item.media.length - 1}` : ""}
-            </Text>
+              {item.author && isCertifiedClub(item.author) ? (
+                <Text style={{ fontSize: 11, fontWeight: "900", color: "#111827" }}>
+                  C
+                </Text>
+              ) : null}
+            </View>
+            <Text style={{ fontSize: 12, color: "#6b7280" }}>{when}</Text>
           </View>
         </View>
-      ) : null}
 
-      <View style={{ flexDirection: "row", gap: 14 }}>
-        <Text style={{ fontSize: 12, color: "#6b7280" }}>👍 {likeCount}</Text>
-        <Text style={{ fontSize: 12, color: "#6b7280" }}>💬 {commentCount}</Text>
-      </View>
-    </Pressable>
+        {!!text ? (
+          <Text style={{ fontSize: 14, lineHeight: 19, color: "#111827" }}>
+            {text}
+          </Text>
+        ) : null}
+
+        {firstMedia?.url ? (
+          <View
+            style={{
+              borderRadius: 12,
+              overflow: "hidden",
+              backgroundColor: "#f3f4f6",
+            }}
+          >
+            <Image
+              source={{ uri: firstMedia.poster_url || firstMedia.url }}
+              style={{ width: "100%", height: 220 }}
+              resizeMode="cover"
+            />
+            <View style={{ padding: 10 }}>
+              <Text style={{ fontSize: 12, color: "#6b7280" }}>
+                {firstMedia.media_type === "video" ? "🎬 Video" : "🖼️ Foto"}
+                {item.media.length > 1 ? ` • +${item.media.length - 1}` : ""}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        <View style={{ flexDirection: "row", gap: 14 }}>
+          <Text style={{ fontSize: 12, color: "#6b7280" }}>👍 {likeCount}</Text>
+          <Text style={{ fontSize: 12, color: "#6b7280" }}>💬 {commentCount}</Text>
+        </View>
+      </Pressable>
+    </Link>
   );
 }
 
