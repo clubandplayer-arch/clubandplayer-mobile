@@ -20,7 +20,7 @@ import {
 import { getAuthorName, getPostText, type FeedAuthor } from "../../src/lib/feed/getFeedPosts";
 
 const POST_FIELDS =
-  "id, content, created_at, author_id, media_url, media_type, media_aspect, link_url, link_description, link_image, kind, event_payload, quoted_post_id";
+  "id, content, created_at, author_id, media_url, media_type, media_aspect, kind, event_payload, quoted_post_id";
 
 type PostDetail = {
   id: string;
