@@ -99,10 +99,6 @@ function sumCountsObject(value: Record<string, unknown>): number {
 function parseCountsForPost(counts: unknown, postId: string): number {
   if (typeof counts === "number" && Number.isFinite(counts)) return counts;
 
-  // Object form:
-  // - { [postId]: number }
-  // - { [postId]: { like: number, ... } }
-  // - { like: number, ... } (single object)
   if (counts && typeof counts === "object" && !Array.isArray(counts)) {
     const obj = counts as Record<string, unknown>;
 
@@ -118,7 +114,6 @@ function parseCountsForPost(counts: unknown, postId: string): number {
     return sumCountsObject(obj);
   }
 
-  // Array form: [{ post_id, count }, ...] or similar
   if (Array.isArray(counts)) {
     const match = counts.find((item) => {
       if (!item || typeof item !== "object") return false;
@@ -154,15 +149,12 @@ function parseCountsForPost(counts: unknown, postId: string): number {
 function parseViewerHasLiked(mine: unknown, postId: string): boolean {
   if (!mine) return false;
 
-  // keyed object: { [postId]: true } or { [postId]: "like" } etc
   if (mine && typeof mine === "object" && !Array.isArray(mine)) {
     const obj = mine as Record<string, unknown>;
     if (postId in obj) return Boolean(obj[postId]);
-    // fallback: any truthy value means liked (best-effort)
     return Object.values(obj).some(Boolean);
   }
 
-  // array: [postId] or [{post_id:...}] etc
   if (Array.isArray(mine)) {
     return mine.some((item) => {
       if (item === postId) return true;
@@ -174,7 +166,6 @@ function parseViewerHasLiked(mine: unknown, postId: string): boolean {
     });
   }
 
-  // string or boolean
   if (typeof mine === "string") return mine.includes(postId) || mine.length > 0;
   return Boolean(mine);
 }
@@ -205,10 +196,12 @@ async function fetchAuthorProfile(
   return {
     id: asString((data as any).id) ?? undefined,
     user_id: asString((data as any).user_id) ?? undefined,
-    full_name: typeof (data as any).full_name === "string" ? (data as any).full_name : null,
+    full_name:
+      typeof (data as any).full_name === "string" ? (data as any).full_name : null,
     display_name:
       typeof (data as any).display_name === "string" ? (data as any).display_name : null,
-    avatar_url: typeof (data as any).avatar_url === "string" ? (data as any).avatar_url : null,
+    avatar_url:
+      typeof (data as any).avatar_url === "string" ? (data as any).avatar_url : null,
     account_type:
       typeof (data as any).account_type === "string" ? (data as any).account_type : null,
     type: typeof (data as any).type === "string" ? (data as any).type : null,
@@ -332,6 +325,11 @@ export default function PostDetailScreen() {
   });
   const [isToggling, setIsToggling] = useState(false);
 
+  // DEBUG (visible)
+  const [debugReactions, setDebugReactions] = useState<string | null>(null);
+  const [debugComments, setDebugComments] = useState<string | null>(null);
+  const [debugToggle, setDebugToggle] = useState<string | null>(null);
+
   const loadSocial = useCallback(async (targetPostId: string) => {
     setSocial((prev) => ({ ...prev, loading: true, error: null }));
 
@@ -340,6 +338,32 @@ export default function PostDetailScreen() {
         fetchReactionsSummary(targetPostId),
         fetchCommentCounts(targetPostId),
       ]);
+
+      setDebugReactions(
+        JSON.stringify(
+          {
+            ok: reactionsRes.ok,
+            status: reactionsRes.status,
+            data: reactionsRes.data ?? null,
+            errorText: reactionsRes.errorText ?? null,
+          },
+          null,
+          2
+        )
+      );
+
+      setDebugComments(
+        JSON.stringify(
+          {
+            ok: commentsRes.ok,
+            status: commentsRes.status,
+            data: commentsRes.data ?? null,
+            errorText: commentsRes.errorText ?? null,
+          },
+          null,
+          2
+        )
+      );
 
       if (!reactionsRes.ok) {
         throw new Error(
@@ -426,9 +450,23 @@ export default function PostDetailScreen() {
     if (!postId || isToggling) return;
     setIsToggling(true);
     setSocial((prev) => ({ ...prev, error: null }));
+    setDebugToggle(null);
 
     try {
       const res = await toggleLike(postId);
+      setDebugToggle(
+        JSON.stringify(
+          {
+            ok: res.ok,
+            status: res.status,
+            data: res.data ?? null,
+            errorText: res.errorText ?? null,
+          },
+          null,
+          2
+        )
+      );
+
       if (!res.ok) {
         throw new Error(res.errorText ?? `Toggle HTTP ${res.status}`);
       }
@@ -627,6 +665,26 @@ export default function PostDetailScreen() {
             {social.viewerHasLiked ? "Hai messo 👍" : "Metti 👍"}
           </Text>
         </Pressable>
+
+        {/* DEBUG */}
+        {debugToggle ? (
+          <Text style={{ fontSize: 10, color: "#6b7280" }}>
+            DEBUG toggle:{"\n"}
+            {debugToggle}
+          </Text>
+        ) : null}
+        {debugReactions ? (
+          <Text style={{ fontSize: 10, color: "#6b7280" }}>
+            DEBUG reactions:{"\n"}
+            {debugReactions}
+          </Text>
+        ) : null}
+        {debugComments ? (
+          <Text style={{ fontSize: 10, color: "#6b7280" }}>
+            DEBUG comments:{"\n"}
+            {debugComments}
+          </Text>
+        ) : null}
       </View>
     </ScrollView>
   );
