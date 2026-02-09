@@ -70,7 +70,34 @@ export type FeedPostsResponse = {
   _debug?: unknown;
 };
 
-export type FeedPostsApiResponse = FeedPostsResponse | { data?: FeedPostsResponse | unknown[] };
+export type FeedPostsApiResponse =
+  | FeedPostsResponse
+  | { data?: FeedPostsResponse | unknown[] };
+
+// WEB truth:
+// GET /api/feed/reactions?ids=...
+// => { ok:true, counts:[{post_id,reaction,count}], mine:[{post_id,reaction}], missingTable?:true }
+export type FeedReactionsGetResponse = {
+  ok: true;
+  counts: Array<{ post_id: string; reaction: string; count: number }>;
+  mine: Array<{ post_id: string; reaction: string }>;
+  missingTable?: boolean;
+};
+
+export type FeedCommentsCountsGetResponse = {
+  ok: true;
+  counts: Array<{ post_id: string; count: number }>;
+};
+
+// WEB truth:
+// POST /api/feed/reactions body: {postId, reaction?: 'like' | ... | '' | null}
+// => { ok:true, postId, counts:[{post_id,reaction,count}] (only that post), mine: string|null }
+export type FeedReactionsPostResponse = {
+  ok: true;
+  postId: string;
+  counts: Array<{ post_id: string; reaction: string; count: number }>;
+  mine: string | null;
+};
 
 export const PROFILE_PATCH_FIELDS = [
   "full_name",
@@ -153,11 +180,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<ApiRespons
   }
 
   if (!response.ok) {
-    return {
-      ok: false,
-      status,
-      errorText: responseText || `HTTP ${status}`,
-    };
+    return { ok: false, status, errorText: responseText || `HTTP ${status}` };
   }
 
   if (!responseText) {
@@ -193,9 +216,7 @@ export async function clearSession(): Promise<ApiResponse<{ ok: boolean; cleared
 }
 
 export async function fetchWhoami(): Promise<ApiResponse<WhoamiResponse>> {
-  return apiFetch<WhoamiResponse>("/api/auth/whoami", {
-    method: "GET",
-  });
+  return apiFetch<WhoamiResponse>("/api/auth/whoami", { method: "GET" });
 }
 
 export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
@@ -204,13 +225,10 @@ export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
     method: "GET",
     credentials: "include",
     cache: "no-store",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
   });
-  const status = response.status;
 
+  const status = response.status;
   let json: unknown;
 
   try {
@@ -227,8 +245,7 @@ export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
     };
   }
 
-  const payload =
-    json && typeof json === "object" && "data" in json ? (json as any).data : json;
+  const payload = json && typeof json === "object" && "data" in (json as any) ? (json as any).data : json;
   return { ok: true, status, data: payload as ProfileMe };
 }
 
@@ -240,23 +257,51 @@ export async function fetchFeedPosts(params?: {
     const base = getWebBaseUrl();
     const target = params.nextPage;
     let url = "";
-    if (target.startsWith("http://") || target.startsWith("https://")) {
-      url = target;
-    } else if (target.startsWith("?")) {
-      url = `${base}/api/feed/posts${target}`;
-    } else if (target.startsWith("/")) {
-      url = `${base}${target}`;
-    } else {
-      url = `${base}/${target}`;
-    }
+    if (target.startsWith("http://") || target.startsWith("https://")) url = target;
+    else if (target.startsWith("?")) url = `${base}/api/feed/posts${target}`;
+    else if (target.startsWith("/")) url = `${base}${target}`;
+    else url = `${base}/${target}`;
+
     return apiFetch<FeedPostsApiResponse>(url, { method: "GET" });
   }
 
-  const searchParams = new URLSearchParams();
-  if (params?.scope) searchParams.set("scope", params.scope);
-  const query = searchParams.toString();
+  const sp = new URLSearchParams();
+  if (params?.scope) sp.set("scope", params.scope);
+  const query = sp.toString();
   const path = query ? `/api/feed/posts?${query}` : "/api/feed/posts";
   return apiFetch<FeedPostsApiResponse>(path, { method: "GET" });
+}
+
+function buildIdsQuery(ids: string[]): string {
+  const uniq = Array.from(new Set(ids.map((s) => String(s).trim()).filter(Boolean)));
+  const sp = new URLSearchParams();
+  sp.set("ids", uniq.join(","));
+  return sp.toString();
+}
+
+// ✅ WEB parity: ONLY ids=...
+export async function fetchReactionsForIds(ids: string[]): Promise<ApiResponse<FeedReactionsGetResponse>> {
+  const q = buildIdsQuery(ids);
+  return apiFetch<FeedReactionsGetResponse>(`/api/feed/reactions?${q}`, { method: "GET" });
+}
+
+export async function fetchCommentCountsForIds(ids: string[]): Promise<ApiResponse<FeedCommentsCountsGetResponse>> {
+  const q = buildIdsQuery(ids);
+  return apiFetch<FeedCommentsCountsGetResponse>(`/api/feed/comments/counts?${q}`, { method: "GET" });
+}
+
+export async function setPostReaction(
+  postId: string,
+  reaction: "like" | null,
+): Promise<ApiResponse<FeedReactionsPostResponse>> {
+  // ✅ WEB parity:
+  // reaction null or '' => remove
+  const body = reaction ? { postId, reaction } : { postId, reaction: null };
+
+  return apiFetch<FeedReactionsPostResponse>("/api/feed/reactions", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 export function buildProfilePatch(
@@ -266,9 +311,7 @@ export function buildProfilePatch(
   for (const field of PROFILE_PATCH_FIELDS) {
     if (Object.prototype.hasOwnProperty.call(input, field)) {
       const value = input[field];
-      if (value !== undefined) {
-        payload[field] = value;
-      }
+      if (value !== undefined) payload[field] = value;
     }
   }
   return payload;
@@ -293,9 +336,8 @@ export function useWhoami(enabled: boolean = true) {
     setLoading(true);
     setError(null);
     const response = await fetchWhoami();
-    if (response.ok) {
-      setData(response.data ?? null);
-    } else {
+    if (response.ok) setData(response.data ?? null);
+    else {
       setData(null);
       setError(response.errorText ?? "Unknown error");
     }

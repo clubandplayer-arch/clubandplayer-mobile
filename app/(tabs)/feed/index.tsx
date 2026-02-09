@@ -58,6 +58,8 @@ function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
 }
 
 function FeedCard({ item }: { item: FeedPost }) {
+  const router = useRouter();
+
   const authorName = getAuthorName(item.author);
   const text = getPostText(item.raw);
   const when = formatWhen(item.created_at);
@@ -67,7 +69,13 @@ function FeedCard({ item }: { item: FeedPost }) {
     typeof item.commentCount === "number" ? item.commentCount : 0;
 
   return (
-    <View
+    <Pressable
+      onPress={() =>
+        router.push({
+          pathname: "/posts/[id]",
+          params: { id: item.id },
+        })
+      }
       style={{
         borderBottomWidth: 1,
         borderBottomColor: "#f3f4f6",
@@ -94,7 +102,6 @@ function FeedCard({ item }: { item: FeedPost }) {
         </View>
       </View>
 
-      {/* TAP POST DISABILITATO FINO A PR4 (route /posts/[id]) */}
       {!!text ? (
         <Text style={{ fontSize: 14, lineHeight: 19, color: "#111827" }}>
           {text}
@@ -127,7 +134,7 @@ function FeedCard({ item }: { item: FeedPost }) {
         <Text style={{ fontSize: 12, color: "#6b7280" }}>👍 {likeCount}</Text>
         <Text style={{ fontSize: 12, color: "#6b7280" }}>💬 {commentCount}</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -392,57 +399,6 @@ export default function FeedScreen() {
           )}
         </View>
 
-        <View
-          style={{
-            borderWidth: 1,
-            borderColor: "#e5e7eb",
-            borderRadius: 12,
-            padding: 16,
-            gap: 12,
-          }}
-        >
-          <Text style={{ fontSize: 16, fontWeight: "700" }}>Azioni rapide</Text>
-
-          <Pressable
-            onPress={() => router.push("/(tabs)/create")}
-            style={{
-              borderWidth: 1,
-              borderColor: "#e5e7eb",
-              borderRadius: 12,
-              padding: 14,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ fontWeight: "700" }}>Crea post</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => router.push("/(tabs)/search")}
-            style={{
-              borderWidth: 1,
-              borderColor: "#e5e7eb",
-              borderRadius: 12,
-              padding: 14,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ fontWeight: "700" }}>Cerca</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => router.push("/(tabs)/notifications")}
-            style={{
-              borderWidth: 1,
-              borderColor: "#e5e7eb",
-              borderRadius: 12,
-              padding: 14,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ fontWeight: "700" }}>Notifiche</Text>
-          </Pressable>
-        </View>
-
         {error ? (
           <View
             style={{
@@ -461,21 +417,6 @@ export default function FeedScreen() {
                 Riprova
               </Text>
             </Pressable>
-          </View>
-        ) : null}
-
-        {!loading && !error && items.length === 0 ? (
-          <View
-            style={{
-              borderWidth: 1,
-              borderColor: "#e5e7eb",
-              borderRadius: 12,
-              padding: 16,
-              gap: 8,
-            }}
-          >
-            <Text style={{ fontSize: 16, fontWeight: "700" }}>Contenuti</Text>
-            <Text style={{ color: "#374151" }}>{emptyMessage}</Text>
           </View>
         ) : null}
       </View>
@@ -515,14 +456,7 @@ export default function FeedScreen() {
 
   if (loading || web.loading) {
     return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 10,
-        }}
-      >
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
         <ActivityIndicator />
         <Text style={{ color: "#6b7280" }}>Caricamento feed…</Text>
       </View>

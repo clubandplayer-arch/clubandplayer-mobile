@@ -1,4 +1,10 @@
-import { fetchFeedPosts } from "../api";
+import {
+  fetchCommentCountsForIds,
+  fetchFeedPosts,
+  fetchReactionsForIds,
+  type FeedCommentsCountsGetResponse,
+  type FeedReactionsGetResponse,
+} from "../api";
 import { asString, normalizeMediaRow, type NormalizedMediaItem } from "../media/normalizeMedia";
 
 export type FeedMediaItem = NormalizedMediaItem;
@@ -25,8 +31,11 @@ export type FeedPost = {
   raw: Record<string, any>;
   author?: FeedAuthor | null;
   media: FeedMediaItem[];
+
+  // WEB parity (computed client-side)
   likeCount?: number;
   commentCount?: number;
+  viewerHasLiked?: boolean;
 };
 
 type FeedScope = "all" | "following";
@@ -38,12 +47,11 @@ function asNumber(value: unknown): number | null {
 }
 
 function normalizeMediaList(list: unknown[]): FeedMediaItem[] {
-  return list
-    .map((row) => normalizeMediaRow(row))
-    .filter(Boolean) as FeedMediaItem[];
+  return list.map((row) => normalizeMediaRow(row)).filter(Boolean) as FeedMediaItem[];
 }
 
 function extractMedia(item: any): FeedMediaItem[] {
+  // ✅ robust (PRIMA)
   if (Array.isArray(item?.media)) {
     return normalizeMediaList(item.media);
   }
@@ -69,9 +77,11 @@ function extractMedia(item: any): FeedMediaItem[] {
 }
 
 function extractAuthor(item: any): FeedAuthor | null {
+  // ✅ robust (PRIMA) + keep DOPO variants
   const candidate =
     (item?.author && typeof item.author === "object" ? item.author : null) ||
     (item?.profile && typeof item.profile === "object" ? item.profile : null) ||
+    (item?.profiles && typeof item.profiles === "object" ? item.profiles : null) ||
     (item?.author_profile && typeof item.author_profile === "object" ? item.author_profile : null);
 
   if (!candidate) return null;
@@ -93,6 +103,45 @@ function extractAuthor(item: any): FeedAuthor | null {
   };
 }
 
+function normalizeFeedPostsPayload(json: any): { items: any[]; nextPage: string | null } {
+  const payload = json && typeof json === "object" && "data" in json ? json.data : json;
+  const items = Array.isArray(payload?.items) ? payload.items : Array.isArray(payload) ? payload : [];
+  const nextPageRaw = payload?.nextPage ?? null;
+  const nextPage =
+    nextPageRaw == null ? null : typeof nextPageRaw === "string" ? nextPageRaw : String(nextPageRaw);
+  return { items, nextPage };
+}
+
+function buildCountsMaps(
+  reactions: FeedReactionsGetResponse | null,
+  comments: FeedCommentsCountsGetResponse | null,
+) {
+  const likeCountByPost = new Map<string, number>();
+  const viewerLikedSet = new Set<string>();
+  const commentCountByPost = new Map<string, number>();
+
+  if (reactions?.ok) {
+    for (const row of reactions.counts || []) {
+      if (row?.reaction === "like" && row?.post_id) {
+        likeCountByPost.set(row.post_id, Number(row.count) || 0);
+      }
+    }
+    for (const m of reactions.mine || []) {
+      if (m?.reaction === "like" && m?.post_id) {
+        viewerLikedSet.add(m.post_id);
+      }
+    }
+  }
+
+  if (comments?.ok) {
+    for (const row of comments.counts || []) {
+      if (row?.post_id) commentCountByPost.set(row.post_id, Number(row.count) || 0);
+    }
+  }
+
+  return { likeCountByPost, viewerLikedSet, commentCountByPost };
+}
+
 export async function getFeedPosts({
   scope,
   nextPage,
@@ -103,36 +152,22 @@ export async function getFeedPosts({
   items: FeedPost[];
   nextPage: string | null;
 }> {
-  const response = await fetchFeedPosts({
+  const res = await fetchFeedPosts({
     scope,
     nextPage: nextPage ?? undefined,
   });
 
-  if (!response.ok) {
-    throw new Error(response.errorText ?? "Errore nel recupero del feed");
+  if (!res.ok) {
+    throw new Error(res.errorText ?? `Feed HTTP ${res.status}`);
   }
 
-  const payload = response.data as any;
-  const unwrapped =
-    payload && typeof payload === "object" && "data" in payload ? (payload as any).data : payload;
+  const { items: rawItems, nextPage: nextPageToken } = normalizeFeedPostsPayload(res.data);
 
-  const rawItems = Array.isArray(unwrapped?.items)
-    ? unwrapped.items
-    : Array.isArray(unwrapped)
-      ? unwrapped
-      : [];
-
-  const items = rawItems
+  // 1) build base posts exactly like PRIMA (keep author/media robust)
+  const basePosts = rawItems
     .map((item: any) => {
       const id = asString(item?.id);
       if (!id) return null;
-
-      const likeCount =
-        asNumber(item?.likeCount) ?? asNumber(item?.like_count) ?? asNumber(item?.reactions_count);
-      const commentCount =
-        asNumber(item?.commentCount) ??
-        asNumber(item?.comment_count) ??
-        asNumber(item?.comments_count);
 
       return {
         id,
@@ -141,13 +176,36 @@ export async function getFeedPosts({
         raw: item ?? {},
         author: extractAuthor(item),
         media: extractMedia(item),
-        likeCount: likeCount ?? undefined,
-        commentCount: commentCount ?? undefined,
+        likeCount: 0,
+        commentCount: 0,
+        viewerHasLiked: false,
       } as FeedPost;
     })
     .filter(Boolean) as FeedPost[];
 
-  const nextPageToken = typeof unwrapped?.nextPage === "string" ? unwrapped.nextPage : null;
+  if (basePosts.length === 0) {
+    return { items: basePosts, nextPage: nextPageToken };
+  }
+
+  // 2) WEB parity: counts are fetched separately using ids=...
+  const ids = basePosts.map((p) => p.id);
+
+  const [reactionsRes, commentsRes] = await Promise.all([
+    fetchReactionsForIds(ids),
+    fetchCommentCountsForIds(ids),
+  ]);
+
+  const reactions = reactionsRes.ok ? (reactionsRes.data ?? null) : null;
+  const comments = commentsRes.ok ? (commentsRes.data ?? null) : null;
+
+  const { likeCountByPost, viewerLikedSet, commentCountByPost } = buildCountsMaps(reactions, comments);
+
+  const items = basePosts.map((p) => ({
+    ...p,
+    likeCount: likeCountByPost.get(p.id) ?? 0,
+    commentCount: commentCountByPost.get(p.id) ?? 0,
+    viewerHasLiked: viewerLikedSet.has(p.id),
+  }));
 
   return { items, nextPage: nextPageToken };
 }
@@ -164,9 +222,7 @@ function isEmailLike(value: string): boolean {
 
 export function getAuthorName(author?: FeedAuthor | null): string {
   const fullName = author?.full_name?.trim() ?? "";
-  if (fullName && !isEmailLike(fullName)) {
-    return fullName;
-  }
+  if (fullName && !isEmailLike(fullName)) return fullName;
 
   const displayName = author?.display_name?.trim() ?? "";
   const name = displayName && !isEmailLike(displayName) ? displayName : "";
