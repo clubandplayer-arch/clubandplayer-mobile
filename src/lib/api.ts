@@ -234,15 +234,26 @@ export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
 
 export async function fetchFeedPosts(params?: {
   scope?: "all" | "following";
-  page?: number | string;
-  limit?: number;
-  cursor?: string;
+  nextPage?: string;
 }): Promise<ApiResponse<FeedPostsApiResponse>> {
+  if (params?.nextPage) {
+    const base = getWebBaseUrl();
+    const target = params.nextPage;
+    let url = "";
+    if (target.startsWith("http://") || target.startsWith("https://")) {
+      url = target;
+    } else if (target.startsWith("?")) {
+      url = `${base}/api/feed/posts${target}`;
+    } else if (target.startsWith("/")) {
+      url = `${base}${target}`;
+    } else {
+      url = `${base}/${target}`;
+    }
+    return apiFetch<FeedPostsApiResponse>(url, { method: "GET" });
+  }
+
   const searchParams = new URLSearchParams();
   if (params?.scope) searchParams.set("scope", params.scope);
-  if (params?.page !== undefined) searchParams.set("page", String(params.page));
-  if (params?.limit !== undefined) searchParams.set("limit", String(params.limit));
-  if (params?.cursor) searchParams.set("cursor", params.cursor);
   const query = searchParams.toString();
   const path = query ? `/api/feed/posts?${query}` : "/api/feed/posts";
   return apiFetch<FeedPostsApiResponse>(path, { method: "GET" });

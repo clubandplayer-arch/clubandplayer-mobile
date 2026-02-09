@@ -10,7 +10,6 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { supabase } from "../../../src/lib/supabase";
 
 import {
   getFeedPosts,
@@ -60,11 +59,9 @@ function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
 
 function FeedCard({
   item,
-  onOpenAuthor,
   onOpenPost,
 }: {
   item: FeedPost;
-  onOpenAuthor: (authorId: string) => void;
   onOpenPost: (postId: string) => void;
 }) {
   const authorName = getAuthorName(item.author);
@@ -73,8 +70,6 @@ function FeedCard({
   const firstMedia = item.media?.[0] ?? null;
   const likeCount = typeof item.likeCount === "number" ? item.likeCount : 0;
   const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
-
-  const authorId = (item.author_id ?? "").toString();
 
   return (
     <View
@@ -87,24 +82,20 @@ function FeedCard({
         gap: 10,
       }}
     >
-      <Pressable
-        onPress={() => authorId && onOpenAuthor(authorId)}
-        disabled={!authorId}
-        style={{ flexDirection: "row", gap: 10, alignItems: "center" }}
-      >
+      <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
         <Avatar url={item.author?.avatar_url ?? null} size={40} />
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Text style={{ fontSize: 15, fontWeight: "800", color: "#111827" }}>
-            {authorName}
-          </Text>
-          {item.author && isCertifiedClub(item.author) ? (
-            <Text style={{ fontSize: 11, fontWeight: "900", color: "#111827" }}>C</Text>
-          ) : null}
+              {authorName}
+            </Text>
+            {item.author && isCertifiedClub(item.author) ? (
+              <Text style={{ fontSize: 11, fontWeight: "900", color: "#111827" }}>C</Text>
+            ) : null}
           </View>
           <Text style={{ fontSize: 12, color: "#6b7280" }}>{when}</Text>
         </View>
-      </Pressable>
+      </View>
 
       {!!text ? (
         <Pressable onPress={() => onOpenPost(item.id)}>
@@ -153,10 +144,11 @@ export default function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const [feedMode, setFeedMode] = useState<"all" | "following">("all");
-  const [reloadToken, setReloadToken] = useState(0);
 
   const [items, setItems] = useState<FeedPost[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [nextPage, setNextPage] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const web = useWebSession();
   const whoami = useWhoami(web.ready);
@@ -164,31 +156,44 @@ export default function FeedScreen() {
   const load = useCallback(async (mode: "all" | "following") => {
     if (!web.ready) return;
     setError(null);
+    setLoadingMore(false);
 
     try {
       const res = await getFeedPosts({
-        mode,
+        scope: mode,
       });
       setItems(res.items);
+      setNextPage(res.nextPage);
     } catch (e: any) {
       setError(e?.message ? String(e.message) : "Errore nel caricamento feed");
       setItems([]);
+      setNextPage(null);
     } finally {
       setLoading(false);
     }
   }, [web.ready]);
 
-  useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      void nextSession;
-      setLoading(true);
-      setReloadToken((prev) => prev + 1);
-    });
+  const loadMore = useCallback(async () => {
+    if (loadingMore) return;
+    if (!nextPage) return;
+    if (refreshing) return;
+    if (loading) return;
+    if (error) return;
 
-    return () => {
-      sub.subscription.unsubscribe();
-    };
-  }, []);
+    try {
+      setLoadingMore(true);
+      const res = await getFeedPosts({
+        scope: feedMode,
+        nextPage,
+      });
+      setItems((prev) => [...prev, ...res.items]);
+      setNextPage(res.nextPage);
+    } catch (e: any) {
+      setError(e?.message ? String(e.message) : "Errore nel caricamento feed");
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [error, feedMode, loading, loadingMore, nextPage, refreshing]);
 
   useEffect(() => {
     if (!web.ready) {
@@ -199,7 +204,7 @@ export default function FeedScreen() {
     }
     setLoading(true);
     load(feedMode);
-  }, [feedMode, load, reloadToken, web.error, web.ready]);
+  }, [feedMode, load, web.error, web.ready]);
 
   useEffect(() => {
     const unsubscribe = on("feed:refresh", () => {
@@ -221,11 +226,6 @@ export default function FeedScreen() {
 
   const onLogout = async () => {
     try {
-      const { error: signOutErr } = await supabase.auth.signOut();
-      if (signOutErr) {
-        Alert.alert("Errore", "Logout fallito");
-        return;
-      }
       await clearSession();
       router.replace("/(auth)/login");
     } catch {
@@ -501,6 +501,27 @@ export default function FeedScreen() {
     whoami.data?.user,
   ]);
 
+  const footer = useMemo(() => {
+    if (loadingMore) {
+      return (
+        <View style={{ paddingVertical: 18, alignItems: "center" }}>
+          <ActivityIndicator />
+          <Text style={{ marginTop: 8, color: "#6b7280" }}>
+            Carico altri post…
+          </Text>
+        </View>
+      );
+    }
+    if (!nextPage && items.length > 0) {
+      return (
+        <View style={{ paddingVertical: 18, alignItems: "center" }}>
+          <Text style={{ color: "#6b7280" }}>Hai visto tutto ✅</Text>
+        </View>
+      );
+    }
+    return <View style={{ height: 16 }} />;
+  }, [items.length, loadingMore, nextPage]);
+
   if (loading || web.loading) {
     return (
       <View
@@ -524,15 +545,16 @@ export default function FeedScreen() {
       renderItem={({ item }) => (
         <FeedCard
           item={item}
-          onOpenAuthor={(authorId) => router.push(`/profile/${authorId}`)}
-          onOpenPost={(postId) => router.push(`/post/${postId}`)}
+          onOpenPost={(postId) => router.push(`/posts/${postId}`)}
         />
       )}
       ListHeaderComponent={header}
+      ListFooterComponent={footer}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
       onEndReachedThreshold={0.6}
+      onEndReached={loadMore}
     />
   );
 }

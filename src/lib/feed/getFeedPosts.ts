@@ -29,7 +29,7 @@ export type FeedPost = {
   commentCount?: number;
 };
 
-type FeedMode = "all" | "following";
+type FeedScope = "all" | "following";
 
 function asNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -93,19 +93,19 @@ function extractAuthor(item: any): FeedAuthor | null {
   };
 }
 
-export async function getFeedPosts(
-  opts?: { limit?: number; page?: number | string; cursor?: string; mode?: FeedMode },
-): Promise<{
+export async function getFeedPosts({
+  scope,
+  nextPage,
+}: {
+  scope: FeedScope;
+  nextPage?: string | null;
+}): Promise<{
   items: FeedPost[];
-  nextPage: number | string | null;
+  nextPage: string | null;
 }> {
-  const mode: FeedMode = opts?.mode ?? "all";
-
   const response = await fetchFeedPosts({
-    scope: mode,
-    limit: opts?.limit,
-    page: opts?.page,
-    cursor: opts?.cursor,
+    scope,
+    nextPage: nextPage ?? undefined,
   });
 
   if (!response.ok) {
@@ -147,9 +147,9 @@ export async function getFeedPosts(
     })
     .filter(Boolean) as FeedPost[];
 
-  const nextPage = unwrapped?.nextPage ?? null;
+  const nextPageToken = typeof unwrapped?.nextPage === "string" ? unwrapped.nextPage : null;
 
-  return { items, nextPage };
+  return { items, nextPage: nextPageToken };
 }
 
 export function getPostText(raw: Record<string, any>): string {
