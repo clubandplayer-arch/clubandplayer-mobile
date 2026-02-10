@@ -64,14 +64,19 @@ function AuthGate() {
     const inTabs = currentGroup === "(tabs)";
     const inCallback = pathname === "/callback";
 
-    // ✅ Allow authenticated users to visit post detail outside tabs
+    // ✅ Allow authenticated users to visit these routes outside tabs (parity with web navigation)
     const allowAuthedOutsideTabs =
-      pathname?.startsWith("/posts/") || pathname === "/posts";
+      pathname?.startsWith("/posts/") ||
+      pathname === "/posts" ||
+      pathname?.startsWith("/clubs/") ||
+      pathname === "/clubs" ||
+      pathname?.startsWith("/players/") ||
+      pathname === "/players";
 
     let target: string | null = null;
 
     if (session) {
-      // ✅ If user is authed and is visiting /posts/[id], do NOT redirect back to feed
+      // ✅ If authed and not in tabs, allow specific routes (/posts, /clubs, /players). Otherwise go to feed.
       if (!inTabs && !allowAuthedOutsideTabs) target = "/(tabs)/feed";
     } else {
       if (inCallback) {
@@ -128,6 +133,10 @@ export default function RootLayout() {
 
         {/* ✅ PR4 route */}
         <Stack.Screen name="posts/[id]" />
+
+        {/* ✅ PR6a routes */}
+        <Stack.Screen name="clubs/[id]" />
+        <Stack.Screen name="players/[id]" />
       </Stack>
     </FollowProvider>
   );
