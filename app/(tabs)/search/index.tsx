@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -6,29 +6,77 @@ import {
   Pressable,
   ScrollView,
   RefreshControl,
+  ActivityIndicator,
+  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { supabase } from "../../../src/lib/supabase";
 
 type ResultItem = {
   id: string;
   kind: "club" | "player";
   title: string;
   subtitle: string;
+  avatarUrl: string | null;
 };
 
-const SAMPLE_RESULTS: ResultItem[] = [
-  { id: "c1", kind: "club", title: "Club Atlético Carlentini", subtitle: "Calcio • Sicilia" },
-  { id: "c2", kind: "club", title: "ASD Lentini", subtitle: "Calcio • Sicilia" },
-  { id: "p1", kind: "player", title: "Marco Rossi", subtitle: "Attaccante • 25 anni" },
-  { id: "p2", kind: "player", title: "Luca Bianchi", subtitle: "Portiere • 22 anni" },
-];
+function asString(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.trim();
+}
+
+function resolveKind(row: Record<string, unknown>): "club" | "player" {
+  const kind = asString(row.account_type ?? row.type).toLowerCase();
+  if (kind === "club") return "club";
+  return "player";
+}
+
+function buildSubtitle(row: Record<string, unknown>, kind: "club" | "player"): string {
+  if (kind === "club") {
+    const parts = [asString(row.city), asString(row.province), asString(row.region), asString(row.country)].filter(Boolean);
+    return parts.join(" • ") || "Club";
+  }
+
+  const parts = [asString(row.sport), asString(row.role)].filter(Boolean);
+  return parts.join(" • ") || "Giocatore";
+}
+
+function mapRowToResult(row: Record<string, unknown>): ResultItem | null {
+  const id = asString(row.id);
+  if (!id) return null;
+
+  const kind = resolveKind(row);
+  const title = asString(row.full_name) || asString(row.display_name) || "Utente";
+
+  return {
+    id,
+    kind,
+    title,
+    subtitle: buildSubtitle(row, kind),
+    avatarUrl: asString(row.avatar_url) || null,
+  };
+}
 
 function getProfilePath(item: ResultItem): string {
   if (item.kind === "club") return `/clubs/${item.id}`;
   return `/players/${item.id}`;
 }
 
-function AvatarPlaceholder({ label }: { label: string }) {
+function Avatar({ url, label }: { url: string | null; label: string }) {
+  if (url) {
+    return (
+      <Image
+        source={{ uri: url }}
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: 999,
+          backgroundColor: "#e5e7eb",
+        }}
+      />
+    );
+  }
+
   const letter = (label.trim().slice(0, 1) || "U").toUpperCase();
   return (
     <View
@@ -50,27 +98,63 @@ export default function SearchScreen() {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<ResultItem[]>([]);
 
   const suggestions = ["Calcio", "Portiere", "Under 21", "Sicilia", "Volley"];
 
-  const filtered = useMemo(() => {
-    const query = q.trim().toLowerCase();
-    if (!query) return [];
-    return SAMPLE_RESULTS.filter((r) => {
-      const hay = `${r.title} ${r.subtitle}`.toLowerCase();
-      return hay.includes(query);
-    });
-  }, [q]);
+  const query = useMemo(() => q.trim(), [q]);
 
-  const onRefresh = async () => {
-    // Placeholder: in futuro ricaricherà da backend
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 600);
-  };
+  const loadResults = useCallback(async (nextQuery: string) => {
+    const trimmed = nextQuery.trim();
+    if (!trimmed) {
+      setResults([]);
+      setError(null);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const ilike = `%${trimmed}%`;
+      const { data, error: searchError } = await supabase
+        .from("profiles")
+        .select("id,full_name,display_name,avatar_url,account_type,type,city,province,region,country,sport,role")
+        .or(`full_name.ilike.${ilike},display_name.ilike.${ilike}`)
+        .limit(30);
+
+      if (searchError) throw searchError;
+
+      const mapped = (Array.isArray(data) ? data : [])
+        .map((row) => mapRowToResult((row ?? {}) as Record<string, unknown>))
+        .filter(Boolean) as ResultItem[];
+
+      setResults(mapped);
+    } catch (e: any) {
+      setResults([]);
+      setError(e?.message ? String(e.message) : "Errore nella ricerca");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const onRefresh = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      await loadResults(query);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadResults, query]);
 
   const Chip = ({ label }: { label: string }) => (
     <Pressable
-      onPress={() => setQ(label)}
+      onPress={() => {
+        setQ(label);
+        loadResults(label);
+      }}
       style={{
         borderWidth: 1,
         borderRadius: 999,
@@ -100,7 +184,7 @@ export default function SearchScreen() {
               router.push(profilePath);
             }}
           >
-            <AvatarPlaceholder label={item.title} />
+            <Avatar url={item.avatarUrl} label={item.title} />
           </Pressable>
 
           <Pressable
@@ -142,12 +226,31 @@ export default function SearchScreen() {
           onChangeText={setQ}
           autoCapitalize="none"
           autoCorrect={false}
+          onSubmitEditing={() => {
+            loadResults(query);
+          }}
           style={{
             borderWidth: 1,
             borderRadius: 12,
             padding: 12,
           }}
         />
+
+        <Pressable
+          onPress={() => {
+            loadResults(query);
+          }}
+          style={{
+            alignSelf: "flex-start",
+            borderWidth: 1,
+            borderRadius: 10,
+            borderColor: "#111827",
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+          }}
+        >
+          <Text style={{ fontWeight: "700", color: "#111827" }}>Cerca</Text>
+        </Pressable>
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
           {suggestions.map((s) => (
@@ -159,51 +262,24 @@ export default function SearchScreen() {
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 10 }}>
         <Text style={{ fontSize: 16, fontWeight: "700" }}>Risultati</Text>
 
-        {!q.trim() ? (
+        {!query ? (
           <Text style={{ color: "#374151" }}>
-            Inizia a digitare per cercare. (Per ora i risultati sono demo: collegheremo
-            Supabase nel prossimo step.)
+            Inizia a digitare per cercare profili reali.
           </Text>
-        ) : filtered.length === 0 ? (
-          <>
-            <Text style={{ color: "#374151" }}>
-              Nessun risultato per “{q.trim()}”.
-            </Text>
-            <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
-              <Pressable
-                onPress={() => router.push("/(tabs)/feed")}
-                style={{
-                  paddingVertical: 10,
-                  paddingHorizontal: 14,
-                  borderWidth: 1,
-                  borderColor: "#111827",
-                  borderRadius: 10,
-                }}
-              >
-                <Text style={{ color: "#111827", fontWeight: "700" }}>
-                  Vai al feed
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={() => router.push("/(tabs)/create")}
-                style={{
-                  paddingVertical: 10,
-                  paddingHorizontal: 14,
-                  borderWidth: 1,
-                  borderColor: "#111827",
-                  borderRadius: 10,
-                }}
-              >
-                <Text style={{ color: "#111827", fontWeight: "700" }}>
-                  Crea post
-                </Text>
-              </Pressable>
-            </View>
-          </>
+        ) : loading ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <ActivityIndicator size="small" />
+            <Text style={{ color: "#374151" }}>Ricerca in corso…</Text>
+          </View>
+        ) : error ? (
+          <Text style={{ color: "#b91c1c" }}>{error}</Text>
+        ) : results.length === 0 ? (
+          <Text style={{ color: "#374151" }}>
+            Nessun risultato per “{query}”.
+          </Text>
         ) : (
           <View style={{ gap: 10 }}>
-            {filtered.map((item) => (
+            {results.map((item) => (
               <Row key={item.id} item={item} />
             ))}
           </View>
