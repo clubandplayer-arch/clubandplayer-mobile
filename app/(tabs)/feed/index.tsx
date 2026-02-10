@@ -31,23 +31,49 @@ function formatWhen(iso?: string | null) {
   }
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
+function pickProfileIdUuid(input: Array<unknown>): string | null {
+  for (const v of input) {
+    if (typeof v !== "string") continue;
+    const t = v.trim();
+    if (!t) continue;
+    if (isUuid(t)) return t;
+  }
+  return null;
+}
+
 function resolveProfilePath(input: {
-  profileId: string | null;
-  accountType?: string | null;
-  type?: string | null;
+  author: any;
+  author_id?: unknown;
 }): string | null {
-  const profileId = (input.profileId ?? "").toString().trim();
+  const author = input.author ?? null;
+
+  // Try to find a UUID profile id in common shapes.
+  const profileId = pickProfileIdUuid([
+    author?.id,
+    author?.profile_id,
+    author?.profileId,
+    author?.profile?.id,
+    author?.raw?.id,
+    typeof input.author_id === "string" ? input.author_id : null,
+  ]);
+
   if (!profileId) return null;
 
-  const kind = (input.accountType ?? input.type ?? "")
+  const kind = (author?.account_type ?? author?.type ?? "")
     .toString()
     .trim()
     .toLowerCase();
+
   if (kind === "club") return `/clubs/${profileId}`;
   return `/players/${profileId}`;
 }
 
-// IMPORTANT: Post detail route (PR4 parity)
 function resolvePostPath(postId: string | null | undefined): string | null {
   const id = (postId ?? "").toString().trim();
   if (!id) return null;
@@ -91,9 +117,8 @@ function FeedCard({ item }: { item: FeedPost }) {
   const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
 
   const profilePath = resolveProfilePath({
-    profileId: item.author?.id ?? item.author_id ?? null,
-    accountType: item.author?.account_type ?? null,
-    type: item.author?.type ?? null,
+    author: item.author,
+    author_id: (item as any).author_id,
   });
 
   const postPath = resolvePostPath(item.id);
@@ -203,9 +228,7 @@ export default function FeedScreen() {
       setLoadingMore(false);
 
       try {
-        const res = await getFeedPosts({
-          scope: mode,
-        });
+        const res = await getFeedPosts({ scope: mode });
         setItems(res.items);
         setNextPage(res.nextPage);
       } catch (e: any) {
@@ -243,9 +266,7 @@ export default function FeedScreen() {
 
   useEffect(() => {
     if (!web.ready) {
-      if (web.error) {
-        setLoading(false);
-      }
+      if (web.error) setLoading(false);
       return;
     }
     setLoading(true);
@@ -257,7 +278,6 @@ export default function FeedScreen() {
       setLoading(true);
       load(feedMode);
     });
-
     return unsubscribe;
   }, [feedMode, load]);
 
@@ -286,14 +306,7 @@ export default function FeedScreen() {
       : "Nessun contenuto ancora. Qui compariranno i post delle persone e dei club che segui.";
 
     return (
-      <View
-        style={{
-          padding: 24,
-          paddingBottom: 12,
-          gap: 16,
-          backgroundColor: "#ffffff",
-        }}
-      >
+      <View style={{ padding: 24, paddingBottom: 12, gap: 16, backgroundColor: "#ffffff" }}>
         <Text style={{ fontSize: 28, fontWeight: "800" }}>Feed</Text>
 
         <View
@@ -322,12 +335,7 @@ export default function FeedScreen() {
               backgroundColor: feedMode === "all" ? "#111827" : "transparent",
             }}
           >
-            <Text
-              style={{
-                color: feedMode === "all" ? "#ffffff" : "#111827",
-                fontWeight: "700",
-              }}
-            >
+            <Text style={{ color: feedMode === "all" ? "#ffffff" : "#111827", fontWeight: "700" }}>
               Tutti
             </Text>
           </Pressable>
@@ -343,16 +351,10 @@ export default function FeedScreen() {
               paddingVertical: 6,
               paddingHorizontal: 14,
               borderRadius: 999,
-              backgroundColor:
-                feedMode === "following" ? "#111827" : "transparent",
+              backgroundColor: feedMode === "following" ? "#111827" : "transparent",
             }}
           >
-            <Text
-              style={{
-                color: feedMode === "following" ? "#ffffff" : "#111827",
-                fontWeight: "700",
-              }}
-            >
+            <Text style={{ color: feedMode === "following" ? "#ffffff" : "#111827", fontWeight: "700" }}>
               Seguiti
             </Text>
           </Pressable>
@@ -388,18 +390,14 @@ export default function FeedScreen() {
                   alignSelf: "flex-start",
                 }}
               >
-                <Text style={{ color: "#111827", fontWeight: "700" }}>
-                  Riprova
-                </Text>
+                <Text style={{ color: "#111827", fontWeight: "700" }}>Riprova</Text>
               </Pressable>
             </>
           ) : whoami.data?.user ? (
             <>
               <Text style={{ color: "#111827" }}>
                 Sei loggato.{" "}
-                {whoami.data?.role ? (
-                  <Text style={{ fontWeight: "700" }}>{whoami.data.role}</Text>
-                ) : null}
+                {whoami.data?.role ? <Text style={{ fontWeight: "700" }}>{whoami.data.role}</Text> : null}
               </Text>
 
               <Pressable
@@ -412,16 +410,12 @@ export default function FeedScreen() {
                   alignSelf: "flex-start",
                 }}
               >
-                <Text style={{ color: "#ffffff", fontWeight: "700" }}>
-                  Logout
-                </Text>
+                <Text style={{ color: "#ffffff", fontWeight: "700" }}>Logout</Text>
               </Pressable>
             </>
           ) : (
             <>
-              <Text style={{ color: "#111827" }}>
-                Non risulti loggato. Vai al login.
-              </Text>
+              <Text style={{ color: "#111827" }}>Non risulti loggato. Vai al login.</Text>
               <Pressable
                 onPress={() => router.replace("/(auth)/login")}
                 style={{
@@ -433,17 +427,13 @@ export default function FeedScreen() {
                   alignSelf: "flex-start",
                 }}
               >
-                <Text style={{ color: "#111827", fontWeight: "700" }}>
-                  Vai al login
-                </Text>
+                <Text style={{ color: "#111827", fontWeight: "700" }}>Vai al login</Text>
               </Pressable>
             </>
           )}
         </View>
 
-        {items.length === 0 && !error ? (
-          <Text style={{ color: "#6b7280" }}>{emptyMessage}</Text>
-        ) : null}
+        {items.length === 0 && !error ? <Text style={{ color: "#6b7280" }}>{emptyMessage}</Text> : null}
 
         {error ? (
           <View
@@ -459,27 +449,13 @@ export default function FeedScreen() {
             <Text style={{ fontWeight: "800", color: "#b91c1c" }}>Errore</Text>
             <Text style={{ color: "#b91c1c" }}>{error}</Text>
             <Pressable onPress={() => load(feedMode)} style={{ alignSelf: "flex-start" }}>
-              <Text style={{ color: "#036f9a", fontWeight: "800" }}>
-                Riprova
-              </Text>
+              <Text style={{ color: "#036f9a", fontWeight: "800" }}>Riprova</Text>
             </Pressable>
           </View>
         ) : null}
       </View>
     );
-  }, [
-    error,
-    feedMode,
-    items.length,
-    load,
-    onLogout,
-    router,
-    web.error,
-    web.loading,
-    web.retry,
-    whoami.data?.role,
-    whoami.data?.user,
-  ]);
+  }, [error, feedMode, items.length, load, onLogout, router, web.error, web.loading, web.retry, whoami.data?.role, whoami.data?.user]);
 
   const footer = useMemo(() => {
     if (loadingMore) {
