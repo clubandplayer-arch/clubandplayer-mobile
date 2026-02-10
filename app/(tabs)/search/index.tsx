@@ -1,82 +1,37 @@
-import { useCallback, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
+  ActivityIndicator,
   Pressable,
   ScrollView,
-  RefreshControl,
-  ActivityIndicator,
-  Image,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { supabase } from "../../../src/lib/supabase";
+import { getWebBaseUrl } from "../../../src/lib/api";
 
-type ResultItem = {
-  id: string;
-  kind: "club" | "player";
-  title: string;
-  subtitle: string;
-  avatarUrl: string | null;
+type WebSearchItem = {
+  id?: string;
+  kind?: string; // "club" | "player" | "opportunity" | ...
+  title?: string;
+  subtitle?: string;
+  href?: string; // WEB provides /clubs/[id] or /players/[id]
+  avatar_url?: string | null;
 };
 
-function asString(value: unknown): string {
-  if (typeof value !== "string") return "";
-  return value.trim();
+function asText(v: unknown): string {
+  return typeof v === "string" ? v : v == null ? "" : String(v);
 }
 
-function resolveKind(row: Record<string, unknown>): "club" | "player" {
-  const kind = asString(row.account_type ?? row.type).toLowerCase();
-  if (kind === "club") return "club";
-  return "player";
+function normalizeHref(item: WebSearchItem): string | null {
+  const href = asText(item.href).trim();
+  if (!href) return null;
+  // For PR6 we only support profile routes; ignore opportunities for now (no invention)
+  if (href.startsWith("/clubs/") || href.startsWith("/players/")) return href;
+  return null;
 }
 
-function buildSubtitle(row: Record<string, unknown>, kind: "club" | "player"): string {
-  if (kind === "club") {
-    const parts = [asString(row.city), asString(row.province), asString(row.region), asString(row.country)].filter(Boolean);
-    return parts.join(" • ") || "Club";
-  }
-
-  const parts = [asString(row.sport), asString(row.role)].filter(Boolean);
-  return parts.join(" • ") || "Giocatore";
-}
-
-function mapRowToResult(row: Record<string, unknown>): ResultItem | null {
-  const id = asString(row.id);
-  if (!id) return null;
-
-  const kind = resolveKind(row);
-  const title = asString(row.full_name) || asString(row.display_name) || "Utente";
-
-  return {
-    id,
-    kind,
-    title,
-    subtitle: buildSubtitle(row, kind),
-    avatarUrl: asString(row.avatar_url) || null,
-  };
-}
-
-function getProfilePath(item: ResultItem): string {
-  if (item.kind === "club") return `/clubs/${item.id}`;
-  return `/players/${item.id}`;
-}
-
-function Avatar({ url, label }: { url: string | null; label: string }) {
-  if (url) {
-    return (
-      <Image
-        source={{ uri: url }}
-        style={{
-          width: 42,
-          height: 42,
-          borderRadius: 999,
-          backgroundColor: "#e5e7eb",
-        }}
-      />
-    );
-  }
-
+function AvatarPlaceholder({ label }: { label: string }) {
   const letter = (label.trim().slice(0, 1) || "U").toUpperCase();
   return (
     <View
@@ -94,67 +49,99 @@ function Avatar({ url, label }: { url: string | null; label: string }) {
   );
 }
 
+async function fetchWebSearch(q: string): Promise<WebSearchItem[]> {
+  const base = getWebBaseUrl();
+  const sp = new URLSearchParams();
+  // WEB endpoint param is q (per Codex web summary)
+  sp.set("q", q);
+
+  const res = await fetch(`${base}/api/search?${sp.toString()}`, {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+    headers: { Accept: "application/json" },
+  });
+
+  const text = await res.text();
+  if (!res.ok) throw new Error(text || `HTTP ${res.status}`);
+
+  let json: any;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error("Risposta /api/search non valida");
+  }
+
+  // tolerate shapes
+  const items =
+    (Array.isArray(json?.items) && json.items) ||
+    (Array.isArray(json?.results) && json.results) ||
+    (Array.isArray(json?.data?.items) && json.data.items) ||
+    (Array.isArray(json?.data) && json.data) ||
+    [];
+
+  return items as WebSearchItem[];
+}
+
 export default function SearchScreen() {
   const router = useRouter();
   const [q, setQ] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [results, setResults] = useState<ResultItem[]>([]);
+  const [items, setItems] = useState<WebSearchItem[]>([]);
 
+  const query = q.trim();
   const suggestions = ["Calcio", "Portiere", "Under 21", "Sicilia", "Volley"];
 
-  const query = useMemo(() => q.trim(), [q]);
+  useEffect(() => {
+    let cancelled = false;
 
-  const loadResults = useCallback(async (nextQuery: string) => {
-    const trimmed = nextQuery.trim();
-    if (!trimmed) {
-      setResults([]);
+    if (!query) {
+      setItems([]);
       setError(null);
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    const t = setTimeout(async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await fetchWebSearch(query);
+        if (cancelled) return;
+        setItems(data);
+      } catch (e: any) {
+        if (cancelled) return;
+        setItems([]);
+        setError(e?.message ? String(e.message) : "Errore ricerca");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }, 250);
 
-    try {
-      const ilike = `%${trimmed}%`;
-      const { data, error: searchError } = await supabase
-        .from("profiles")
-        .select("id,full_name,display_name,avatar_url,account_type,type,city,province,region,country,sport,role")
-        .or(`full_name.ilike.${ilike},display_name.ilike.${ilike}`)
-        .limit(30);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [query]);
 
-      if (searchError) throw searchError;
-
-      const mapped = (Array.isArray(data) ? data : [])
-        .map((row) => mapRowToResult((row ?? {}) as Record<string, unknown>))
-        .filter(Boolean) as ResultItem[];
-
-      setResults(mapped);
-    } catch (e: any) {
-      setResults([]);
-      setError(e?.message ? String(e.message) : "Errore nella ricerca");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const onRefresh = useCallback(async () => {
-    try {
-      setRefreshing(true);
-      await loadResults(query);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [loadResults, query]);
+  const rows = useMemo(() => {
+    return items
+      .map((it) => {
+        const href = normalizeHref(it);
+        return {
+          href,
+          title: asText(it.title).trim() || "Risultato",
+          subtitle: asText(it.subtitle).trim(),
+          avatar_url: it.avatar_url ?? null,
+        };
+      })
+      .filter((r) => !!r.href);
+  }, [items]);
 
   const Chip = ({ label }: { label: string }) => (
     <Pressable
-      onPress={() => {
-        setQ(label);
-        loadResults(label);
-      }}
+      onPress={() => setQ(label)}
       style={{
         borderWidth: 1,
         borderRadius: 999,
@@ -166,54 +153,10 @@ export default function SearchScreen() {
     </Pressable>
   );
 
-  const Row = ({ item }: { item: ResultItem }) => {
-    const profilePath = getProfilePath(item);
-
-    return (
-      <View
-        style={{
-          borderWidth: 1,
-          borderRadius: 12,
-          padding: 14,
-          gap: 6,
-        }}
-      >
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <Pressable
-            onPress={() => {
-              router.push(profilePath);
-            }}
-          >
-            <Avatar url={item.avatarUrl} label={item.title} />
-          </Pressable>
-
-          <Pressable
-            onPress={() => {
-              router.push(profilePath);
-            }}
-            style={{ flex: 1 }}
-          >
-            <Text style={{ fontWeight: "800", fontSize: 16 }}>
-              {item.title}
-            </Text>
-          </Pressable>
-        </View>
-
-        <Text style={{ color: "#374151" }}>{item.subtitle}</Text>
-        <Text style={{ color: "#6b7280", fontSize: 12 }}>
-          {item.kind === "club" ? "Club" : "Giocatore"}
-        </Text>
-      </View>
-    );
-  };
-
   return (
     <ScrollView
       style={{ flex: 1 }}
       contentContainerStyle={{ padding: 24, paddingBottom: 32, gap: 16 }}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
     >
       <Text style={{ fontSize: 28, fontWeight: "800" }}>Cerca</Text>
 
@@ -221,36 +164,17 @@ export default function SearchScreen() {
         <Text style={{ fontSize: 16, fontWeight: "700" }}>Ricerca</Text>
 
         <TextInput
-          placeholder="Cerca club, giocatori, ruoli, città…"
+          placeholder="Cerca club, giocatori…"
           value={q}
           onChangeText={setQ}
           autoCapitalize="none"
           autoCorrect={false}
-          onSubmitEditing={() => {
-            loadResults(query);
-          }}
           style={{
             borderWidth: 1,
             borderRadius: 12,
             padding: 12,
           }}
         />
-
-        <Pressable
-          onPress={() => {
-            loadResults(query);
-          }}
-          style={{
-            alignSelf: "flex-start",
-            borderWidth: 1,
-            borderRadius: 10,
-            borderColor: "#111827",
-            paddingVertical: 8,
-            paddingHorizontal: 12,
-          }}
-        >
-          <Text style={{ fontWeight: "700", color: "#111827" }}>Cerca</Text>
-        </Pressable>
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
           {suggestions.map((s) => (
@@ -262,25 +186,36 @@ export default function SearchScreen() {
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 10 }}>
         <Text style={{ fontSize: 16, fontWeight: "700" }}>Risultati</Text>
 
-        {!query ? (
-          <Text style={{ color: "#374151" }}>
-            Inizia a digitare per cercare profili reali.
-          </Text>
-        ) : loading ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <ActivityIndicator size="small" />
-            <Text style={{ color: "#374151" }}>Ricerca in corso…</Text>
+        {loading ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <ActivityIndicator />
+            <Text style={{ color: "#6b7280" }}>Cerco…</Text>
           </View>
         ) : error ? (
           <Text style={{ color: "#b91c1c" }}>{error}</Text>
-        ) : results.length === 0 ? (
-          <Text style={{ color: "#374151" }}>
-            Nessun risultato per “{query}”.
-          </Text>
+        ) : !query ? (
+          <Text style={{ color: "#374151" }}>Inizia a digitare per cercare.</Text>
+        ) : rows.length === 0 ? (
+          <Text style={{ color: "#374151" }}>Nessun risultato per “{query}”.</Text>
         ) : (
           <View style={{ gap: 10 }}>
-            {results.map((item) => (
-              <Row key={item.id} item={item} />
+            {rows.map((r) => (
+              <View
+                key={r.href}
+                style={{ borderWidth: 1, borderRadius: 12, padding: 14, gap: 6 }}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  <Pressable onPress={() => router.push(r.href!)}>
+                    <AvatarPlaceholder label={r.title} />
+                  </Pressable>
+
+                  <Pressable onPress={() => router.push(r.href!)} style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: "800", fontSize: 16 }}>{r.title}</Text>
+                  </Pressable>
+                </View>
+
+                {r.subtitle ? <Text style={{ color: "#374151" }}>{r.subtitle}</Text> : null}
+              </View>
             ))}
           </View>
         )}
