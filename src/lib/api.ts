@@ -126,6 +126,19 @@ export type FeedReactionsPostResponse = {
   mine: string | null;
 };
 
+/**
+ * ✅ UUID guard (vincolante)
+ * Profile route = UUID only.
+ */
+export function isUuid(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const v = value.trim();
+  if (!v) return false;
+  // RFC4122-ish (accept any version 1-5, plus nil UUID)
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v) ||
+    v === "00000000-0000-0000-0000-000000000000";
+}
+
 export const PROFILE_PATCH_FIELDS = [
   "full_name",
   "display_name",
@@ -379,6 +392,107 @@ export async function patchProfileMe(
     method: "PATCH",
     body: JSON.stringify(payload),
   });
+}
+
+/**
+ * ✅ FOLLOW — WEB parity
+ * GET /api/follows/state?targets=<uuid>&targets=<uuid2>
+ * POST /api/follows/toggle { targetProfileId: <uuid> }
+ */
+export type FollowStateResponse = {
+  ok: true;
+  states: Array<{ targetProfileId: string; following: boolean }>;
+};
+
+export async function fetchFollowState(targetProfileIds: string[]): Promise<ApiResponse<FollowStateResponse>> {
+  const targets = Array.from(new Set(targetProfileIds.filter(isUuid)));
+  const sp = new URLSearchParams();
+  for (const t of targets) sp.append("targets", t);
+  return apiFetch<FollowStateResponse>(`/api/follows/state?${sp.toString()}`, { method: "GET" });
+}
+
+export type FollowToggleResponse = {
+  ok: true;
+  targetProfileId: string;
+  following: boolean;
+};
+
+export async function toggleFollow(targetProfileId: string): Promise<ApiResponse<FollowToggleResponse>> {
+  if (!isUuid(targetProfileId)) {
+    return { ok: false, status: 400, errorText: "Invalid targetProfileId" };
+  }
+
+  return apiFetch<FollowToggleResponse>("/api/follows/toggle", {
+    method: "POST",
+    body: JSON.stringify({ targetProfileId }),
+  });
+}
+
+/**
+ * ✅ SEARCH — WEB parity
+ * GET /api/search?q&type&page&limit => { ok:true, results, counts }
+ * results items include `href`
+ */
+export type SearchType = "all" | "clubs" | "players";
+
+export type SearchResultItem = {
+  href: string;
+  // the rest is web-defined; we keep it flexible
+  [key: string]: any;
+};
+
+export type SearchResponse = {
+  ok: true;
+  results: SearchResultItem[];
+  counts?: Record<string, number>;
+};
+
+export async function searchWeb(params: {
+  q: string;
+  type?: SearchType;
+  page?: number;
+  limit?: number;
+  signal?: AbortSignal;
+}): Promise<ApiResponse<SearchResponse>> {
+  const q = (params.q ?? "").trim();
+  const type = params.type ?? "all";
+  const page = params.page ?? 1;
+  const limit = params.limit ?? 20;
+
+  const sp = new URLSearchParams();
+  sp.set("q", q);
+  sp.set("type", type);
+  sp.set("page", String(page));
+  sp.set("limit", String(limit));
+
+  // apiFetch doesn't pass signal; use fetch directly for abort support
+  const url = buildUrl(`/api/search?${sp.toString()}`);
+  const response = await fetch(url, {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+    signal: params.signal,
+    headers: { Accept: "application/json" },
+  });
+
+  const status = response.status;
+  let json: unknown;
+
+  try {
+    json = await response.json();
+  } catch (error) {
+    return { ok: false, status, errorText: String(error) };
+  }
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      status,
+      errorText: typeof json === "string" && json ? json : `HTTP ${status}`,
+    };
+  }
+
+  return { ok: true, status, data: json as SearchResponse };
 }
 
 export function useWhoami(enabled: boolean = true) {
