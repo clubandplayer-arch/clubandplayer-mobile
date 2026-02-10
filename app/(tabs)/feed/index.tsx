@@ -39,9 +39,19 @@ function resolveProfilePath(input: {
   const profileId = (input.profileId ?? "").toString().trim();
   if (!profileId) return null;
 
-  const kind = (input.accountType ?? input.type ?? "").toString().trim().toLowerCase();
+  const kind = (input.accountType ?? input.type ?? "")
+    .toString()
+    .trim()
+    .toLowerCase();
   if (kind === "club") return `/clubs/${profileId}`;
   return `/players/${profileId}`;
+}
+
+// IMPORTANT: Post detail route (PR4 parity)
+function resolvePostPath(postId: string | null | undefined): string | null {
+  const id = (postId ?? "").toString().trim();
+  if (!id) return null;
+  return `/posts/${id}`;
 }
 
 function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
@@ -78,14 +88,15 @@ function FeedCard({ item }: { item: FeedPost }) {
   const when = formatWhen(item.created_at);
   const firstMedia = item.media?.[0] ?? null;
   const likeCount = typeof item.likeCount === "number" ? item.likeCount : 0;
-  const commentCount =
-    typeof item.commentCount === "number" ? item.commentCount : 0;
+  const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
 
   const profilePath = resolveProfilePath({
     profileId: item.author?.id ?? item.author_id ?? null,
     accountType: item.author?.account_type ?? null,
     type: item.author?.type ?? null,
   });
+
+  const postPath = resolvePostPath(item.id);
 
   return (
     <View
@@ -98,6 +109,7 @@ function FeedCard({ item }: { item: FeedPost }) {
         gap: 10,
       }}
     >
+      {/* Author area -> profile */}
       <Pressable
         disabled={!profilePath}
         onPress={() => {
@@ -122,38 +134,48 @@ function FeedCard({ item }: { item: FeedPost }) {
         </View>
       </Pressable>
 
-      {!!text ? (
-        <Text style={{ fontSize: 14, lineHeight: 19, color: "#111827" }}>
-          {text}
-        </Text>
-      ) : null}
+      {/* Content area -> post detail */}
+      <Pressable
+        disabled={!postPath}
+        onPress={() => {
+          if (!postPath) return;
+          router.push(postPath);
+        }}
+        style={{ gap: 10 }}
+      >
+        {!!text ? (
+          <Text style={{ fontSize: 14, lineHeight: 19, color: "#111827" }}>
+            {text}
+          </Text>
+        ) : null}
 
-      {firstMedia?.url ? (
-        <View
-          style={{
-            borderRadius: 12,
-            overflow: "hidden",
-            backgroundColor: "#f3f4f6",
-          }}
-        >
-          <Image
-            source={{ uri: firstMedia.poster_url || firstMedia.url }}
-            style={{ width: "100%", height: 220 }}
-            resizeMode="cover"
-          />
-          <View style={{ padding: 10 }}>
-            <Text style={{ fontSize: 12, color: "#6b7280" }}>
-              {firstMedia.media_type === "video" ? "🎬 Video" : "🖼️ Foto"}
-              {item.media.length > 1 ? ` • +${item.media.length - 1}` : ""}
-            </Text>
+        {firstMedia?.url ? (
+          <View
+            style={{
+              borderRadius: 12,
+              overflow: "hidden",
+              backgroundColor: "#f3f4f6",
+            }}
+          >
+            <Image
+              source={{ uri: firstMedia.poster_url || firstMedia.url }}
+              style={{ width: "100%", height: 220 }}
+              resizeMode="cover"
+            />
+            <View style={{ padding: 10 }}>
+              <Text style={{ fontSize: 12, color: "#6b7280" }}>
+                {firstMedia.media_type === "video" ? "🎬 Video" : "🖼️ Foto"}
+                {item.media.length > 1 ? ` • +${item.media.length - 1}` : ""}
+              </Text>
+            </View>
           </View>
-        </View>
-      ) : null}
+        ) : null}
 
-      <View style={{ flexDirection: "row", gap: 14 }}>
-        <Text style={{ fontSize: 12, color: "#6b7280" }}>👍 {likeCount}</Text>
-        <Text style={{ fontSize: 12, color: "#6b7280" }}>💬 {commentCount}</Text>
-      </View>
+        <View style={{ flexDirection: "row", gap: 14 }}>
+          <Text style={{ fontSize: 12, color: "#6b7280" }}>👍 {likeCount}</Text>
+          <Text style={{ fontSize: 12, color: "#6b7280" }}>💬 {commentCount}</Text>
+        </View>
+      </Pressable>
     </View>
   );
 }
@@ -419,6 +441,10 @@ export default function FeedScreen() {
           )}
         </View>
 
+        {items.length === 0 && !error ? (
+          <Text style={{ color: "#6b7280" }}>{emptyMessage}</Text>
+        ) : null}
+
         {error ? (
           <View
             style={{
@@ -445,7 +471,7 @@ export default function FeedScreen() {
     error,
     feedMode,
     items.length,
-    loading,
+    load,
     onLogout,
     router,
     web.error,
@@ -493,6 +519,7 @@ export default function FeedScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       onEndReachedThreshold={0.6}
       onEndReached={loadMore}
+      style={{ backgroundColor: "#ffffff" }}
     />
   );
 }
