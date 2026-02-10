@@ -15,7 +15,8 @@ export default function ClubProfileRouteScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const router = useRouter();
 
-  const profileId = Array.isArray(params.id) ? params.id[0] : params.id ?? "";
+  const profileIdRaw = Array.isArray(params.id) ? params.id[0] : params.id ?? "";
+  const profileId = String(profileIdRaw).trim();
 
   const web = useWebSession();
   const whoami = useWhoami(web.ready);
