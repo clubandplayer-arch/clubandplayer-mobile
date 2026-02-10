@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../src/lib/supabase";
+import { FollowProvider } from "../src/lib/follow/FollowProvider";
 import {
   getOnboardingSeen,
   subscribeOnboardingSeen,
@@ -118,7 +119,7 @@ function AuthGate() {
 
 export default function RootLayout() {
   return (
-    <>
+    <FollowProvider>
       <AuthGate />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
@@ -128,6 +129,6 @@ export default function RootLayout() {
         {/* ✅ PR4 route */}
         <Stack.Screen name="posts/[id]" />
       </Stack>
-    </>
+    </FollowProvider>
   );
 }

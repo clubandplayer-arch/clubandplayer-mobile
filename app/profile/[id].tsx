@@ -7,12 +7,12 @@ import {
   ScrollView,
   RefreshControl,
   Image,
-  Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 import { resolveProfileByAuthorId, type Profile } from "../../src/lib/profiles/resolveProfile";
 import { getFollowSocialForProfile, type FollowSocial } from "../../src/lib/social/getFollowSocial";
+import { FollowButton } from "../../src/components/follow/FollowButton";
 import { isCertifiedClub } from "../../src/lib/profiles/certification";
 
 function buildDisplayName(p: Profile | null) {
@@ -236,33 +236,14 @@ export default function ProfileByIdScreen() {
           {profile.user_id === viewerUserId ||
           profile.id === viewerProfileId ||
           profileKey === viewerUserId ? null : (
-            <Pressable
-              onPress={() => {
-                if (!viewerUserId) {
-                  router.replace("/(auth)/login");
-                  return;
-                }
-                Alert.alert("Segui", "Funzione in arrivo");
+            <FollowButton
+              targetProfileId={profile.id}
+              currentProfileId={viewerProfileId}
+              canToggle={Boolean(viewerUserId)}
+              onRequireAuth={() => {
+                router.replace("/(auth)/login");
               }}
-              style={{
-                alignSelf: "flex-start",
-                paddingVertical: 8,
-                paddingHorizontal: 16,
-                borderRadius: 999,
-                borderWidth: 1,
-                borderColor: followSocial?.isFollowing ? "#0A66C2" : "#111827",
-                backgroundColor: followSocial?.isFollowing ? "#0A66C2" : "transparent",
-              }}
-            >
-              <Text
-                style={{
-                  fontWeight: "800",
-                  color: followSocial?.isFollowing ? "#ffffff" : "#111827",
-                }}
-              >
-                {followSocial?.isFollowing ? "Seguito" : "Segui"}
-              </Text>
-            </Pressable>
+            />
           )}
 
           <View style={{ gap: 6 }}>
