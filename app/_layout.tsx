@@ -3,10 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../src/lib/supabase";
-import {
-  getOnboardingSeen,
-  subscribeOnboardingSeen,
-} from "../src/lib/onboarding";
+import { getOnboardingSeen, subscribeOnboardingSeen } from "../src/lib/onboarding";
 
 function AuthGate() {
   const router = useRouter();
@@ -23,11 +20,7 @@ function AuthGate() {
     let isMounted = true;
 
     const load = async () => {
-      const [{ data }, seen] = await Promise.all([
-        supabase.auth.getSession(),
-        getOnboardingSeen(),
-      ]);
-
+      const [{ data }, seen] = await Promise.all([supabase.auth.getSession(), getOnboardingSeen()]);
       if (!isMounted) return;
 
       setSession(data.session ?? null);
@@ -37,12 +30,10 @@ function AuthGate() {
 
     load();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, nextSession) => {
-        setSession(nextSession);
-        lastTargetRef.current = null;
-      }
-    );
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      lastTargetRef.current = null;
+    });
 
     const unsubscribeOnboarding = subscribeOnboardingSeen((seen) => {
       setOnboardingSeen(seen);
@@ -63,14 +54,15 @@ function AuthGate() {
     const inTabs = currentGroup === "(tabs)";
     const inCallback = pathname === "/callback";
 
-    // ✅ Allow authenticated users to visit post detail outside tabs
+    // ✅ Allow authenticated users to visit routes outside tabs (PR6)
     const allowAuthedOutsideTabs =
-      pathname?.startsWith("/posts/") || pathname === "/posts";
+      pathname?.startsWith("/posts/") ||
+      pathname?.startsWith("/clubs/") ||
+      pathname?.startsWith("/players/");
 
     let target: string | null = null;
 
     if (session) {
-      // ✅ If user is authed and is visiting /posts/[id], do NOT redirect back to feed
       if (!inTabs && !allowAuthedOutsideTabs) target = "/(tabs)/feed";
     } else {
       if (inCallback) {
@@ -125,8 +117,10 @@ export default function RootLayout() {
         <Stack.Screen name="(onboarding)" />
         <Stack.Screen name="(auth)" />
 
-        {/* ✅ PR4 route */}
+        {/* ✅ outside tabs routes */}
         <Stack.Screen name="posts/[id]" />
+        <Stack.Screen name="clubs/[id]" />
+        <Stack.Screen name="players/[id]" />
       </Stack>
     </>
   );
