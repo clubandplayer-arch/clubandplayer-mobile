@@ -45,6 +45,25 @@ function getSubtitle(item: SearchResultItem): string {
   return subtitle ? subtitle.toString() : "";
 }
 
+function normalizeResults(input: unknown): SearchResultItem[] {
+  // WEB truth: results: SearchResultItem[]
+  // ma se backend torna shape diverso, evitiamo crash
+  if (Array.isArray(input)) return input as SearchResultItem[];
+
+  const maybeObj = input as any;
+  const candidates: unknown[] = [
+    maybeObj?.results, // e.g. { ok:true, results:[...] }
+    maybeObj?.results?.items, // e.g. { results:{items:[...]} }
+    maybeObj?.items, // e.g. { items:[...] }
+  ];
+
+  for (const c of candidates) {
+    if (Array.isArray(c)) return c as SearchResultItem[];
+  }
+
+  return [];
+}
+
 export default function SearchScreen() {
   const router = useRouter();
 
@@ -67,8 +86,8 @@ export default function SearchScreen() {
     if (!web.ready) return;
     if (!whoami.data?.user) return;
 
-    // debounce
     const query = q.trim();
+
     if (!query) {
       setResults([]);
       setCounts(null);
@@ -85,20 +104,39 @@ export default function SearchScreen() {
     abortRef.current = controller;
 
     const t = setTimeout(async () => {
-      const res = await searchWeb({ q: query, type, page: 1, limit: 30, signal: controller.signal });
-      if (controller.signal.aborted) return;
+      try {
+        const res = await searchWeb({
+          q: query,
+          type,
+          page: 1,
+          limit: 30,
+          signal: controller.signal,
+        });
 
-      if (!res.ok) {
+        if (controller.signal.aborted) return;
+
+        if (!res.ok) {
+          setLoading(false);
+          setError(res.errorText ?? "Errore ricerca");
+          setResults([]);
+          setCounts(null);
+          return;
+        }
+
+        const data = res.data as any;
+        const normalized = normalizeResults(data?.results ?? data);
+
+        setResults(normalized);
+        setCounts((data?.counts as any) ?? null);
         setLoading(false);
-        setError(res.errorText ?? "Errore ricerca");
+      } catch (e: any) {
+        // AbortError = normale quando si digita e abortiamo
+        if (controller.signal.aborted) return;
+        setLoading(false);
+        setError(e?.message ? String(e.message) : "Errore ricerca");
         setResults([]);
         setCounts(null);
-        return;
       }
-
-      setResults(res.data?.results ?? []);
-      setCounts((res.data?.counts as any) ?? null);
-      setLoading(false);
     }, 250);
 
     return () => {
@@ -160,7 +198,7 @@ export default function SearchScreen() {
         ) : (
           <View style={{ gap: 10 }}>
             {results.map((item, idx) => {
-              const href = typeof item.href === "string" ? item.href : "";
+              const href = typeof (item as any).href === "string" ? (item as any).href : "";
               const title = getTitle(item);
               const subtitle = getSubtitle(item);
 

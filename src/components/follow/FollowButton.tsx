@@ -15,6 +15,7 @@ export default function FollowButton({ targetProfileId, size = "md" }: Props) {
   }, [targetProfileId]);
 
   const [loading, setLoading] = useState(true);
+  const [toggling, setToggling] = useState(false);
   const [following, setFollowing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,9 +48,10 @@ export default function FollowButton({ targetProfileId, size = "md" }: Props) {
 
   const handleToggle = useCallback(async () => {
     if (!targetId) return;
-    if (loading) return;
+    if (loading || toggling) return;
 
     setError(null);
+    setToggling(true);
 
     // optimistic
     const prev = following;
@@ -57,20 +59,25 @@ export default function FollowButton({ targetProfileId, size = "md" }: Props) {
 
     const res = await toggleFollow(targetId);
     if (!res.ok) {
-      // rollback
       setFollowing(prev);
       setError(res.errorText ?? "Errore toggle follow");
+      setToggling(false);
       return;
     }
 
-    // trust server
+    // trust server + refresh
     setFollowing(Boolean(res.data?.following));
-  }, [following, loading, targetId]);
+    await load();
+
+    setToggling(false);
+  }, [following, load, loading, targetId, toggling]);
 
   if (!targetId) return null;
 
   const padY = size === "sm" ? 8 : 10;
   const padX = size === "sm" ? 12 : 14;
+
+  const label = following ? "Non seguire" : "Segui";
 
   return (
     <View style={{ gap: 8 }}>
@@ -82,6 +89,7 @@ export default function FollowButton({ targetProfileId, size = "md" }: Props) {
       ) : (
         <Pressable
           onPress={handleToggle}
+          disabled={toggling}
           style={{
             paddingVertical: padY,
             paddingHorizontal: padX,
@@ -90,12 +98,14 @@ export default function FollowButton({ targetProfileId, size = "md" }: Props) {
             borderColor: following ? "#111827" : "#d1d5db",
             backgroundColor: following ? "#111827" : "transparent",
             alignSelf: "flex-start",
-            opacity: loading ? 0.6 : 1,
+            opacity: toggling ? 0.6 : 1,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
           }}
         >
-          <Text style={{ color: following ? "#ffffff" : "#111827", fontWeight: "800" }}>
-            {following ? "Segui già" : "Segui"}
-          </Text>
+          {toggling ? <ActivityIndicator size="small" /> : null}
+          <Text style={{ color: following ? "#ffffff" : "#111827", fontWeight: "800" }}>{label}</Text>
         </Pressable>
       )}
 
