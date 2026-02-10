@@ -224,6 +224,14 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<ApiRespons
   }
 
   if (!response.ok) {
+    // DEBUG (temporary): log failed requests (needed to debug like/comment regression)
+    console.log("[apiFetch] FAIL", {
+      method: init?.method ?? "GET",
+      url,
+      status: response.status,
+      statusText: response.statusText,
+      body: responseText.slice(0, 500),
+    });
     return { ok: false, status, errorText: responseText || `HTTP ${status}` };
   }
 
