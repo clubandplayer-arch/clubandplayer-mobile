@@ -31,6 +31,19 @@ function formatWhen(iso?: string | null) {
   }
 }
 
+function resolveProfilePath(input: {
+  profileId: string | null;
+  accountType?: string | null;
+  type?: string | null;
+}): string | null {
+  const profileId = (input.profileId ?? "").toString().trim();
+  if (!profileId) return null;
+
+  const kind = (input.accountType ?? input.type ?? "").toString().trim().toLowerCase();
+  if (kind === "club") return `/clubs/${profileId}`;
+  return `/players/${profileId}`;
+}
+
 function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
   if (!url) {
     return (
@@ -68,14 +81,14 @@ function FeedCard({ item }: { item: FeedPost }) {
   const commentCount =
     typeof item.commentCount === "number" ? item.commentCount : 0;
 
+  const profilePath = resolveProfilePath({
+    profileId: item.author?.id ?? item.author_id ?? null,
+    accountType: item.author?.account_type ?? null,
+    type: item.author?.type ?? null,
+  });
+
   return (
-    <Pressable
-      onPress={() =>
-        router.push({
-          pathname: "/posts/[id]",
-          params: { id: item.id },
-        })
-      }
+    <View
       style={{
         borderBottomWidth: 1,
         borderBottomColor: "#f3f4f6",
@@ -85,7 +98,14 @@ function FeedCard({ item }: { item: FeedPost }) {
         gap: 10,
       }}
     >
-      <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+      <Pressable
+        disabled={!profilePath}
+        onPress={() => {
+          if (!profilePath) return;
+          router.push(profilePath);
+        }}
+        style={{ flexDirection: "row", gap: 10, alignItems: "center" }}
+      >
         <Avatar url={item.author?.avatar_url ?? null} size={40} />
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -100,7 +120,7 @@ function FeedCard({ item }: { item: FeedPost }) {
           </View>
           <Text style={{ fontSize: 12, color: "#6b7280" }}>{when}</Text>
         </View>
-      </View>
+      </Pressable>
 
       {!!text ? (
         <Text style={{ fontSize: 14, lineHeight: 19, color: "#111827" }}>
@@ -134,7 +154,7 @@ function FeedCard({ item }: { item: FeedPost }) {
         <Text style={{ fontSize: 12, color: "#6b7280" }}>👍 {likeCount}</Text>
         <Text style={{ fontSize: 12, color: "#6b7280" }}>💬 {commentCount}</Text>
       </View>
-    </Pressable>
+    </View>
   );
 }
 

@@ -23,6 +23,29 @@ const SAMPLE_RESULTS: ResultItem[] = [
   { id: "p2", kind: "player", title: "Luca Bianchi", subtitle: "Portiere • 22 anni" },
 ];
 
+function getProfilePath(item: ResultItem): string {
+  if (item.kind === "club") return `/clubs/${item.id}`;
+  return `/players/${item.id}`;
+}
+
+function AvatarPlaceholder({ label }: { label: string }) {
+  const letter = (label.trim().slice(0, 1) || "U").toUpperCase();
+  return (
+    <View
+      style={{
+        width: 42,
+        height: 42,
+        borderRadius: 999,
+        backgroundColor: "#e5e7eb",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Text style={{ fontWeight: "800", color: "#111827" }}>{letter}</Text>
+    </View>
+  );
+}
+
 export default function SearchScreen() {
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -59,27 +82,46 @@ export default function SearchScreen() {
     </Pressable>
   );
 
-  const Row = ({ item }: { item: ResultItem }) => (
-    <Pressable
-      onPress={() => {
-        // Placeholder: in futuro navigherà al profilo club/player
-      }}
-      style={{
-        borderWidth: 1,
-        borderRadius: 12,
-        padding: 14,
-        gap: 6,
-      }}
-    >
-      <Text style={{ fontWeight: "800", fontSize: 16 }}>
-        {item.title}
-      </Text>
-      <Text style={{ color: "#374151" }}>{item.subtitle}</Text>
-      <Text style={{ color: "#6b7280", fontSize: 12 }}>
-        {item.kind === "club" ? "Club" : "Giocatore"}
-      </Text>
-    </Pressable>
-  );
+  const Row = ({ item }: { item: ResultItem }) => {
+    const profilePath = getProfilePath(item);
+
+    return (
+      <View
+        style={{
+          borderWidth: 1,
+          borderRadius: 12,
+          padding: 14,
+          gap: 6,
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Pressable
+            onPress={() => {
+              router.push(profilePath);
+            }}
+          >
+            <AvatarPlaceholder label={item.title} />
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              router.push(profilePath);
+            }}
+            style={{ flex: 1 }}
+          >
+            <Text style={{ fontWeight: "800", fontSize: 16 }}>
+              {item.title}
+            </Text>
+          </Pressable>
+        </View>
+
+        <Text style={{ color: "#374151" }}>{item.subtitle}</Text>
+        <Text style={{ color: "#6b7280", fontSize: 12 }}>
+          {item.kind === "club" ? "Club" : "Giocatore"}
+        </Text>
+      </View>
+    );
+  };
 
   return (
     <ScrollView

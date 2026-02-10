@@ -74,6 +74,19 @@ function getWhoamiUserId(user: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
+function resolveProfilePath(input: {
+  profileId: string | null;
+  accountType: string | null;
+  type: string | null;
+}): string | null {
+  const profileId = input.profileId?.trim() ?? "";
+  if (!profileId) return null;
+
+  const role = (input.accountType ?? input.type ?? "").toString().trim().toLowerCase();
+  if (role === "club") return `/clubs/${profileId}`;
+  return `/players/${profileId}`;
+}
+
 function Avatar({ url, size = 44 }: { url?: string | null; size?: number }) {
   if (!url) {
     return (
@@ -154,11 +167,19 @@ async function fetchPostCore(postId: string): Promise<PostDetail | null> {
 }
 
 function PostCard({ post, title }: { post: PostDetail; title?: string }) {
+  const router = useRouter();
+
   const authorName = getAuthorName(post.author);
   const when = formatWhen(post.created_at);
   const text = getPostText(post.raw);
   const mediaUrl = asString((post.raw as any)?.media_url);
   const mediaType = asString((post.raw as any)?.media_type);
+
+  const profilePath = resolveProfilePath({
+    profileId: post.author?.id ?? post.author_id,
+    accountType: post.author?.account_type ?? null,
+    type: post.author?.type ?? null,
+  });
 
   return (
     <View
@@ -178,13 +199,22 @@ function PostCard({ post, title }: { post: PostDetail; title?: string }) {
       ) : null}
 
       <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-        <Avatar url={post.author?.avatar_url ?? null} size={44} />
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827" }}>
-            {authorName}
-          </Text>
-          <Text style={{ fontSize: 12, color: "#6b7280" }}>{when}</Text>
-        </View>
+        <Pressable
+          disabled={!profilePath}
+          onPress={() => {
+            if (!profilePath) return;
+            router.push(profilePath);
+          }}
+          style={{ flexDirection: "row", gap: 12, alignItems: "center", flex: 1 }}
+        >
+          <Avatar url={post.author?.avatar_url ?? null} size={44} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827" }}>
+              {authorName}
+            </Text>
+            <Text style={{ fontSize: 12, color: "#6b7280" }}>{when}</Text>
+          </View>
+        </Pressable>
       </View>
 
       {text ? (
