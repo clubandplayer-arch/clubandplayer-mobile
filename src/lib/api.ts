@@ -89,6 +89,33 @@ export type FeedCommentsCountsGetResponse = {
   counts: Array<{ post_id: string; count: number }>;
 };
 
+export type FeedCommentAuthor = {
+  id?: string | null;
+  user_id?: string | null;
+  full_name?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  account_type?: string | null;
+  status?: string | null;
+};
+
+export type FeedComment = {
+  id: string;
+  post_id: string;
+  author_id: string;
+  body: string;
+  created_at: string;
+  author?: FeedCommentAuthor | null;
+};
+
+export type FeedCommentsGetResponse = {
+  comments: FeedComment[];
+};
+
+export type FeedCommentPostResponse = {
+  comment: FeedComment;
+};
+
 // WEB truth:
 // POST /api/feed/reactions body: {postId, reaction?: 'like' | ... | '' | null}
 // => { ok:true, postId, counts:[{post_id,reaction,count}] (only that post), mine: string|null }
@@ -288,6 +315,33 @@ export async function fetchReactionsForIds(ids: string[]): Promise<ApiResponse<F
 export async function fetchCommentCountsForIds(ids: string[]): Promise<ApiResponse<FeedCommentsCountsGetResponse>> {
   const q = buildIdsQuery(ids);
   return apiFetch<FeedCommentsCountsGetResponse>(`/api/feed/comments/counts?${q}`, { method: "GET" });
+}
+
+export async function fetchComments(postId: string, limit: number = 50): Promise<ApiResponse<FeedCommentsGetResponse>> {
+  const sp = new URLSearchParams();
+  sp.set("postId", postId);
+  sp.set("limit", String(limit));
+  return apiFetch<FeedCommentsGetResponse>(`/api/feed/comments?${sp.toString()}`, { method: "GET" });
+}
+
+export async function createComment(postId: string, body: string): Promise<ApiResponse<FeedCommentPostResponse>> {
+  return apiFetch<FeedCommentPostResponse>("/api/feed/comments", {
+    method: "POST",
+    body: JSON.stringify({ postId, body }),
+  });
+}
+
+export async function editComment(commentId: string, body: string): Promise<ApiResponse<FeedCommentPostResponse>> {
+  return apiFetch<FeedCommentPostResponse>(`/api/feed/comments/${encodeURIComponent(commentId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ body }),
+  });
+}
+
+export async function deleteComment(commentId: string): Promise<ApiResponse<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/feed/comments/${encodeURIComponent(commentId)}`, {
+    method: "DELETE",
+  });
 }
 
 export async function setPostReaction(

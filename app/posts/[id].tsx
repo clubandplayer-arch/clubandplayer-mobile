@@ -17,6 +17,7 @@ import {
   useWebSession,
   useWhoami,
 } from "../../src/lib/api";
+import { CommentsSection } from "../../src/components/CommentsSection";
 import {
   getAuthorName,
   getPostText,
@@ -61,6 +62,16 @@ function formatWhen(iso?: string | null) {
   } catch {
     return "";
   }
+}
+
+function getWhoamiUserId(user: unknown): string | null {
+  if (!user || typeof user !== "object") return null;
+
+  const candidate = (user as any).id ?? (user as any).user_id ?? null;
+  if (typeof candidate !== "string") return null;
+
+  const trimmed = candidate.trim();
+  return trimmed ? trimmed : null;
 }
 
 function Avatar({ url, size = 44 }: { url?: string | null; size?: number }) {
@@ -207,6 +218,7 @@ export default function PostDetailScreen() {
 
   const web = useWebSession();
   const whoami = useWhoami(web.ready);
+  const currentUserId = getWhoamiUserId(whoami.data?.user);
 
   const [post, setPost] = useState<PostDetail | null>(null);
   const [quotedPost, setQuotedPost] = useState<PostDetail | null>(null);
@@ -340,6 +352,12 @@ export default function PostDetailScreen() {
       setIsToggling(false);
       await loadSocial(postId);
     }
+  };
+
+
+  const handleCommentCountChange = (nextCount: number) => {
+    setSocial((prev) => ({ ...prev, commentCount: Math.max(0, nextCount) }));
+    emit("feed:refresh");
   };
 
   if (web.loading || whoami.loading || loading) {
@@ -498,6 +516,13 @@ export default function PostDetailScreen() {
           </Text>
         </Pressable>
       </View>
+
+      <CommentsSection
+        postId={post.id}
+        currentUserId={currentUserId}
+        initialCount={social.commentCount}
+        onCountChange={handleCommentCountChange}
+      />
     </ScrollView>
   );
 }
