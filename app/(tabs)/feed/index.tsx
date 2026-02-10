@@ -19,7 +19,7 @@ import {
 } from "../../../src/lib/feed/getFeedPosts";
 import { isCertifiedClub } from "../../../src/lib/profiles/certification";
 import { on } from "../../../src/lib/events/appEvents";
-import { clearSession, useWebSession, useWhoami } from "../../../src/lib/api";
+import { clearSession, isUuid, useWebSession, useWhoami } from "../../../src/lib/api";
 
 function formatWhen(iso?: string | null) {
   if (!iso) return "";
@@ -57,6 +57,17 @@ function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
   );
 }
 
+function resolveAuthorHref(item: FeedPost): string | null {
+  const authorId = item.author?.id ? String(item.author.id).trim() : "";
+  if (!isUuid(authorId)) return null;
+
+  const kind =
+    (item.author?.account_type ?? item.author?.type ?? "").toString().toLowerCase();
+
+  const isClub = kind === "club" || kind === "clubs";
+  return isClub ? `/clubs/${authorId}` : `/players/${authorId}`;
+}
+
 function FeedCard({ item }: { item: FeedPost }) {
   const router = useRouter();
 
@@ -65,17 +76,13 @@ function FeedCard({ item }: { item: FeedPost }) {
   const when = formatWhen(item.created_at);
   const firstMedia = item.media?.[0] ?? null;
   const likeCount = typeof item.likeCount === "number" ? item.likeCount : 0;
-  const commentCount =
-    typeof item.commentCount === "number" ? item.commentCount : 0;
+  const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
+
+  const authorHref = resolveAuthorHref(item);
+  const canGoAuthor = Boolean(authorHref);
 
   return (
-    <Pressable
-      onPress={() =>
-        router.push({
-          pathname: "/posts/[id]",
-          params: { id: item.id },
-        })
-      }
+    <View
       style={{
         borderBottomWidth: 1,
         borderBottomColor: "#f3f4f6",
@@ -85,7 +92,15 @@ function FeedCard({ item }: { item: FeedPost }) {
         gap: 10,
       }}
     >
-      <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+      {/* ✅ AREA 1 (autore) */}
+      <Pressable
+        onPress={() => {
+          if (!authorHref) return; // ✅ UUID only, altrimenti NO
+          router.push(authorHref as any);
+        }}
+        disabled={!canGoAuthor}
+        style={{ flexDirection: "row", gap: 10, alignItems: "center", opacity: canGoAuthor ? 1 : 0.6 }}
+      >
         <Avatar url={item.author?.avatar_url ?? null} size={40} />
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -100,41 +115,52 @@ function FeedCard({ item }: { item: FeedPost }) {
           </View>
           <Text style={{ fontSize: 12, color: "#6b7280" }}>{when}</Text>
         </View>
-      </View>
+      </Pressable>
 
-      {!!text ? (
-        <Text style={{ fontSize: 14, lineHeight: 19, color: "#111827" }}>
-          {text}
-        </Text>
-      ) : null}
+      {/* ✅ AREA 2 (contenuto) */}
+      <Pressable
+        onPress={() =>
+          router.push({
+            pathname: "/posts/[id]",
+            params: { id: item.id },
+          })
+        }
+        style={{ gap: 10 }}
+      >
+        {!!text ? (
+          <Text style={{ fontSize: 14, lineHeight: 19, color: "#111827" }}>
+            {text}
+          </Text>
+        ) : null}
 
-      {firstMedia?.url ? (
-        <View
-          style={{
-            borderRadius: 12,
-            overflow: "hidden",
-            backgroundColor: "#f3f4f6",
-          }}
-        >
-          <Image
-            source={{ uri: firstMedia.poster_url || firstMedia.url }}
-            style={{ width: "100%", height: 220 }}
-            resizeMode="cover"
-          />
-          <View style={{ padding: 10 }}>
-            <Text style={{ fontSize: 12, color: "#6b7280" }}>
-              {firstMedia.media_type === "video" ? "🎬 Video" : "🖼️ Foto"}
-              {item.media.length > 1 ? ` • +${item.media.length - 1}` : ""}
-            </Text>
+        {firstMedia?.url ? (
+          <View
+            style={{
+              borderRadius: 12,
+              overflow: "hidden",
+              backgroundColor: "#f3f4f6",
+            }}
+          >
+            <Image
+              source={{ uri: firstMedia.poster_url || firstMedia.url }}
+              style={{ width: "100%", height: 220 }}
+              resizeMode="cover"
+            />
+            <View style={{ padding: 10 }}>
+              <Text style={{ fontSize: 12, color: "#6b7280" }}>
+                {firstMedia.media_type === "video" ? "🎬 Video" : "🖼️ Foto"}
+                {item.media.length > 1 ? ` • +${item.media.length - 1}` : ""}
+              </Text>
+            </View>
           </View>
-        </View>
-      ) : null}
+        ) : null}
 
-      <View style={{ flexDirection: "row", gap: 14 }}>
-        <Text style={{ fontSize: 12, color: "#6b7280" }}>👍 {likeCount}</Text>
-        <Text style={{ fontSize: 12, color: "#6b7280" }}>💬 {commentCount}</Text>
-      </View>
-    </Pressable>
+        <View style={{ flexDirection: "row", gap: 14 }}>
+          <Text style={{ fontSize: 12, color: "#6b7280" }}>👍 {likeCount}</Text>
+          <Text style={{ fontSize: 12, color: "#6b7280" }}>💬 {commentCount}</Text>
+        </View>
+      </Pressable>
+    </View>
   );
 }
 
@@ -161,9 +187,7 @@ export default function FeedScreen() {
       setLoadingMore(false);
 
       try {
-        const res = await getFeedPosts({
-          scope: mode,
-        });
+        const res = await getFeedPosts({ scope: mode });
         setItems(res.items);
         setNextPage(res.nextPage);
       } catch (e: any) {
@@ -201,9 +225,7 @@ export default function FeedScreen() {
 
   useEffect(() => {
     if (!web.ready) {
-      if (web.error) {
-        setLoading(false);
-      }
+      if (web.error) setLoading(false);
       return;
     }
     setLoading(true);
@@ -238,20 +260,8 @@ export default function FeedScreen() {
   };
 
   const header = useMemo(() => {
-    const isFollowing = feedMode === "following";
-    const emptyMessage = isFollowing
-      ? "Nessun contenuto nel feed dei seguiti."
-      : "Nessun contenuto ancora. Qui compariranno i post delle persone e dei club che segui.";
-
     return (
-      <View
-        style={{
-          padding: 24,
-          paddingBottom: 12,
-          gap: 16,
-          backgroundColor: "#ffffff",
-        }}
-      >
+      <View style={{ padding: 24, paddingBottom: 12, gap: 16, backgroundColor: "#ffffff" }}>
         <Text style={{ fontSize: 28, fontWeight: "800" }}>Feed</Text>
 
         <View
@@ -280,12 +290,7 @@ export default function FeedScreen() {
               backgroundColor: feedMode === "all" ? "#111827" : "transparent",
             }}
           >
-            <Text
-              style={{
-                color: feedMode === "all" ? "#ffffff" : "#111827",
-                fontWeight: "700",
-              }}
-            >
+            <Text style={{ color: feedMode === "all" ? "#ffffff" : "#111827", fontWeight: "700" }}>
               Tutti
             </Text>
           </Pressable>
@@ -301,30 +306,16 @@ export default function FeedScreen() {
               paddingVertical: 6,
               paddingHorizontal: 14,
               borderRadius: 999,
-              backgroundColor:
-                feedMode === "following" ? "#111827" : "transparent",
+              backgroundColor: feedMode === "following" ? "#111827" : "transparent",
             }}
           >
-            <Text
-              style={{
-                color: feedMode === "following" ? "#ffffff" : "#111827",
-                fontWeight: "700",
-              }}
-            >
+            <Text style={{ color: feedMode === "following" ? "#ffffff" : "#111827", fontWeight: "700" }}>
               Seguiti
             </Text>
           </Pressable>
         </View>
 
-        <View
-          style={{
-            borderWidth: 1,
-            borderColor: "#e5e7eb",
-            borderRadius: 12,
-            padding: 16,
-            gap: 10,
-          }}
-        >
+        <View style={{ borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 12, padding: 16, gap: 10 }}>
           <Text style={{ fontSize: 16, fontWeight: "700" }}>Accesso</Text>
 
           {web.loading ? (
@@ -346,18 +337,13 @@ export default function FeedScreen() {
                   alignSelf: "flex-start",
                 }}
               >
-                <Text style={{ color: "#111827", fontWeight: "700" }}>
-                  Riprova
-                </Text>
+                <Text style={{ color: "#111827", fontWeight: "700" }}>Riprova</Text>
               </Pressable>
             </>
           ) : whoami.data?.user ? (
             <>
               <Text style={{ color: "#111827" }}>
-                Sei loggato.{" "}
-                {whoami.data?.role ? (
-                  <Text style={{ fontWeight: "700" }}>{whoami.data.role}</Text>
-                ) : null}
+                Sei loggato. {whoami.data?.role ? <Text style={{ fontWeight: "700" }}>{whoami.data.role}</Text> : null}
               </Text>
 
               <Pressable
@@ -370,16 +356,12 @@ export default function FeedScreen() {
                   alignSelf: "flex-start",
                 }}
               >
-                <Text style={{ color: "#ffffff", fontWeight: "700" }}>
-                  Logout
-                </Text>
+                <Text style={{ color: "#ffffff", fontWeight: "700" }}>Logout</Text>
               </Pressable>
             </>
           ) : (
             <>
-              <Text style={{ color: "#111827" }}>
-                Non risulti loggato. Vai al login.
-              </Text>
+              <Text style={{ color: "#111827" }}>Non risulti loggato. Vai al login.</Text>
               <Pressable
                 onPress={() => router.replace("/(auth)/login")}
                 style={{
@@ -391,9 +373,7 @@ export default function FeedScreen() {
                   alignSelf: "flex-start",
                 }}
               >
-                <Text style={{ color: "#111827", fontWeight: "700" }}>
-                  Vai al login
-                </Text>
+                <Text style={{ color: "#111827", fontWeight: "700" }}>Vai al login</Text>
               </Pressable>
             </>
           )}
@@ -413,27 +393,13 @@ export default function FeedScreen() {
             <Text style={{ fontWeight: "800", color: "#b91c1c" }}>Errore</Text>
             <Text style={{ color: "#b91c1c" }}>{error}</Text>
             <Pressable onPress={() => load(feedMode)} style={{ alignSelf: "flex-start" }}>
-              <Text style={{ color: "#036f9a", fontWeight: "800" }}>
-                Riprova
-              </Text>
+              <Text style={{ color: "#036f9a", fontWeight: "800" }}>Riprova</Text>
             </Pressable>
           </View>
         ) : null}
       </View>
     );
-  }, [
-    error,
-    feedMode,
-    items.length,
-    loading,
-    onLogout,
-    router,
-    web.error,
-    web.loading,
-    web.retry,
-    whoami.data?.role,
-    whoami.data?.user,
-  ]);
+  }, [error, feedMode, load, onLogout, router, web.error, web.loading, web.retry, whoami.data?.role, whoami.data?.user]);
 
   const footer = useMemo(() => {
     if (loadingMore) {
