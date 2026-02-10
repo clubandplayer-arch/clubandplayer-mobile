@@ -13,6 +13,7 @@ import { supabase } from "../../src/lib/supabase";
 import {
   fetchCommentCountsForIds,
   fetchReactionsForIds,
+  isUuid,
   setPostReaction,
   useWebSession,
   useWhoami,
@@ -100,21 +101,29 @@ function Avatar({ url, size = 44 }: { url?: string | null; size?: number }) {
   );
 }
 
+/**
+ * ✅ VINCOLO PR6:
+ * Profile canonical id = profiles.id (UUID)
+ * Quindi: prima cerco per profiles.id, POI fallback per user_id.
+ */
 async function fetchAuthorProfile(authorId: string | null): Promise<FeedAuthor | null> {
   if (!authorId) return null;
 
+  // ✅ primary: canonical profile id
   const primary = await supabase
     .from("profiles")
     .select("id, user_id, full_name, display_name, avatar_url, account_type, type")
-    .eq("user_id", authorId)
+    .eq("id", authorId)
     .maybeSingle();
 
   let data = primary.data;
+
+  // fallback: some rows might still require user_id match
   if (!data && !primary.error) {
     const fallback = await supabase
       .from("profiles")
       .select("id, user_id, full_name, display_name, avatar_url, account_type, type")
-      .eq("id", authorId)
+      .eq("user_id", authorId)
       .maybeSingle();
     data = fallback.data;
   }
@@ -125,9 +134,12 @@ async function fetchAuthorProfile(authorId: string | null): Promise<FeedAuthor |
     id: asString((data as any).id) ?? undefined,
     user_id: asString((data as any).user_id) ?? null,
     full_name: typeof (data as any).full_name === "string" ? (data as any).full_name : null,
-    display_name: typeof (data as any).display_name === "string" ? (data as any).display_name : null,
-    avatar_url: typeof (data as any).avatar_url === "string" ? (data as any).avatar_url : null,
-    account_type: typeof (data as any).account_type === "string" ? (data as any).account_type : null,
+    display_name:
+      typeof (data as any).display_name === "string" ? (data as any).display_name : null,
+    avatar_url:
+      typeof (data as any).avatar_url === "string" ? (data as any).avatar_url : null,
+    account_type:
+      typeof (data as any).account_type === "string" ? (data as any).account_type : null,
     type: typeof (data as any).type === "string" ? (data as any).type : null,
   };
 }
@@ -153,7 +165,27 @@ async function fetchPostCore(postId: string): Promise<PostDetail | null> {
   };
 }
 
-function PostCard({ post, title }: { post: PostDetail; title?: string }) {
+function resolveAuthorHref(author: FeedAuthor | null): string | null {
+  const authorProfileId = author?.id ? String(author.id).trim() : "";
+  if (!isUuid(authorProfileId)) return null;
+
+  const kind = (author?.account_type ?? author?.type ?? "").toString().toLowerCase();
+  const isClub = kind === "club" || kind === "clubs";
+
+  return isClub ? `/clubs/${authorProfileId}` : `/players/${authorProfileId}`;
+}
+
+function PostCard({
+  post,
+  title,
+  onPressAuthor,
+  canPressAuthor,
+}: {
+  post: PostDetail;
+  title?: string;
+  onPressAuthor: () => void;
+  canPressAuthor: boolean;
+}) {
   const authorName = getAuthorName(post.author);
   const when = formatWhen(post.created_at);
   const text = getPostText(post.raw);
@@ -177,7 +209,17 @@ function PostCard({ post, title }: { post: PostDetail; title?: string }) {
         </Text>
       ) : null}
 
-      <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+      {/* ✅ autore tappabile SOLO se UUID */}
+      <Pressable
+        onPress={onPressAuthor}
+        disabled={!canPressAuthor}
+        style={{
+          flexDirection: "row",
+          gap: 12,
+          alignItems: "center",
+          opacity: canPressAuthor ? 1 : 0.6,
+        }}
+      >
         <Avatar url={post.author?.avatar_url ?? null} size={44} />
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827" }}>
@@ -185,7 +227,7 @@ function PostCard({ post, title }: { post: PostDetail; title?: string }) {
           </Text>
           <Text style={{ fontSize: 12, color: "#6b7280" }}>{when}</Text>
         </View>
-      </View>
+      </Pressable>
 
       {text ? (
         <Text style={{ fontSize: 15, lineHeight: 20, color: "#111827" }}>
@@ -195,7 +237,11 @@ function PostCard({ post, title }: { post: PostDetail; title?: string }) {
 
       {mediaUrl ? (
         <View style={{ borderRadius: 14, overflow: "hidden", backgroundColor: "#f3f4f6" }}>
-          <Image source={{ uri: mediaUrl }} style={{ width: "100%", height: 240 }} resizeMode="cover" />
+          <Image
+            source={{ uri: mediaUrl }}
+            style={{ width: "100%", height: 240 }}
+            resizeMode="cover"
+          />
           <View style={{ padding: 10 }}>
             <Text style={{ fontSize: 12, color: "#6b7280" }}>
               {mediaType === "video" ? "Video" : "Media"}
@@ -247,7 +293,9 @@ export default function PostDetailScreen() {
       if (!cRes.ok) throw new Error(cRes.errorText ?? `Comments HTTP ${cRes.status}`);
 
       const likeCount =
-        (rRes.data?.counts ?? []).find((x) => x.post_id === targetPostId && x.reaction === "like")?.count ?? 0;
+        (rRes.data?.counts ?? []).find(
+          (x) => x.post_id === targetPostId && x.reaction === "like",
+        )?.count ?? 0;
 
       const viewerHasLiked =
         (rRes.data?.mine ?? []).some((m) => m.post_id === targetPostId && m.reaction === "like");
@@ -332,7 +380,8 @@ export default function PostDetailScreen() {
       if (!res.ok) throw new Error(res.errorText ?? `Toggle HTTP ${res.status}`);
 
       const likeCount =
-        (res.data?.counts ?? []).find((x) => x.post_id === postId && x.reaction === "like")?.count ?? 0;
+        (res.data?.counts ?? []).find((x) => x.post_id === postId && x.reaction === "like")
+          ?.count ?? 0;
 
       const viewerHasLiked = res.data?.mine === "like";
 
@@ -354,11 +403,16 @@ export default function PostDetailScreen() {
     }
   };
 
-
   const handleCommentCountChange = (nextCount: number) => {
     setSocial((prev) => ({ ...prev, commentCount: Math.max(0, nextCount) }));
     emit("feed:refresh");
   };
+
+  const authorHref = useMemo(() => resolveAuthorHref(post?.author ?? null), [post?.author]);
+  const quotedAuthorHref = useMemo(
+    () => resolveAuthorHref(quotedPost?.author ?? null),
+    [quotedPost?.author],
+  );
 
   if (web.loading || whoami.loading || loading) {
     return (
@@ -469,8 +523,26 @@ export default function PostDetailScreen() {
         <Text style={{ fontWeight: "700", color: "#111827" }}>← Indietro</Text>
       </Pressable>
 
-      <PostCard post={post} />
-      {quotedPost ? <PostCard post={quotedPost} title="Post citato" /> : null}
+      <PostCard
+        post={post}
+        onPressAuthor={() => {
+          if (!authorHref) return;
+          router.push(authorHref as any);
+        }}
+        canPressAuthor={Boolean(authorHref)}
+      />
+
+      {quotedPost ? (
+        <PostCard
+          post={quotedPost}
+          title="Post citato"
+          onPressAuthor={() => {
+            if (!quotedAuthorHref) return;
+            router.push(quotedAuthorHref as any);
+          }}
+          canPressAuthor={Boolean(quotedAuthorHref)}
+        />
+      ) : null}
 
       <View
         style={{
