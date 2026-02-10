@@ -74,6 +74,23 @@ export type FeedPostsApiResponse =
   | FeedPostsResponse
   | { data?: FeedPostsResponse | unknown[] };
 
+export type FollowStateGetResponse = {
+  ok: true;
+  state: Record<string, boolean>;
+};
+
+export type FollowTogglePostResponse = {
+  ok: true;
+  isFollowing: boolean;
+  targetProfileId: string;
+  self?: boolean;
+};
+
+export type FollowListGetResponse = {
+  ok: true;
+  items: unknown[];
+};
+
 // WEB truth:
 // GET /api/feed/reactions?ids=...
 // => { ok:true, counts:[{post_id,reaction,count}], mine:[{post_id,reaction}], missingTable?:true }
@@ -207,6 +224,14 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<ApiRespons
   }
 
   if (!response.ok) {
+    // DEBUG (temporary): log failed requests (needed to debug like/comment regression)
+    console.log("[apiFetch] FAIL", {
+      method: init?.method ?? "GET",
+      url,
+      status: response.status,
+      statusText: response.statusText,
+      body: responseText.slice(0, 500),
+    });
     return { ok: false, status, errorText: responseText || `HTTP ${status}` };
   }
 
@@ -304,6 +329,42 @@ function buildIdsQuery(ids: string[]): string {
   const sp = new URLSearchParams();
   sp.set("ids", uniq.join(","));
   return sp.toString();
+}
+
+export async function fetchFollowState(targetIds: string[]): Promise<ApiResponse<FollowStateGetResponse>> {
+  const uniq = Array.from(new Set(targetIds.map((id) => String(id).trim()).filter(Boolean)));
+  const sp = new URLSearchParams();
+  for (const targetId of uniq) {
+    sp.append("targets", targetId);
+  }
+  return apiFetch<FollowStateGetResponse>(`/api/follows/state?${sp.toString()}`, { method: "GET" });
+}
+
+export async function toggleFollow(targetProfileId: string): Promise<ApiResponse<FollowTogglePostResponse>> {
+  return apiFetch<FollowTogglePostResponse>("/api/follows/toggle", {
+    method: "POST",
+    body: JSON.stringify({ targetProfileId }),
+  });
+}
+
+export async function fetchFollowingList(): Promise<ApiResponse<FollowListGetResponse>> {
+  return apiFetch<FollowListGetResponse>("/api/follows/list", { method: "GET" });
+}
+
+export async function fetchFollowersList(): Promise<ApiResponse<FollowListGetResponse>> {
+  return apiFetch<FollowListGetResponse>("/api/follows/followers", { method: "GET" });
+}
+
+export async function fetchFollowSuggestions(params?: {
+  limit?: number;
+  kind?: "club" | "player";
+}): Promise<ApiResponse<FollowListGetResponse>> {
+  const sp = new URLSearchParams();
+  if (typeof params?.limit === "number") sp.set("limit", String(params.limit));
+  if (params?.kind) sp.set("kind", params.kind);
+  const query = sp.toString();
+  const path = query ? `/api/follows/suggestions?${query}` : "/api/follows/suggestions";
+  return apiFetch<FollowListGetResponse>(path, { method: "GET" });
 }
 
 // ✅ WEB parity: ONLY ids=...

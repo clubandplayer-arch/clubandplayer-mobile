@@ -74,6 +74,49 @@ function getWhoamiUserId(user: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
+function pickProfileIdUuid(input: Array<unknown>): string | null {
+  for (const v of input) {
+    if (typeof v !== "string") continue;
+    const t = v.trim();
+    if (!t) continue;
+    if (isUuid(t)) return t;
+  }
+  return null;
+}
+
+function resolveProfilePath(input: {
+  author: FeedAuthor | null;
+  authorId: string | null;
+}): string | null {
+  const author = input.author ?? null;
+
+  // Only allow UUID profile IDs; otherwise we disable navigation to avoid /clubs/123 etc.
+  const profileId = pickProfileIdUuid([
+    author?.id,
+    (author as any)?.profile_id,
+    (author as any)?.profileId,
+    (author as any)?.profile?.id,
+    (author as any)?.raw?.id,
+    input.authorId,
+  ]);
+
+  if (!profileId) return null;
+
+  const role = (author?.account_type ?? author?.type ?? "")
+    .toString()
+    .trim()
+    .toLowerCase();
+
+  if (role === "club") return `/clubs/${profileId}`;
+  return `/players/${profileId}`;
+}
+
 function Avatar({ url, size = 44 }: { url?: string | null; size?: number }) {
   if (!url) {
     return (
@@ -100,7 +143,9 @@ function Avatar({ url, size = 44 }: { url?: string | null; size?: number }) {
   );
 }
 
-async function fetchAuthorProfile(authorId: string | null): Promise<FeedAuthor | null> {
+async function fetchAuthorProfile(
+  authorId: string | null,
+): Promise<FeedAuthor | null> {
   if (!authorId) return null;
 
   const primary = await supabase
@@ -124,10 +169,18 @@ async function fetchAuthorProfile(authorId: string | null): Promise<FeedAuthor |
   return {
     id: asString((data as any).id) ?? undefined,
     user_id: asString((data as any).user_id) ?? null,
-    full_name: typeof (data as any).full_name === "string" ? (data as any).full_name : null,
-    display_name: typeof (data as any).display_name === "string" ? (data as any).display_name : null,
-    avatar_url: typeof (data as any).avatar_url === "string" ? (data as any).avatar_url : null,
-    account_type: typeof (data as any).account_type === "string" ? (data as any).account_type : null,
+    full_name:
+      typeof (data as any).full_name === "string" ? (data as any).full_name : null,
+    display_name:
+      typeof (data as any).display_name === "string"
+        ? (data as any).display_name
+        : null,
+    avatar_url:
+      typeof (data as any).avatar_url === "string" ? (data as any).avatar_url : null,
+    account_type:
+      typeof (data as any).account_type === "string"
+        ? (data as any).account_type
+        : null,
     type: typeof (data as any).type === "string" ? (data as any).type : null,
   };
 }
@@ -154,11 +207,18 @@ async function fetchPostCore(postId: string): Promise<PostDetail | null> {
 }
 
 function PostCard({ post, title }: { post: PostDetail; title?: string }) {
+  const router = useRouter();
+
   const authorName = getAuthorName(post.author);
   const when = formatWhen(post.created_at);
   const text = getPostText(post.raw);
   const mediaUrl = asString((post.raw as any)?.media_url);
   const mediaType = asString((post.raw as any)?.media_type);
+
+  const profilePath = resolveProfilePath({
+    author: post.author,
+    authorId: post.author_id,
+  });
 
   return (
     <View
@@ -178,13 +238,22 @@ function PostCard({ post, title }: { post: PostDetail; title?: string }) {
       ) : null}
 
       <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-        <Avatar url={post.author?.avatar_url ?? null} size={44} />
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827" }}>
-            {authorName}
-          </Text>
-          <Text style={{ fontSize: 12, color: "#6b7280" }}>{when}</Text>
-        </View>
+        <Pressable
+          disabled={!profilePath}
+          onPress={() => {
+            if (!profilePath) return;
+            router.push(profilePath);
+          }}
+          style={{ flexDirection: "row", gap: 12, alignItems: "center", flex: 1 }}
+        >
+          <Avatar url={post.author?.avatar_url ?? null} size={44} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827" }}>
+              {authorName}
+            </Text>
+            <Text style={{ fontSize: 12, color: "#6b7280" }}>{when}</Text>
+          </View>
+        </Pressable>
       </View>
 
       {text ? (
@@ -194,8 +263,14 @@ function PostCard({ post, title }: { post: PostDetail; title?: string }) {
       ) : null}
 
       {mediaUrl ? (
-        <View style={{ borderRadius: 14, overflow: "hidden", backgroundColor: "#f3f4f6" }}>
-          <Image source={{ uri: mediaUrl }} style={{ width: "100%", height: 240 }} resizeMode="cover" />
+        <View
+          style={{ borderRadius: 14, overflow: "hidden", backgroundColor: "#f3f4f6" }}
+        >
+          <Image
+            source={{ uri: mediaUrl }}
+            style={{ width: "100%", height: 240 }}
+            resizeMode="cover"
+          />
           <View style={{ padding: 10 }}>
             <Text style={{ fontSize: 12, color: "#6b7280" }}>
               {mediaType === "video" ? "Video" : "Media"}
@@ -247,10 +322,14 @@ export default function PostDetailScreen() {
       if (!cRes.ok) throw new Error(cRes.errorText ?? `Comments HTTP ${cRes.status}`);
 
       const likeCount =
-        (rRes.data?.counts ?? []).find((x) => x.post_id === targetPostId && x.reaction === "like")?.count ?? 0;
+        (rRes.data?.counts ?? []).find(
+          (x) => x.post_id === targetPostId && x.reaction === "like",
+        )?.count ?? 0;
 
       const viewerHasLiked =
-        (rRes.data?.mine ?? []).some((m) => m.post_id === targetPostId && m.reaction === "like");
+        (rRes.data?.mine ?? []).some(
+          (m) => m.post_id === targetPostId && m.reaction === "like",
+        );
 
       const commentCount =
         (cRes.data?.counts ?? []).find((x) => x.post_id === targetPostId)?.count ?? 0;
@@ -332,7 +411,9 @@ export default function PostDetailScreen() {
       if (!res.ok) throw new Error(res.errorText ?? `Toggle HTTP ${res.status}`);
 
       const likeCount =
-        (res.data?.counts ?? []).find((x) => x.post_id === postId && x.reaction === "like")?.count ?? 0;
+        (res.data?.counts ?? []).find(
+          (x) => x.post_id === postId && x.reaction === "like",
+        )?.count ?? 0;
 
       const viewerHasLiked = res.data?.mine === "like";
 
@@ -353,7 +434,6 @@ export default function PostDetailScreen() {
       await loadSocial(postId);
     }
   };
-
 
   const handleCommentCountChange = (nextCount: number) => {
     setSocial((prev) => ({ ...prev, commentCount: Math.max(0, nextCount) }));
