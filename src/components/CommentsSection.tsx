@@ -39,13 +39,14 @@ export function CommentsSection({
   currentUserId,
   initialCount,
   onCountChange,
-  loadLimit = 50,
+  loadLimit = 100,
 }: CommentsSectionProps) {
   const [expanded, setExpanded] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [comments, setComments] = useState<FeedComment[]>([]);
+  const [count, setCount] = useState(initialCount);
 
   const [draft, setDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -53,11 +54,12 @@ export function CommentsSection({
   const [editDraft, setEditDraft] = useState("");
   const [busyCommentId, setBusyCommentId] = useState<string | null>(null);
 
-  const currentCount = hasLoaded ? comments.length : initialCount;
   const previewComments = useMemo(() => comments.slice(0, 2), [comments]);
 
-  const notifyCount = (nextCount: number) => {
-    if (onCountChange) onCountChange(nextCount);
+  const updateCount = (nextCount: number) => {
+    const normalized = Math.max(0, nextCount);
+    setCount(normalized);
+    if (onCountChange) onCountChange(normalized);
   };
 
   const load = async () => {
@@ -74,8 +76,8 @@ export function CommentsSection({
     const nextComments = Array.isArray(res.data?.comments) ? res.data?.comments : [];
     setComments(nextComments);
     setHasLoaded(true);
+    updateCount(Math.max(count, nextComments.length));
     setLoading(false);
-    notifyCount(nextComments.length);
   };
 
   const toggleExpanded = async () => {
@@ -107,7 +109,7 @@ export function CommentsSection({
     setComments(nextComments);
     setDraft("");
     setHasLoaded(true);
-    notifyCount(nextComments.length);
+    updateCount(count + 1);
     setSubmitting(false);
   };
 
@@ -159,7 +161,7 @@ export function CommentsSection({
 
     const nextComments = comments.filter((item) => item.id !== commentId);
     setComments(nextComments);
-    notifyCount(nextComments.length);
+    updateCount(count - 1);
 
     if (editingCommentId === commentId) onCancelEdit();
     setBusyCommentId(null);
@@ -177,7 +179,7 @@ export function CommentsSection({
       }}
     >
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827" }}>Commenti ({currentCount})</Text>
+        <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827" }}>Commenti ({count})</Text>
         <Pressable onPress={toggleExpanded}>
           <Text style={{ fontWeight: "700", color: "#111827" }}>
             {expanded ? "Nascondi commenti" : "Mostra commenti"}
