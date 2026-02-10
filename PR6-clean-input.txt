@@ -1,0 +1,2020 @@
+===== PATH: src/lib/api.ts =====
+import { useCallback, useEffect, useState } from "react";
+import { supabase } from "./supabase";
+
+const DEFAULT_WEB_BASE_URL = "https://www.clubandplayer.com";
+
+export type ApiResponse<T> = {
+  ok: boolean;
+  status: number;
+  data?: T;
+  errorText?: string;
+};
+
+export type WhoamiResponse = {
+  user: unknown;
+  role: string | null;
+  profile: unknown;
+  clubsAdmin?: boolean;
+  admin?: boolean;
+};
+
+export type ProfileMe = {
+  id?: string;
+  user_id?: string | null;
+  full_name?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  bio?: string | null;
+  country?: string | null;
+  region?: string | null;
+  province?: string | null;
+  birth_year?: number | null;
+  birth_place?: string | null;
+  city?: string | null;
+  residence_region_id?: number | null;
+  residence_province_id?: number | null;
+  residence_municipality_id?: number | null;
+  birth_country?: string | null;
+  birth_region_id?: number | null;
+  birth_province_id?: number | null;
+  birth_municipality_id?: number | null;
+  foot?: string | null;
+  height_cm?: number | null;
+  weight_kg?: number | null;
+  sport?: string | null;
+  role?: string | null;
+  visibility?: string | null;
+  interest_country?: string | null;
+  interest_region_id?: number | null;
+  interest_province_id?: number | null;
+  interest_municipality_id?: number | null;
+  interest_region?: string | null;
+  interest_province?: string | null;
+  interest_city?: string | null;
+  links?: unknown;
+  skills?: unknown;
+  notify_email_new_message?: boolean | null;
+  account_type?: string | null;
+  club_foundation_year?: number | null;
+  club_stadium?: string | null;
+  club_stadium_address?: string | null;
+  club_stadium_lat?: number | null;
+  club_stadium_lng?: number | null;
+  club_league_category?: string | null;
+  club_motto?: string | null;
+};
+
+export type FeedPostsResponse = {
+  items?: unknown[];
+  nextPage?: number | string | null;
+  _debug?: unknown;
+};
+
+export type FeedPostsApiResponse =
+  | FeedPostsResponse
+  | { data?: FeedPostsResponse | unknown[] };
+
+// WEB truth:
+// GET /api/feed/reactions?ids=...
+// => { ok:true, counts:[{post_id,reaction,count}], mine:[{post_id,reaction}], missingTable?:true }
+export type FeedReactionsGetResponse = {
+  ok: true;
+  counts: Array<{ post_id: string; reaction: string; count: number }>;
+  mine: Array<{ post_id: string; reaction: string }>;
+  missingTable?: boolean;
+};
+
+export type FeedCommentsCountsGetResponse = {
+  ok: true;
+  counts: Array<{ post_id: string; count: number }>;
+};
+
+export type FeedCommentAuthor = {
+  id?: string | null;
+  user_id?: string | null;
+  full_name?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  account_type?: string | null;
+  status?: string | null;
+};
+
+export type FeedComment = {
+  id: string;
+  post_id: string;
+  author_id: string;
+  body: string;
+  created_at: string;
+  author?: FeedCommentAuthor | null;
+};
+
+export type FeedCommentsGetResponse = {
+  comments: FeedComment[];
+};
+
+export type FeedCommentPostResponse = {
+  comment: FeedComment;
+};
+
+// WEB truth:
+// POST /api/feed/reactions body: {postId, reaction?: 'like' | ... | '' | null}
+// => { ok:true, postId, counts:[{post_id,reaction,count}] (only that post), mine: string|null }
+export type FeedReactionsPostResponse = {
+  ok: true;
+  postId: string;
+  counts: Array<{ post_id: string; reaction: string; count: number }>;
+  mine: string | null;
+};
+
+export const PROFILE_PATCH_FIELDS = [
+  "full_name",
+  "display_name",
+  "avatar_url",
+  "bio",
+  "country",
+  "region",
+  "province",
+  "birth_year",
+  "birth_place",
+  "city",
+  "residence_region_id",
+  "residence_province_id",
+  "residence_municipality_id",
+  "birth_country",
+  "birth_region_id",
+  "birth_province_id",
+  "birth_municipality_id",
+  "foot",
+  "height_cm",
+  "weight_kg",
+  "sport",
+  "role",
+  "visibility",
+  "interest_country",
+  "interest_region_id",
+  "interest_province_id",
+  "interest_municipality_id",
+  "interest_region",
+  "interest_province",
+  "interest_city",
+  "links",
+  "skills",
+  "notify_email_new_message",
+  "account_type",
+  "club_foundation_year",
+  "club_stadium",
+  "club_stadium_address",
+  "club_stadium_lat",
+  "club_stadium_lng",
+  "club_league_category",
+  "club_motto",
+] as const;
+
+export type ProfilePatchField = (typeof PROFILE_PATCH_FIELDS)[number];
+
+export function getWebBaseUrl(): string {
+  const raw = process.env.EXPO_PUBLIC_WEB_BASE_URL || DEFAULT_WEB_BASE_URL;
+  return raw.replace(/\/+$/, "");
+}
+
+function buildUrl(path: string): string {
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  const base = getWebBaseUrl();
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return `${base}${normalized}`;
+}
+
+async function apiFetch<T>(path: string, init?: RequestInit): Promise<ApiResponse<T>> {
+  const url = buildUrl(path);
+  const response = await fetch(url, {
+    ...init,
+    credentials: "include",
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+  });
+
+  const status = response.status;
+  let responseText = "";
+
+  try {
+    responseText = await response.text();
+  } catch (error) {
+    return { ok: false, status, errorText: String(error) };
+  }
+
+  if (!response.ok) {
+    return { ok: false, status, errorText: responseText || `HTTP ${status}` };
+  }
+
+  if (!responseText) {
+    return { ok: true, status };
+  }
+
+  try {
+    const json = JSON.parse(responseText) as T;
+    return { ok: true, status, data: json };
+  } catch (error) {
+    return { ok: false, status, errorText: String(error) };
+  }
+}
+
+export async function syncSession(): Promise<ApiResponse<{ ok: boolean; cleared?: boolean }>> {
+  const { data } = await supabase.auth.getSession();
+  const session = data.session;
+  const payload = session
+    ? { access_token: session.access_token, refresh_token: session.refresh_token }
+    : { access_token: null, refresh_token: null };
+
+  return apiFetch<{ ok: boolean; cleared?: boolean }>("/api/auth/session", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function clearSession(): Promise<ApiResponse<{ ok: boolean; cleared?: boolean }>> {
+  return apiFetch<{ ok: boolean; cleared?: boolean }>("/api/auth/session", {
+    method: "POST",
+    body: JSON.stringify({ access_token: null, refresh_token: null }),
+  });
+}
+
+export async function fetchWhoami(): Promise<ApiResponse<WhoamiResponse>> {
+  return apiFetch<WhoamiResponse>("/api/auth/whoami", { method: "GET" });
+}
+
+export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
+  const url = buildUrl("/api/profiles/me");
+  const response = await fetch(url, {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+  });
+
+  const status = response.status;
+  let json: unknown;
+
+  try {
+    json = await response.json();
+  } catch (error) {
+    return { ok: false, status, errorText: String(error) };
+  }
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      status,
+      errorText: typeof json === "string" && json ? json : `HTTP ${status}`,
+    };
+  }
+
+  const payload = json && typeof json === "object" && "data" in (json as any) ? (json as any).data : json;
+  return { ok: true, status, data: payload as ProfileMe };
+}
+
+export async function fetchFeedPosts(params?: {
+  scope?: "all" | "following";
+  nextPage?: string;
+}): Promise<ApiResponse<FeedPostsApiResponse>> {
+  if (params?.nextPage) {
+    const base = getWebBaseUrl();
+    const target = params.nextPage;
+    let url = "";
+    if (target.startsWith("http://") || target.startsWith("https://")) url = target;
+    else if (target.startsWith("?")) url = `${base}/api/feed/posts${target}`;
+    else if (target.startsWith("/")) url = `${base}${target}`;
+    else url = `${base}/${target}`;
+
+    return apiFetch<FeedPostsApiResponse>(url, { method: "GET" });
+  }
+
+  const sp = new URLSearchParams();
+  if (params?.scope) sp.set("scope", params.scope);
+  const query = sp.toString();
+  const path = query ? `/api/feed/posts?${query}` : "/api/feed/posts";
+  return apiFetch<FeedPostsApiResponse>(path, { method: "GET" });
+}
+
+function buildIdsQuery(ids: string[]): string {
+  const uniq = Array.from(new Set(ids.map((s) => String(s).trim()).filter(Boolean)));
+  const sp = new URLSearchParams();
+  sp.set("ids", uniq.join(","));
+  return sp.toString();
+}
+
+// ✅ WEB parity: ONLY ids=...
+export async function fetchReactionsForIds(ids: string[]): Promise<ApiResponse<FeedReactionsGetResponse>> {
+  const q = buildIdsQuery(ids);
+  return apiFetch<FeedReactionsGetResponse>(`/api/feed/reactions?${q}`, { method: "GET" });
+}
+
+export async function fetchCommentCountsForIds(ids: string[]): Promise<ApiResponse<FeedCommentsCountsGetResponse>> {
+  const q = buildIdsQuery(ids);
+  return apiFetch<FeedCommentsCountsGetResponse>(`/api/feed/comments/counts?${q}`, { method: "GET" });
+}
+
+export async function fetchComments(postId: string, limit: number = 50): Promise<ApiResponse<FeedCommentsGetResponse>> {
+  const sp = new URLSearchParams();
+  sp.set("postId", postId);
+  sp.set("limit", String(limit));
+  return apiFetch<FeedCommentsGetResponse>(`/api/feed/comments?${sp.toString()}`, { method: "GET" });
+}
+
+export async function createComment(postId: string, body: string): Promise<ApiResponse<FeedCommentPostResponse>> {
+  return apiFetch<FeedCommentPostResponse>("/api/feed/comments", {
+    method: "POST",
+    body: JSON.stringify({ postId, body }),
+  });
+}
+
+export async function editComment(commentId: string, body: string): Promise<ApiResponse<FeedCommentPostResponse>> {
+  return apiFetch<FeedCommentPostResponse>(`/api/feed/comments/${encodeURIComponent(commentId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ body }),
+  });
+}
+
+export async function deleteComment(commentId: string): Promise<ApiResponse<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/feed/comments/${encodeURIComponent(commentId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function setPostReaction(
+  postId: string,
+  reaction: "like" | null,
+): Promise<ApiResponse<FeedReactionsPostResponse>> {
+  // ✅ WEB parity:
+  // reaction null or '' => remove
+  const body = reaction ? { postId, reaction } : { postId, reaction: null };
+
+  return apiFetch<FeedReactionsPostResponse>("/api/feed/reactions", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function buildProfilePatch(
+  input: Partial<Record<ProfilePatchField, unknown>>,
+): Partial<Record<ProfilePatchField, unknown>> {
+  const payload: Partial<Record<ProfilePatchField, unknown>> = {};
+  for (const field of PROFILE_PATCH_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(input, field)) {
+      const value = input[field];
+      if (value !== undefined) payload[field] = value;
+    }
+  }
+  return payload;
+}
+
+export async function patchProfileMe(
+  input: Partial<Record<ProfilePatchField, unknown>>,
+): Promise<ApiResponse<ProfileMe>> {
+  const payload = buildProfilePatch(input);
+  return apiFetch<ProfileMe>("/api/profiles/me", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function useWhoami(enabled: boolean = true) {
+  const [data, setData] = useState<WhoamiResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const response = await fetchWhoami();
+    if (response.ok) setData(response.data ?? null);
+    else {
+      setData(null);
+      setError(response.errorText ?? "Unknown error");
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      setData(null);
+      setError(null);
+      return;
+    }
+    void load();
+  }, [enabled, load]);
+
+  return { data, loading, error, reload: load };
+}
+
+export function useWebSession() {
+  const [ready, setReady] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const ensure = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    const res = await syncSession();
+    if (!res.ok) {
+      setReady(false);
+      setError(res.errorText ?? "Sync session failed");
+      setLoading(false);
+      return;
+    }
+
+    setReady(true);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    void ensure();
+  }, [ensure]);
+
+  return { ready, loading, error, retry: ensure };
+}
+
+
+
+===== PATH: src/lib/feed/getFeedPosts.ts =====
+import {
+  fetchCommentCountsForIds,
+  fetchFeedPosts,
+  fetchReactionsForIds,
+  type FeedCommentsCountsGetResponse,
+  type FeedReactionsGetResponse,
+} from "../api";
+import { asString, normalizeMediaRow, type NormalizedMediaItem } from "../media/normalizeMedia";
+
+export type FeedMediaItem = NormalizedMediaItem;
+
+export type FeedAuthor = {
+  id?: string;
+  user_id?: string;
+  full_name?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  type?: string | null;
+  account_type?: string | null;
+  role?: string | null;
+  verified_until?: string | null;
+  certified?: boolean | null;
+  certification_status?: string | null;
+  is_verified?: boolean | null;
+};
+
+export type FeedPost = {
+  id: string;
+  author_id?: string | null;
+  created_at?: string | null;
+  raw: Record<string, any>;
+  author?: FeedAuthor | null;
+  media: FeedMediaItem[];
+
+  // WEB parity (computed client-side)
+  likeCount?: number;
+  commentCount?: number;
+  viewerHasLiked?: boolean;
+};
+
+type FeedScope = "all" | "following";
+
+function asNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeMediaList(list: unknown[]): FeedMediaItem[] {
+  return list.map((row) => normalizeMediaRow(row)).filter(Boolean) as FeedMediaItem[];
+}
+
+function extractMedia(item: any): FeedMediaItem[] {
+  // ✅ robust (PRIMA)
+  if (Array.isArray(item?.media)) {
+    return normalizeMediaList(item.media);
+  }
+  if (Array.isArray(item?.post_media)) {
+    return normalizeMediaList(item.post_media);
+  }
+
+  const mediaType = typeof item?.media_type === "string" ? item.media_type.trim().toLowerCase() : "";
+  const mediaUrl = asString(item?.media_url);
+  if ((mediaType === "image" || mediaType === "video") && mediaUrl) {
+    return [
+      {
+        media_type: mediaType as "image" | "video",
+        url: mediaUrl,
+        poster_url: asString(item?.poster_url) ?? null,
+        width: asNumber(item?.width),
+        height: asNumber(item?.height),
+      },
+    ];
+  }
+
+  return [];
+}
+
+function extractAuthor(item: any): FeedAuthor | null {
+  // ✅ robust (PRIMA) + keep DOPO variants
+  const candidate =
+    (item?.author && typeof item.author === "object" ? item.author : null) ||
+    (item?.profile && typeof item.profile === "object" ? item.profile : null) ||
+    (item?.profiles && typeof item.profiles === "object" ? item.profiles : null) ||
+    (item?.author_profile && typeof item.author_profile === "object" ? item.author_profile : null);
+
+  if (!candidate) return null;
+
+  return {
+    id: asString(candidate?.id) ?? undefined,
+    user_id: asString(candidate?.user_id) ?? undefined,
+    full_name: typeof candidate?.full_name === "string" ? candidate.full_name : null,
+    display_name: typeof candidate?.display_name === "string" ? candidate.display_name : null,
+    avatar_url: typeof candidate?.avatar_url === "string" ? candidate.avatar_url : null,
+    type: typeof candidate?.type === "string" ? candidate.type : null,
+    account_type: typeof candidate?.account_type === "string" ? candidate.account_type : null,
+    role: typeof candidate?.role === "string" ? candidate.role : null,
+    verified_until: typeof candidate?.verified_until === "string" ? candidate.verified_until : null,
+    certified: typeof candidate?.certified === "boolean" ? candidate.certified : null,
+    certification_status:
+      typeof candidate?.certification_status === "string" ? candidate.certification_status : null,
+    is_verified: typeof candidate?.is_verified === "boolean" ? candidate.is_verified : null,
+  };
+}
+
+function normalizeFeedPostsPayload(json: any): { items: any[]; nextPage: string | null } {
+  const payload = json && typeof json === "object" && "data" in json ? json.data : json;
+  const items = Array.isArray(payload?.items) ? payload.items : Array.isArray(payload) ? payload : [];
+  const nextPageRaw = payload?.nextPage ?? null;
+  const nextPage =
+    nextPageRaw == null ? null : typeof nextPageRaw === "string" ? nextPageRaw : String(nextPageRaw);
+  return { items, nextPage };
+}
+
+function buildCountsMaps(
+  reactions: FeedReactionsGetResponse | null,
+  comments: FeedCommentsCountsGetResponse | null,
+) {
+  const likeCountByPost = new Map<string, number>();
+  const viewerLikedSet = new Set<string>();
+  const commentCountByPost = new Map<string, number>();
+
+  if (reactions?.ok) {
+    for (const row of reactions.counts || []) {
+      if (row?.reaction === "like" && row?.post_id) {
+        likeCountByPost.set(row.post_id, Number(row.count) || 0);
+      }
+    }
+    for (const m of reactions.mine || []) {
+      if (m?.reaction === "like" && m?.post_id) {
+        viewerLikedSet.add(m.post_id);
+      }
+    }
+  }
+
+  if (comments?.ok) {
+    for (const row of comments.counts || []) {
+      if (row?.post_id) commentCountByPost.set(row.post_id, Number(row.count) || 0);
+    }
+  }
+
+  return { likeCountByPost, viewerLikedSet, commentCountByPost };
+}
+
+export async function getFeedPosts({
+  scope,
+  nextPage,
+}: {
+  scope: FeedScope;
+  nextPage?: string | null;
+}): Promise<{
+  items: FeedPost[];
+  nextPage: string | null;
+}> {
+  const res = await fetchFeedPosts({
+    scope,
+    nextPage: nextPage ?? undefined,
+  });
+
+  if (!res.ok) {
+    throw new Error(res.errorText ?? `Feed HTTP ${res.status}`);
+  }
+
+  const { items: rawItems, nextPage: nextPageToken } = normalizeFeedPostsPayload(res.data);
+
+  // 1) build base posts exactly like PRIMA (keep author/media robust)
+  const basePosts = rawItems
+    .map((item: any) => {
+      const id = asString(item?.id);
+      if (!id) return null;
+
+      return {
+        id,
+        author_id: asString(item?.author_id),
+        created_at: asString(item?.created_at),
+        raw: item ?? {},
+        author: extractAuthor(item),
+        media: extractMedia(item),
+        likeCount: 0,
+        commentCount: 0,
+        viewerHasLiked: false,
+      } as FeedPost;
+    })
+    .filter(Boolean) as FeedPost[];
+
+  if (basePosts.length === 0) {
+    return { items: basePosts, nextPage: nextPageToken };
+  }
+
+  // 2) WEB parity: counts are fetched separately using ids=...
+  const ids = basePosts.map((p) => p.id);
+
+  const [reactionsRes, commentsRes] = await Promise.all([
+    fetchReactionsForIds(ids),
+    fetchCommentCountsForIds(ids),
+  ]);
+
+  const reactions = reactionsRes.ok ? (reactionsRes.data ?? null) : null;
+  const comments = commentsRes.ok ? (commentsRes.data ?? null) : null;
+
+  const { likeCountByPost, viewerLikedSet, commentCountByPost } = buildCountsMaps(reactions, comments);
+
+  const items = basePosts.map((p) => ({
+    ...p,
+    likeCount: likeCountByPost.get(p.id) ?? 0,
+    commentCount: commentCountByPost.get(p.id) ?? 0,
+    viewerHasLiked: viewerLikedSet.has(p.id),
+  }));
+
+  return { items, nextPage: nextPageToken };
+}
+
+export function getPostText(raw: Record<string, any>): string {
+  const candidates = [raw?.text, raw?.content, raw?.body, raw?.message, raw?.caption, raw?.description];
+  const found = candidates.find((v) => typeof v === "string" && v.trim().length > 0);
+  return (found ?? "").toString().trim();
+}
+
+function isEmailLike(value: string): boolean {
+  return value.includes("@");
+}
+
+export function getAuthorName(author?: FeedAuthor | null): string {
+  const fullName = author?.full_name?.trim() ?? "";
+  if (fullName && !isEmailLike(fullName)) return fullName;
+
+  const displayName = author?.display_name?.trim() ?? "";
+  const name = displayName && !isEmailLike(displayName) ? displayName : "";
+  return name || "Utente";
+}
+
+
+
+===== PATH: app/(tabs)/feed/index.tsx =====
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  Pressable,
+  ActivityIndicator,
+  RefreshControl,
+  FlatList,
+  Image,
+  Alert,
+} from "react-native";
+import { useRouter } from "expo-router";
+
+import {
+  getFeedPosts,
+  getAuthorName,
+  getPostText,
+  type FeedPost,
+} from "../../../src/lib/feed/getFeedPosts";
+import { isCertifiedClub } from "../../../src/lib/profiles/certification";
+import { on } from "../../../src/lib/events/appEvents";
+import { clearSession, useWebSession, useWhoami } from "../../../src/lib/api";
+
+function formatWhen(iso?: string | null) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString();
+  } catch {
+    return "";
+  }
+}
+
+function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
+  if (!url) {
+    return (
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: "#e5e7eb",
+        }}
+      />
+    );
+  }
+  return (
+    <Image
+      source={{ uri: url }}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: "#e5e7eb",
+      }}
+    />
+  );
+}
+
+function FeedCard({ item }: { item: FeedPost }) {
+  const router = useRouter();
+
+  const authorName = getAuthorName(item.author);
+  const text = getPostText(item.raw);
+  const when = formatWhen(item.created_at);
+  const firstMedia = item.media?.[0] ?? null;
+  const likeCount = typeof item.likeCount === "number" ? item.likeCount : 0;
+  const commentCount =
+    typeof item.commentCount === "number" ? item.commentCount : 0;
+
+  return (
+    <Pressable
+      onPress={() =>
+        router.push({
+          pathname: "/posts/[id]",
+          params: { id: item.id },
+        })
+      }
+      style={{
+        borderBottomWidth: 1,
+        borderBottomColor: "#f3f4f6",
+        paddingHorizontal: 24,
+        paddingVertical: 16,
+        backgroundColor: "#ffffff",
+        gap: 10,
+      }}
+    >
+      <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+        <Avatar url={item.author?.avatar_url ?? null} size={40} />
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text style={{ fontSize: 15, fontWeight: "800", color: "#111827" }}>
+              {authorName}
+            </Text>
+            {item.author && isCertifiedClub(item.author) ? (
+              <Text style={{ fontSize: 11, fontWeight: "900", color: "#111827" }}>
+                C
+              </Text>
+            ) : null}
+          </View>
+          <Text style={{ fontSize: 12, color: "#6b7280" }}>{when}</Text>
+        </View>
+      </View>
+
+      {!!text ? (
+        <Text style={{ fontSize: 14, lineHeight: 19, color: "#111827" }}>
+          {text}
+        </Text>
+      ) : null}
+
+      {firstMedia?.url ? (
+        <View
+          style={{
+            borderRadius: 12,
+            overflow: "hidden",
+            backgroundColor: "#f3f4f6",
+          }}
+        >
+          <Image
+            source={{ uri: firstMedia.poster_url || firstMedia.url }}
+            style={{ width: "100%", height: 220 }}
+            resizeMode="cover"
+          />
+          <View style={{ padding: 10 }}>
+            <Text style={{ fontSize: 12, color: "#6b7280" }}>
+              {firstMedia.media_type === "video" ? "🎬 Video" : "🖼️ Foto"}
+              {item.media.length > 1 ? ` • +${item.media.length - 1}` : ""}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
+      <View style={{ flexDirection: "row", gap: 14 }}>
+        <Text style={{ fontSize: 12, color: "#6b7280" }}>👍 {likeCount}</Text>
+        <Text style={{ fontSize: 12, color: "#6b7280" }}>💬 {commentCount}</Text>
+      </View>
+    </Pressable>
+  );
+}
+
+export default function FeedScreen() {
+  const router = useRouter();
+
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const [feedMode, setFeedMode] = useState<"all" | "following">("all");
+
+  const [items, setItems] = useState<FeedPost[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [nextPage, setNextPage] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const web = useWebSession();
+  const whoami = useWhoami(web.ready);
+
+  const load = useCallback(
+    async (mode: "all" | "following") => {
+      if (!web.ready) return;
+      setError(null);
+      setLoadingMore(false);
+
+      try {
+        const res = await getFeedPosts({
+          scope: mode,
+        });
+        setItems(res.items);
+        setNextPage(res.nextPage);
+      } catch (e: any) {
+        setError(e?.message ? String(e.message) : "Errore nel caricamento feed");
+        setItems([]);
+        setNextPage(null);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [web.ready],
+  );
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore) return;
+    if (!nextPage) return;
+    if (refreshing) return;
+    if (loading) return;
+    if (error) return;
+
+    try {
+      setLoadingMore(true);
+      const res = await getFeedPosts({
+        scope: feedMode,
+        nextPage,
+      });
+      setItems((prev) => [...prev, ...res.items]);
+      setNextPage(res.nextPage);
+    } catch (e: any) {
+      setError(e?.message ? String(e.message) : "Errore nel caricamento feed");
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [error, feedMode, loading, loadingMore, nextPage, refreshing]);
+
+  useEffect(() => {
+    if (!web.ready) {
+      if (web.error) {
+        setLoading(false);
+      }
+      return;
+    }
+    setLoading(true);
+    load(feedMode);
+  }, [feedMode, load, web.error, web.ready]);
+
+  useEffect(() => {
+    const unsubscribe = on("feed:refresh", () => {
+      setLoading(true);
+      load(feedMode);
+    });
+
+    return unsubscribe;
+  }, [feedMode, load]);
+
+  const onRefresh = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      await load(feedMode);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [feedMode, load]);
+
+  const onLogout = async () => {
+    try {
+      await clearSession();
+      router.replace("/(auth)/login");
+    } catch {
+      Alert.alert("Errore", "Logout fallito");
+    }
+  };
+
+  const header = useMemo(() => {
+    const isFollowing = feedMode === "following";
+    const emptyMessage = isFollowing
+      ? "Nessun contenuto nel feed dei seguiti."
+      : "Nessun contenuto ancora. Qui compariranno i post delle persone e dei club che segui.";
+
+    return (
+      <View
+        style={{
+          padding: 24,
+          paddingBottom: 12,
+          gap: 16,
+          backgroundColor: "#ffffff",
+        }}
+      >
+        <Text style={{ fontSize: 28, fontWeight: "800" }}>Feed</Text>
+
+        <View
+          style={{
+            flexDirection: "row",
+            borderWidth: 1,
+            borderColor: "#e5e7eb",
+            borderRadius: 999,
+            padding: 4,
+            gap: 6,
+            backgroundColor: "#f9fafb",
+            alignSelf: "flex-start",
+          }}
+        >
+          <Pressable
+            onPress={() => {
+              if (feedMode !== "all") {
+                setLoading(true);
+                setFeedMode("all");
+              }
+            }}
+            style={{
+              paddingVertical: 6,
+              paddingHorizontal: 14,
+              borderRadius: 999,
+              backgroundColor: feedMode === "all" ? "#111827" : "transparent",
+            }}
+          >
+            <Text
+              style={{
+                color: feedMode === "all" ? "#ffffff" : "#111827",
+                fontWeight: "700",
+              }}
+            >
+              Tutti
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              if (feedMode !== "following") {
+                setLoading(true);
+                setFeedMode("following");
+              }
+            }}
+            style={{
+              paddingVertical: 6,
+              paddingHorizontal: 14,
+              borderRadius: 999,
+              backgroundColor:
+                feedMode === "following" ? "#111827" : "transparent",
+            }}
+          >
+            <Text
+              style={{
+                color: feedMode === "following" ? "#ffffff" : "#111827",
+                fontWeight: "700",
+              }}
+            >
+              Seguiti
+            </Text>
+          </Pressable>
+        </View>
+
+        <View
+          style={{
+            borderWidth: 1,
+            borderColor: "#e5e7eb",
+            borderRadius: 12,
+            padding: 16,
+            gap: 10,
+          }}
+        >
+          <Text style={{ fontSize: 16, fontWeight: "700" }}>Accesso</Text>
+
+          {web.loading ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <ActivityIndicator />
+              <Text>Verifico sessione web…</Text>
+            </View>
+          ) : web.error ? (
+            <>
+              <Text style={{ color: "#b91c1c" }}>Sessione web non disponibile.</Text>
+              <Pressable
+                onPress={web.retry}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderWidth: 1,
+                  borderColor: "#111827",
+                  borderRadius: 10,
+                  alignSelf: "flex-start",
+                }}
+              >
+                <Text style={{ color: "#111827", fontWeight: "700" }}>
+                  Riprova
+                </Text>
+              </Pressable>
+            </>
+          ) : whoami.data?.user ? (
+            <>
+              <Text style={{ color: "#111827" }}>
+                Sei loggato.{" "}
+                {whoami.data?.role ? (
+                  <Text style={{ fontWeight: "700" }}>{whoami.data.role}</Text>
+                ) : null}
+              </Text>
+
+              <Pressable
+                onPress={onLogout}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  backgroundColor: "#111827",
+                  borderRadius: 10,
+                  alignSelf: "flex-start",
+                }}
+              >
+                <Text style={{ color: "#ffffff", fontWeight: "700" }}>
+                  Logout
+                </Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text style={{ color: "#111827" }}>
+                Non risulti loggato. Vai al login.
+              </Text>
+              <Pressable
+                onPress={() => router.replace("/(auth)/login")}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderWidth: 1,
+                  borderColor: "#111827",
+                  borderRadius: 10,
+                  alignSelf: "flex-start",
+                }}
+              >
+                <Text style={{ color: "#111827", fontWeight: "700" }}>
+                  Vai al login
+                </Text>
+              </Pressable>
+            </>
+          )}
+        </View>
+
+        {error ? (
+          <View
+            style={{
+              borderWidth: 1,
+              borderColor: "#fecaca",
+              backgroundColor: "#fff5f5",
+              borderRadius: 12,
+              padding: 14,
+              gap: 8,
+            }}
+          >
+            <Text style={{ fontWeight: "800", color: "#b91c1c" }}>Errore</Text>
+            <Text style={{ color: "#b91c1c" }}>{error}</Text>
+            <Pressable onPress={() => load(feedMode)} style={{ alignSelf: "flex-start" }}>
+              <Text style={{ color: "#036f9a", fontWeight: "800" }}>
+                Riprova
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
+    );
+  }, [
+    error,
+    feedMode,
+    items.length,
+    loading,
+    onLogout,
+    router,
+    web.error,
+    web.loading,
+    web.retry,
+    whoami.data?.role,
+    whoami.data?.user,
+  ]);
+
+  const footer = useMemo(() => {
+    if (loadingMore) {
+      return (
+        <View style={{ paddingVertical: 18, alignItems: "center" }}>
+          <ActivityIndicator />
+          <Text style={{ marginTop: 8, color: "#6b7280" }}>Carico altri post…</Text>
+        </View>
+      );
+    }
+    if (!nextPage && items.length > 0) {
+      return (
+        <View style={{ paddingVertical: 18, alignItems: "center" }}>
+          <Text style={{ color: "#6b7280" }}>Hai visto tutto ✅</Text>
+        </View>
+      );
+    }
+    return <View style={{ height: 16 }} />;
+  }, [items.length, loadingMore, nextPage]);
+
+  if (loading || web.loading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
+        <ActivityIndicator />
+        <Text style={{ color: "#6b7280" }}>Caricamento feed…</Text>
+      </View>
+    );
+  }
+
+  return (
+    <FlatList
+      data={items}
+      keyExtractor={(it) => it.id}
+      renderItem={({ item }) => <FeedCard item={item} />}
+      ListHeaderComponent={header}
+      ListFooterComponent={footer}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      onEndReachedThreshold={0.6}
+      onEndReached={loadMore}
+    />
+  );
+}
+
+
+
+===== PATH: app/posts/[id].tsx =====
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+
+import { supabase } from "../../src/lib/supabase";
+import {
+  fetchCommentCountsForIds,
+  fetchReactionsForIds,
+  setPostReaction,
+  useWebSession,
+  useWhoami,
+} from "../../src/lib/api";
+import { CommentsSection } from "../../src/components/CommentsSection";
+import {
+  getAuthorName,
+  getPostText,
+  type FeedAuthor,
+} from "../../src/lib/feed/getFeedPosts";
+import { emit } from "../../src/lib/events/appEvents";
+
+const POST_FIELDS =
+  "id, content, created_at, author_id, media_url, media_type, media_aspect, kind, event_payload, quoted_post_id";
+
+type PostDetail = {
+  id: string;
+  author_id: string | null;
+  created_at: string | null;
+  raw: Record<string, any>;
+  author: FeedAuthor | null;
+  quoted_post_id?: string | null;
+};
+
+type SocialState = {
+  likeCount: number;
+  commentCount: number;
+  viewerHasLiked: boolean;
+  loading: boolean;
+  error: string | null;
+};
+
+function asString(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (value == null) return null;
+  try {
+    return String(value);
+  } catch {
+    return null;
+  }
+}
+
+function formatWhen(iso?: string | null) {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleString();
+  } catch {
+    return "";
+  }
+}
+
+function getWhoamiUserId(user: unknown): string | null {
+  if (!user || typeof user !== "object") return null;
+
+  const candidate = (user as any).id ?? (user as any).user_id ?? null;
+  if (typeof candidate !== "string") return null;
+
+  const trimmed = candidate.trim();
+  return trimmed ? trimmed : null;
+}
+
+function Avatar({ url, size = 44 }: { url?: string | null; size?: number }) {
+  if (!url) {
+    return (
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: "#e5e7eb",
+        }}
+      />
+    );
+  }
+  return (
+    <Image
+      source={{ uri: url }}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: "#e5e7eb",
+      }}
+    />
+  );
+}
+
+async function fetchAuthorProfile(authorId: string | null): Promise<FeedAuthor | null> {
+  if (!authorId) return null;
+
+  const primary = await supabase
+    .from("profiles")
+    .select("id, user_id, full_name, display_name, avatar_url, account_type, type")
+    .eq("user_id", authorId)
+    .maybeSingle();
+
+  let data = primary.data;
+  if (!data && !primary.error) {
+    const fallback = await supabase
+      .from("profiles")
+      .select("id, user_id, full_name, display_name, avatar_url, account_type, type")
+      .eq("id", authorId)
+      .maybeSingle();
+    data = fallback.data;
+  }
+
+  if (!data) return null;
+
+  return {
+    id: asString((data as any).id) ?? undefined,
+    user_id: asString((data as any).user_id) ?? null,
+    full_name: typeof (data as any).full_name === "string" ? (data as any).full_name : null,
+    display_name: typeof (data as any).display_name === "string" ? (data as any).display_name : null,
+    avatar_url: typeof (data as any).avatar_url === "string" ? (data as any).avatar_url : null,
+    account_type: typeof (data as any).account_type === "string" ? (data as any).account_type : null,
+    type: typeof (data as any).type === "string" ? (data as any).type : null,
+  };
+}
+
+async function fetchPostCore(postId: string): Promise<PostDetail | null> {
+  const { data, error } = await supabase
+    .from("posts")
+    .select(POST_FIELDS)
+    .eq("id", postId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  const author = await fetchAuthorProfile(asString((data as any).author_id));
+
+  return {
+    id: asString((data as any).id) ?? postId,
+    author_id: asString((data as any).author_id),
+    created_at: asString((data as any).created_at),
+    quoted_post_id: asString((data as any).quoted_post_id),
+    raw: data as any,
+    author,
+  };
+}
+
+function PostCard({ post, title }: { post: PostDetail; title?: string }) {
+  const authorName = getAuthorName(post.author);
+  const when = formatWhen(post.created_at);
+  const text = getPostText(post.raw);
+  const mediaUrl = asString((post.raw as any)?.media_url);
+  const mediaType = asString((post.raw as any)?.media_type);
+
+  return (
+    <View
+      style={{
+        borderWidth: 1,
+        borderColor: "#e5e7eb",
+        borderRadius: 16,
+        padding: 16,
+        gap: 12,
+        backgroundColor: "#ffffff",
+      }}
+    >
+      {title ? (
+        <Text style={{ fontSize: 12, fontWeight: "700", color: "#6b7280" }}>
+          {title}
+        </Text>
+      ) : null}
+
+      <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+        <Avatar url={post.author?.avatar_url ?? null} size={44} />
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827" }}>
+            {authorName}
+          </Text>
+          <Text style={{ fontSize: 12, color: "#6b7280" }}>{when}</Text>
+        </View>
+      </View>
+
+      {text ? (
+        <Text style={{ fontSize: 15, lineHeight: 20, color: "#111827" }}>
+          {text}
+        </Text>
+      ) : null}
+
+      {mediaUrl ? (
+        <View style={{ borderRadius: 14, overflow: "hidden", backgroundColor: "#f3f4f6" }}>
+          <Image source={{ uri: mediaUrl }} style={{ width: "100%", height: 240 }} resizeMode="cover" />
+          <View style={{ padding: 10 }}>
+            <Text style={{ fontSize: 12, color: "#6b7280" }}>
+              {mediaType === "video" ? "Video" : "Media"}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+export default function PostDetailScreen() {
+  const params = useLocalSearchParams<{ id?: string | string[] }>();
+  const router = useRouter();
+
+  const postId = useMemo(() => {
+    if (!params.id) return null;
+    return Array.isArray(params.id) ? params.id[0] : params.id;
+  }, [params.id]);
+
+  const web = useWebSession();
+  const whoami = useWhoami(web.ready);
+  const currentUserId = getWhoamiUserId(whoami.data?.user);
+
+  const [post, setPost] = useState<PostDetail | null>(null);
+  const [quotedPost, setQuotedPost] = useState<PostDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [social, setSocial] = useState<SocialState>({
+    likeCount: 0,
+    commentCount: 0,
+    viewerHasLiked: false,
+    loading: true,
+    error: null,
+  });
+
+  const [isToggling, setIsToggling] = useState(false);
+
+  const loadSocial = useCallback(async (targetPostId: string) => {
+    setSocial((prev) => ({ ...prev, loading: true, error: null }));
+    try {
+      const [rRes, cRes] = await Promise.all([
+        fetchReactionsForIds([targetPostId]),
+        fetchCommentCountsForIds([targetPostId]),
+      ]);
+
+      if (!rRes.ok) throw new Error(rRes.errorText ?? `Reactions HTTP ${rRes.status}`);
+      if (!cRes.ok) throw new Error(cRes.errorText ?? `Comments HTTP ${cRes.status}`);
+
+      const likeCount =
+        (rRes.data?.counts ?? []).find((x) => x.post_id === targetPostId && x.reaction === "like")?.count ?? 0;
+
+      const viewerHasLiked =
+        (rRes.data?.mine ?? []).some((m) => m.post_id === targetPostId && m.reaction === "like");
+
+      const commentCount =
+        (cRes.data?.counts ?? []).find((x) => x.post_id === targetPostId)?.count ?? 0;
+
+      setSocial({
+        likeCount,
+        commentCount,
+        viewerHasLiked,
+        loading: false,
+        error: null,
+      });
+    } catch (e: any) {
+      setSocial((prev) => ({
+        ...prev,
+        loading: false,
+        error: e?.message ? String(e.message) : "Errore nel social",
+      }));
+    }
+  }, []);
+
+  const load = useCallback(async () => {
+    if (!postId) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const core = await fetchPostCore(postId);
+      if (!core) {
+        setPost(null);
+        setQuotedPost(null);
+        setError("Post non trovato");
+        return;
+      }
+
+      setPost(core);
+
+      if (core.quoted_post_id) {
+        const quoted = await fetchPostCore(core.quoted_post_id);
+        setQuotedPost(quoted);
+      } else {
+        setQuotedPost(null);
+      }
+
+      await loadSocial(postId);
+    } catch (e: any) {
+      setPost(null);
+      setQuotedPost(null);
+      setError(e?.message ? String(e.message) : "Errore nel caricamento post");
+    } finally {
+      setLoading(false);
+    }
+  }, [loadSocial, postId]);
+
+  useEffect(() => {
+    if (!web.ready) return;
+    if (!whoami.data?.user) return;
+    void load();
+  }, [load, web.ready, whoami.data?.user]);
+
+  const handleRetry = () => {
+    if (web.error) {
+      web.retry();
+      return;
+    }
+    void load();
+  };
+
+  const handleLikeToggle = async () => {
+    if (!postId || isToggling) return;
+    setIsToggling(true);
+    setSocial((prev) => ({ ...prev, error: null }));
+
+    const nextHasLiked = !social.viewerHasLiked;
+
+    try {
+      // ✅ WEB parity: unlike = reaction null
+      const res = await setPostReaction(postId, nextHasLiked ? "like" : null);
+      if (!res.ok) throw new Error(res.errorText ?? `Toggle HTTP ${res.status}`);
+
+      const likeCount =
+        (res.data?.counts ?? []).find((x) => x.post_id === postId && x.reaction === "like")?.count ?? 0;
+
+      const viewerHasLiked = res.data?.mine === "like";
+
+      setSocial((prev) => ({
+        ...prev,
+        likeCount,
+        viewerHasLiked,
+      }));
+
+      emit("feed:refresh");
+    } catch (e: any) {
+      setSocial((prev) => ({
+        ...prev,
+        error: e?.message ? String(e.message) : "Errore nel like",
+      }));
+    } finally {
+      setIsToggling(false);
+      await loadSocial(postId);
+    }
+  };
+
+
+  const handleCommentCountChange = (nextCount: number) => {
+    setSocial((prev) => ({ ...prev, commentCount: Math.max(0, nextCount) }));
+    emit("feed:refresh");
+  };
+
+  if (web.loading || whoami.loading || loading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10, padding: 24 }}>
+        <ActivityIndicator />
+        <Text style={{ color: "#6b7280" }}>Caricamento dettaglio…</Text>
+      </View>
+    );
+  }
+
+  if (web.error) {
+    return (
+      <View style={{ flex: 1, padding: 24, gap: 12, justifyContent: "center" }}>
+        <Text style={{ fontSize: 18, fontWeight: "800" }}>Sessione web</Text>
+        <Text style={{ color: "#b91c1c" }}>Sessione web non disponibile.</Text>
+        <Pressable
+          onPress={handleRetry}
+          style={{
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: "#111827",
+            alignSelf: "flex-start",
+          }}
+        >
+          <Text style={{ fontWeight: "700", color: "#111827" }}>Riprova</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (!whoami.data?.user) {
+    return (
+      <View style={{ flex: 1, padding: 24, gap: 16, justifyContent: "center" }}>
+        <Text style={{ fontSize: 20, fontWeight: "800" }}>Login richiesto</Text>
+        <Text style={{ color: "#374151" }}>
+          Per vedere il dettaglio del post devi effettuare l'accesso.
+        </Text>
+        <Pressable
+          onPress={() => router.replace("/(auth)/login")}
+          style={{
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: 10,
+            backgroundColor: "#111827",
+            alignSelf: "flex-start",
+          }}
+        >
+          <Text style={{ color: "#ffffff", fontWeight: "700" }}>Vai al login</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={{ flex: 1, padding: 24, gap: 12, justifyContent: "center" }}>
+        <Text style={{ fontSize: 18, fontWeight: "800" }}>Errore</Text>
+        <Text style={{ color: "#b91c1c" }}>{error}</Text>
+        <Pressable
+          onPress={handleRetry}
+          style={{
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: "#111827",
+            alignSelf: "flex-start",
+          }}
+        >
+          <Text style={{ fontWeight: "700", color: "#111827" }}>Riprova</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (!post) {
+    return (
+      <View style={{ flex: 1, padding: 24, gap: 12, justifyContent: "center" }}>
+        <Text style={{ fontSize: 18, fontWeight: "800" }}>Post non disponibile</Text>
+        <Text style={{ color: "#6b7280" }}>
+          Questo post non esiste o non è accessibile.
+        </Text>
+        <Pressable
+          onPress={() => router.back()}
+          style={{
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: "#111827",
+            alignSelf: "flex-start",
+          }}
+        >
+          <Text style={{ fontWeight: "700", color: "#111827" }}>Indietro</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={{ flex: 1, backgroundColor: "#ffffff" }}
+      contentContainerStyle={{ padding: 24, paddingBottom: 32, gap: 18 }}
+    >
+      <Pressable onPress={() => router.back()} style={{ alignSelf: "flex-start" }}>
+        <Text style={{ fontWeight: "700", color: "#111827" }}>← Indietro</Text>
+      </Pressable>
+
+      <PostCard post={post} />
+      {quotedPost ? <PostCard post={quotedPost} title="Post citato" /> : null}
+
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: "#e5e7eb",
+          borderRadius: 14,
+          padding: 16,
+          gap: 12,
+          backgroundColor: "#f9fafb",
+        }}
+      >
+        <Text style={{ fontSize: 16, fontWeight: "800" }}>Reazioni</Text>
+
+        {social.loading ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <ActivityIndicator size="small" />
+            <Text style={{ color: "#6b7280" }}>Caricamento reazioni…</Text>
+          </View>
+        ) : (
+          <View style={{ gap: 10 }}>
+            <Text style={{ color: "#374151" }}>👍 {social.likeCount}</Text>
+            <Text style={{ color: "#374151" }}>💬 {social.commentCount}</Text>
+          </View>
+        )}
+
+        {social.error ? <Text style={{ color: "#b91c1c" }}>{social.error}</Text> : null}
+
+        <Pressable
+          onPress={handleLikeToggle}
+          style={{
+            paddingVertical: 10,
+            paddingHorizontal: 14,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: social.viewerHasLiked ? "#111827" : "#d1d5db",
+            backgroundColor: social.viewerHasLiked ? "#111827" : "transparent",
+            alignSelf: "flex-start",
+            opacity: isToggling ? 0.6 : 1,
+          }}
+        >
+          <Text style={{ color: social.viewerHasLiked ? "#ffffff" : "#111827", fontWeight: "700" }}>
+            {social.viewerHasLiked ? "Hai messo 👍" : "Metti 👍"}
+          </Text>
+        </Pressable>
+      </View>
+
+      <CommentsSection
+        postId={post.id}
+        currentUserId={currentUserId}
+        initialCount={social.commentCount}
+        onCountChange={handleCommentCountChange}
+      />
+    </ScrollView>
+  );
+}
+
+
+
+===== PATH: app/clubs/[id].tsx =====
+<<MISSING FILE>>
+
+
+
+===== PATH: app/players/[id].tsx =====
+<<MISSING FILE>>
+
+
+
+===== PATH: src/components/follow/FollowButton.tsx =====
+<<MISSING FILE>>
+
+
+
+===== PATH: app/(tabs)/search/index.tsx =====
+import { useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  ScrollView,
+  RefreshControl,
+} from "react-native";
+import { useRouter } from "expo-router";
+
+type ResultItem = {
+  id: string;
+  kind: "club" | "player";
+  title: string;
+  subtitle: string;
+};
+
+const SAMPLE_RESULTS: ResultItem[] = [
+  { id: "c1", kind: "club", title: "Club Atlético Carlentini", subtitle: "Calcio • Sicilia" },
+  { id: "c2", kind: "club", title: "ASD Lentini", subtitle: "Calcio • Sicilia" },
+  { id: "p1", kind: "player", title: "Marco Rossi", subtitle: "Attaccante • 25 anni" },
+  { id: "p2", kind: "player", title: "Luca Bianchi", subtitle: "Portiere • 22 anni" },
+];
+
+export default function SearchScreen() {
+  const router = useRouter();
+  const [q, setQ] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+
+  const suggestions = ["Calcio", "Portiere", "Under 21", "Sicilia", "Volley"];
+
+  const filtered = useMemo(() => {
+    const query = q.trim().toLowerCase();
+    if (!query) return [];
+    return SAMPLE_RESULTS.filter((r) => {
+      const hay = `${r.title} ${r.subtitle}`.toLowerCase();
+      return hay.includes(query);
+    });
+  }, [q]);
+
+  const onRefresh = async () => {
+    // Placeholder: in futuro ricaricherà da backend
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 600);
+  };
+
+  const Chip = ({ label }: { label: string }) => (
+    <Pressable
+      onPress={() => setQ(label)}
+      style={{
+        borderWidth: 1,
+        borderRadius: 999,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+      }}
+    >
+      <Text style={{ fontWeight: "700" }}>{label}</Text>
+    </Pressable>
+  );
+
+  const Row = ({ item }: { item: ResultItem }) => (
+    <Pressable
+      onPress={() => {
+        // Placeholder: in futuro navigherà al profilo club/player
+      }}
+      style={{
+        borderWidth: 1,
+        borderRadius: 12,
+        padding: 14,
+        gap: 6,
+      }}
+    >
+      <Text style={{ fontWeight: "800", fontSize: 16 }}>
+        {item.title}
+      </Text>
+      <Text style={{ color: "#374151" }}>{item.subtitle}</Text>
+      <Text style={{ color: "#6b7280", fontSize: 12 }}>
+        {item.kind === "club" ? "Club" : "Giocatore"}
+      </Text>
+    </Pressable>
+  );
+
+  return (
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{ padding: 24, paddingBottom: 32, gap: 16 }}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
+      <Text style={{ fontSize: 28, fontWeight: "800" }}>Cerca</Text>
+
+      <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 10 }}>
+        <Text style={{ fontSize: 16, fontWeight: "700" }}>Ricerca</Text>
+
+        <TextInput
+          placeholder="Cerca club, giocatori, ruoli, città…"
+          value={q}
+          onChangeText={setQ}
+          autoCapitalize="none"
+          autoCorrect={false}
+          style={{
+            borderWidth: 1,
+            borderRadius: 12,
+            padding: 12,
+          }}
+        />
+
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+          {suggestions.map((s) => (
+            <Chip key={s} label={s} />
+          ))}
+        </View>
+      </View>
+
+      <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 10 }}>
+        <Text style={{ fontSize: 16, fontWeight: "700" }}>Risultati</Text>
+
+        {!q.trim() ? (
+          <Text style={{ color: "#374151" }}>
+            Inizia a digitare per cercare. (Per ora i risultati sono demo: collegheremo
+            Supabase nel prossimo step.)
+          </Text>
+        ) : filtered.length === 0 ? (
+          <>
+            <Text style={{ color: "#374151" }}>
+              Nessun risultato per “{q.trim()}”.
+            </Text>
+            <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
+              <Pressable
+                onPress={() => router.push("/(tabs)/feed")}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderWidth: 1,
+                  borderColor: "#111827",
+                  borderRadius: 10,
+                }}
+              >
+                <Text style={{ color: "#111827", fontWeight: "700" }}>
+                  Vai al feed
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => router.push("/(tabs)/create")}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderWidth: 1,
+                  borderColor: "#111827",
+                  borderRadius: 10,
+                }}
+              >
+                <Text style={{ color: "#111827", fontWeight: "700" }}>
+                  Crea post
+                </Text>
+              </Pressable>
+            </View>
+          </>
+        ) : (
+          <View style={{ gap: 10 }}>
+            {filtered.map((item) => (
+              <Row key={item.id} item={item} />
+            ))}
+          </View>
+        )}
+      </View>
+    </ScrollView>
+  );
+}
+
+
+
+===== PATH: app/_layout.tsx =====
+import { Stack, usePathname, useRouter, useSegments } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, View } from "react-native";
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "../src/lib/supabase";
+import {
+  getOnboardingSeen,
+  subscribeOnboardingSeen,
+} from "../src/lib/onboarding";
+
+function AuthGate() {
+  const router = useRouter();
+  const segments = useSegments();
+  const pathname = usePathname();
+
+  const [session, setSession] = useState<Session | null>(null);
+  const [onboardingSeen, setOnboardingSeen] = useState<boolean | null>(null);
+  const [isReady, setIsReady] = useState(false);
+
+  const lastTargetRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const load = async () => {
+      const [{ data }, seen] = await Promise.all([
+        supabase.auth.getSession(),
+        getOnboardingSeen(),
+      ]);
+
+      if (!isMounted) return;
+
+      setSession(data.session ?? null);
+      setOnboardingSeen(seen);
+      setIsReady(true);
+    };
+
+    load();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, nextSession) => {
+        setSession(nextSession);
+        lastTargetRef.current = null;
+      }
+    );
+
+    const unsubscribeOnboarding = subscribeOnboardingSeen((seen) => {
+      setOnboardingSeen(seen);
+      lastTargetRef.current = null;
+    });
+
+    return () => {
+      isMounted = false;
+      authListener.subscription.unsubscribe();
+      unsubscribeOnboarding();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isReady || onboardingSeen === null) return;
+
+    const currentGroup = segments[0]; // "(tabs)" | "(auth)" | "(onboarding)" | undefined
+    const inTabs = currentGroup === "(tabs)";
+    const inCallback = pathname === "/callback";
+
+    // ✅ Allow authenticated users to visit post detail outside tabs
+    const allowAuthedOutsideTabs =
+      pathname?.startsWith("/posts/") || pathname === "/posts";
+
+    let target: string | null = null;
+
+    if (session) {
+      // ✅ If user is authed and is visiting /posts/[id], do NOT redirect back to feed
+      if (!inTabs && !allowAuthedOutsideTabs) target = "/(tabs)/feed";
+    } else {
+      if (inCallback) {
+        target = null;
+      } else if (!onboardingSeen) {
+        target = "/(onboarding)";
+      } else {
+        target = "/(auth)/login";
+      }
+    }
+
+    if (!target) {
+      lastTargetRef.current = null;
+      return;
+    }
+
+    if (lastTargetRef.current === target) return;
+
+    if (session && inTabs) return;
+    if (!session && !inCallback) {
+      const inAuth = currentGroup === "(auth)";
+      const inOnboarding = currentGroup === "(onboarding)";
+      if (
+        (target === "/(auth)/login" && inAuth) ||
+        (target === "/(onboarding)" && inOnboarding)
+      ) {
+        return;
+      }
+    }
+
+    lastTargetRef.current = target;
+    router.replace(target);
+  }, [isReady, onboardingSeen, pathname, router, segments, session]);
+
+  if (!isReady || onboardingSeen === null) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  return null;
+}
+
+export default function RootLayout() {
+  return (
+    <>
+      <AuthGate />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(onboarding)" />
+        <Stack.Screen name="(auth)" />
+
+        {/* ✅ PR4 route */}
+        <Stack.Screen name="posts/[id]" />
+      </Stack>
+    </>
+  );
+}
+
+
+
