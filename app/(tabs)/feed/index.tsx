@@ -66,7 +66,7 @@ function resolveProfilePath(input: { author: any; author_id?: unknown }): string
     .trim()
     .toLowerCase();
 
-  if (kind === "club") return `/clubs/${profileId}`;
+  if (kind === "club" || kind === "clubs") return `/clubs/${profileId}`;
   return `/players/${profileId}`;
 }
 
