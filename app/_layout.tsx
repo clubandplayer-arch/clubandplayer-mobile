@@ -56,12 +56,13 @@ function AuthGate() {
     const inTabs = group === "(tabs)";
     const inCallback = pathname === "/callback";
 
-    // ✅ QUESTO È IL FIX:
     // utenti loggati possono stare fuori dai tabs su queste route.
     const allowAuthedOutsideTabs =
       pathname.startsWith("/posts/") ||
       pathname.startsWith("/clubs/") ||
-      pathname.startsWith("/players/");
+      pathname.startsWith("/players/") ||
+      pathname.startsWith("/club/") ||
+      pathname.startsWith("/player/");
 
     let target: string | null = null;
 
@@ -104,10 +105,11 @@ export default function RootLayout() {
         <Stack.Screen name="(onboarding)" />
         <Stack.Screen name="(auth)" />
 
-        {/* ✅ fuori tabs */}
         <Stack.Screen name="posts/[id]" />
         <Stack.Screen name="clubs/[id]" />
         <Stack.Screen name="players/[id]" />
+        <Stack.Screen name="club/profile" />
+        <Stack.Screen name="player/profile" />
       </Stack>
     </>
   );
