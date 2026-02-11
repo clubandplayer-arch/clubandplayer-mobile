@@ -3,10 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../src/lib/supabase";
-import {
-  getOnboardingSeen,
-  subscribeOnboardingSeen,
-} from "../src/lib/onboarding";
+import { getOnboardingSeen, subscribeOnboardingSeen } from "../src/lib/onboarding";
 
 function AuthGate() {
   const router = useRouter();
@@ -15,71 +12,65 @@ function AuthGate() {
 
   const [session, setSession] = useState<Session | null>(null);
   const [onboardingSeen, setOnboardingSeen] = useState<boolean | null>(null);
-  const [isReady, setIsReady] = useState(false);
+  const [ready, setReady] = useState(false);
 
   const lastTargetRef = useRef<string | null>(null);
 
   useEffect(() => {
-    let isMounted = true;
+    let mounted = true;
 
-    const load = async () => {
+    const init = async () => {
       const [{ data }, seen] = await Promise.all([
         supabase.auth.getSession(),
         getOnboardingSeen(),
       ]);
-
-      if (!isMounted) return;
-
+      if (!mounted) return;
       setSession(data.session ?? null);
       setOnboardingSeen(seen);
-      setIsReady(true);
+      setReady(true);
     };
 
-    load();
+    void init();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, nextSession) => {
-        setSession(nextSession);
-        lastTargetRef.current = null;
-      }
-    );
+    const { data: authListener } = supabase.auth.onAuthStateChange((_evt, next) => {
+      setSession(next);
+      lastTargetRef.current = null;
+    });
 
-    const unsubscribeOnboarding = subscribeOnboardingSeen((seen) => {
+    const unsubOnboarding = subscribeOnboardingSeen((seen) => {
       setOnboardingSeen(seen);
       lastTargetRef.current = null;
     });
 
     return () => {
-      isMounted = false;
+      mounted = false;
       authListener.subscription.unsubscribe();
-      unsubscribeOnboarding();
+      unsubOnboarding();
     };
   }, []);
 
   useEffect(() => {
-    if (!isReady || onboardingSeen === null) return;
+    if (!ready || onboardingSeen === null) return;
 
-    const currentGroup = segments[0]; // "(tabs)" | "(auth)" | "(onboarding)" | undefined
-    const inTabs = currentGroup === "(tabs)";
+    const group = segments[0]; // "(tabs)" | "(auth)" | "(onboarding)"
+    const inTabs = group === "(tabs)";
     const inCallback = pathname === "/callback";
 
-    // ✅ Allow authenticated users to visit post detail outside tabs
+    // ✅ QUESTO È IL FIX:
+    // utenti loggati possono stare fuori dai tabs su queste route.
     const allowAuthedOutsideTabs =
-      pathname?.startsWith("/posts/") || pathname === "/posts";
+      pathname.startsWith("/posts/") ||
+      pathname.startsWith("/clubs/") ||
+      pathname.startsWith("/players/");
 
     let target: string | null = null;
 
     if (session) {
-      // ✅ If user is authed and is visiting /posts/[id], do NOT redirect back to feed
       if (!inTabs && !allowAuthedOutsideTabs) target = "/(tabs)/feed";
     } else {
-      if (inCallback) {
-        target = null;
-      } else if (!onboardingSeen) {
-        target = "/(onboarding)";
-      } else {
-        target = "/(auth)/login";
-      }
+      if (inCallback) target = null;
+      else if (!onboardingSeen) target = "/(onboarding)";
+      else target = "/(auth)/login";
     }
 
     if (!target) {
@@ -88,24 +79,12 @@ function AuthGate() {
     }
 
     if (lastTargetRef.current === target) return;
-
-    if (session && inTabs) return;
-    if (!session && !inCallback) {
-      const inAuth = currentGroup === "(auth)";
-      const inOnboarding = currentGroup === "(onboarding)";
-      if (
-        (target === "/(auth)/login" && inAuth) ||
-        (target === "/(onboarding)" && inOnboarding)
-      ) {
-        return;
-      }
-    }
-
     lastTargetRef.current = target;
-    router.replace(target);
-  }, [isReady, onboardingSeen, pathname, router, segments, session]);
 
-  if (!isReady || onboardingSeen === null) {
+    router.replace(target as any);
+  }, [onboardingSeen, pathname, ready, router, segments, session]);
+
+  if (!ready || onboardingSeen === null) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator />
@@ -125,8 +104,10 @@ export default function RootLayout() {
         <Stack.Screen name="(onboarding)" />
         <Stack.Screen name="(auth)" />
 
-        {/* ✅ PR4 route */}
+        {/* ✅ fuori tabs */}
         <Stack.Screen name="posts/[id]" />
+        <Stack.Screen name="clubs/[id]" />
+        <Stack.Screen name="players/[id]" />
       </Stack>
     </>
   );
