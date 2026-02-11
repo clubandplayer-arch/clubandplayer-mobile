@@ -10,8 +10,7 @@ type Props = {
 
 export default function FollowButton({ targetProfileId, size = "md" }: Props) {
   const targetId = useMemo(() => {
-    if (!targetProfileId) return null;
-    const v = String(targetProfileId).trim();
+    const v = String(targetProfileId ?? "").trim();
     return isUuid(v) ? v : null;
   }, [targetProfileId]);
 
@@ -38,8 +37,8 @@ export default function FollowButton({ targetProfileId, size = "md" }: Props) {
       return;
     }
 
-    const state = (res.data?.states ?? []).find((s) => s.targetProfileId === targetId);
-    setFollowing(Boolean(state?.following));
+    const state = res.data?.state ?? {};
+    setFollowing(Boolean(state[targetId]));
     setLoading(false);
   }, [targetId]);
 
@@ -55,9 +54,7 @@ export default function FollowButton({ targetProfileId, size = "md" }: Props) {
     setToggling(true);
 
     const prev = following;
-
-    // optimistic
-    setFollowing(!prev);
+    setFollowing(!prev); // optimistic
 
     const res = await toggleFollow(targetId);
     if (!res.ok) {
@@ -67,13 +64,10 @@ export default function FollowButton({ targetProfileId, size = "md" }: Props) {
       return;
     }
 
-    const nextFollowing = Boolean(res.data?.following);
-
-    // trust server + refresh local state
+    const nextFollowing = Boolean(res.data?.isFollowing);
     setFollowing(nextFollowing);
-    await load();
 
-    // ✅ notify feed/search/etc
+    await load();
     emit("follow:changed", { targetProfileId: targetId, following: nextFollowing });
 
     setToggling(false);
@@ -84,7 +78,6 @@ export default function FollowButton({ targetProfileId, size = "md" }: Props) {
   const padY = size === "sm" ? 8 : 10;
   const padX = size === "sm" ? 12 : 14;
 
-  // ✅ label = stato (non azione) per evitare tap “al contrario”
   const label = following ? "Seguito" : "Segui";
 
   return (
@@ -106,23 +99,18 @@ export default function FollowButton({ targetProfileId, size = "md" }: Props) {
             borderColor: following ? "#111827" : "#d1d5db",
             backgroundColor: following ? "#111827" : "transparent",
             alignSelf: "flex-start",
-            opacity: toggling ? 0.6 : 1,
+            opacity: toggling ? 0.7 : 1,
             flexDirection: "row",
             alignItems: "center",
             gap: 10,
           }}
         >
           {toggling ? <ActivityIndicator size="small" /> : null}
-          <Text style={{ color: following ? "#ffffff" : "#111827", fontWeight: "800" }}>{label}</Text>
+          <Text style={{ color: following ? "#ffffff" : "#111827", fontWeight: "800" }}>
+            {label}
+          </Text>
         </Pressable>
       )}
-
-      {/* Piccola hint solo quando sei “Seguito” */}
-      {!loading && following ? (
-        <Text style={{ color: "#6b7280", fontSize: 12 }}>
-          Tocca di nuovo per non seguire.
-        </Text>
-      ) : null}
 
       {error ? <Text style={{ color: "#b91c1c" }}>{error}</Text> : null}
     </View>

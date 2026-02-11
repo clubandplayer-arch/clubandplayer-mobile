@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import Constants from "expo-constants";
 import { supabase } from "./supabase";
 
 const DEFAULT_WEB_BASE_URL = "https://www.clubandplayer.com";
@@ -74,9 +75,25 @@ export type FeedPostsApiResponse =
   | FeedPostsResponse
   | { data?: FeedPostsResponse | unknown[] };
 
-// WEB truth:
-// GET /api/feed/reactions?ids=...
-// => { ok:true, counts:[{post_id,reaction,count}], mine:[{post_id,reaction}], missingTable?:true }
+// FOLLOW (WEB truth in your note was states array, but your old PR6 uses this shape)
+export type FollowStateGetResponse = {
+  ok: true;
+  state: Record<string, boolean>;
+};
+
+export type FollowTogglePostResponse = {
+  ok: true;
+  isFollowing: boolean;
+  targetProfileId: string;
+  self?: boolean;
+};
+
+export type FollowListGetResponse = {
+  ok: true;
+  items: unknown[];
+};
+
+// FEED: reactions/comments
 export type FeedReactionsGetResponse = {
   ok: true;
   counts: Array<{ post_id: string; reaction: string; count: number }>;
@@ -116,9 +133,6 @@ export type FeedCommentPostResponse = {
   comment: FeedComment;
 };
 
-// WEB truth:
-// POST /api/feed/reactions body: {postId, reaction?: 'like' | ... | '' | null}
-// => { ok:true, postId, counts:[{post_id,reaction,count}] (only that post), mine: string|null }
 export type FeedReactionsPostResponse = {
   ok: true;
   postId: string;
@@ -172,9 +186,22 @@ export const PROFILE_PATCH_FIELDS = [
 
 export type ProfilePatchField = (typeof PROFILE_PATCH_FIELDS)[number];
 
+export function isUuid(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const v = value.trim();
+  if (!v) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+}
+
 export function getWebBaseUrl(): string {
-  const raw = process.env.EXPO_PUBLIC_WEB_BASE_URL || DEFAULT_WEB_BASE_URL;
-  return raw.replace(/\/+$/, "");
+  const extra =
+    (Constants.expoConfig as any)?.extra ??
+    (Constants.manifest as any)?.extra ??
+    {};
+  const raw =
+    (typeof extra?.webBaseUrl === "string" && extra.webBaseUrl) ||
+    DEFAULT_WEB_BASE_URL;
+  return String(raw).replace(/\/+$/, "");
 }
 
 function buildUrl(path: string): string {
@@ -272,7 +299,9 @@ export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
     };
   }
 
-  const payload = json && typeof json === "object" && "data" in (json as any) ? (json as any).data : json;
+  const payload =
+    json && typeof json === "object" && "data" in (json as any) ? (json as any).data : json;
+
   return { ok: true, status, data: payload as ProfileMe };
 }
 
@@ -306,7 +335,37 @@ function buildIdsQuery(ids: string[]): string {
   return sp.toString();
 }
 
-// ✅ WEB parity: ONLY ids=...
+export async function fetchFollowState(targetIds: string[]): Promise<ApiResponse<FollowStateGetResponse>> {
+  const uniq = Array.from(new Set(targetIds.map((id) => String(id).trim()).filter(Boolean)));
+  const sp = new URLSearchParams();
+  for (const targetId of uniq) sp.append("targets", targetId);
+  return apiFetch<FollowStateGetResponse>(`/api/follows/state?${sp.toString()}`, { method: "GET" });
+}
+
+export async function toggleFollow(targetProfileId: string): Promise<ApiResponse<FollowTogglePostResponse>> {
+  return apiFetch<FollowTogglePostResponse>("/api/follows/toggle", {
+    method: "POST",
+    body: JSON.stringify({ targetProfileId }),
+  });
+}
+
+export async function fetchFollowingList(): Promise<ApiResponse<FollowListGetResponse>> {
+  return apiFetch<FollowListGetResponse>("/api/follows/list", { method: "GET" });
+}
+
+export async function fetchFollowersList(): Promise<ApiResponse<FollowListGetResponse>> {
+  return apiFetch<FollowListGetResponse>("/api/follows/followers", { method: "GET" });
+}
+
+export async function fetchFollowSuggestions(params?: { limit?: number; kind?: "club" | "player" }): Promise<ApiResponse<FollowListGetResponse>> {
+  const sp = new URLSearchParams();
+  if (typeof params?.limit === "number") sp.set("limit", String(params.limit));
+  if (params?.kind) sp.set("kind", params.kind);
+  const query = sp.toString();
+  const path = query ? `/api/follows/suggestions?${query}` : "/api/follows/suggestions";
+  return apiFetch<FollowListGetResponse>(path, { method: "GET" });
+}
+
 export async function fetchReactionsForIds(ids: string[]): Promise<ApiResponse<FeedReactionsGetResponse>> {
   const q = buildIdsQuery(ids);
   return apiFetch<FeedReactionsGetResponse>(`/api/feed/reactions?${q}`, { method: "GET" });
@@ -339,28 +398,18 @@ export async function editComment(commentId: string, body: string): Promise<ApiR
 }
 
 export async function deleteComment(commentId: string): Promise<ApiResponse<{ ok: boolean }>> {
-  return apiFetch<{ ok: boolean }>(`/api/feed/comments/${encodeURIComponent(commentId)}`, {
-    method: "DELETE",
-  });
+  return apiFetch<{ ok: boolean }>(`/api/feed/comments/${encodeURIComponent(commentId)}`, { method: "DELETE" });
 }
 
-export async function setPostReaction(
-  postId: string,
-  reaction: "like" | null,
-): Promise<ApiResponse<FeedReactionsPostResponse>> {
-  // ✅ WEB parity:
-  // reaction null or '' => remove
+export async function setPostReaction(postId: string, reaction: "like" | null): Promise<ApiResponse<FeedReactionsPostResponse>> {
   const body = reaction ? { postId, reaction } : { postId, reaction: null };
-
   return apiFetch<FeedReactionsPostResponse>("/api/feed/reactions", {
     method: "POST",
     body: JSON.stringify(body),
   });
 }
 
-export function buildProfilePatch(
-  input: Partial<Record<ProfilePatchField, unknown>>,
-): Partial<Record<ProfilePatchField, unknown>> {
+export function buildProfilePatch(input: Partial<Record<ProfilePatchField, unknown>>): Partial<Record<ProfilePatchField, unknown>> {
   const payload: Partial<Record<ProfilePatchField, unknown>> = {};
   for (const field of PROFILE_PATCH_FIELDS) {
     if (Object.prototype.hasOwnProperty.call(input, field)) {
@@ -371,9 +420,7 @@ export function buildProfilePatch(
   return payload;
 }
 
-export async function patchProfileMe(
-  input: Partial<Record<ProfilePatchField, unknown>>,
-): Promise<ApiResponse<ProfileMe>> {
+export async function patchProfileMe(input: Partial<Record<ProfilePatchField, unknown>>): Promise<ApiResponse<ProfileMe>> {
   const payload = buildProfilePatch(input);
   return apiFetch<ProfileMe>("/api/profiles/me", {
     method: "PATCH",

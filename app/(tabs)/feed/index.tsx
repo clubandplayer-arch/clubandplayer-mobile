@@ -19,7 +19,7 @@ import {
 } from "../../../src/lib/feed/getFeedPosts";
 import { isCertifiedClub } from "../../../src/lib/profiles/certification";
 import { on } from "../../../src/lib/events/appEvents";
-import { clearSession, isUuid, useWebSession, useWhoami } from "../../../src/lib/api";
+import { clearSession, useWebSession, useWhoami } from "../../../src/lib/api";
 
 function formatWhen(iso?: string | null) {
   if (!iso) return "";
@@ -29,6 +29,51 @@ function formatWhen(iso?: string | null) {
   } catch {
     return "";
   }
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
+function pickProfileIdUuid(input: Array<unknown>): string | null {
+  for (const v of input) {
+    if (typeof v !== "string") continue;
+    const t = v.trim();
+    if (!t) continue;
+    if (isUuid(t)) return t;
+  }
+  return null;
+}
+
+function resolveProfilePath(input: { author: any; author_id?: unknown }): string | null {
+  const author = input.author ?? null;
+
+  const profileId = pickProfileIdUuid([
+    author?.id,
+    author?.profile_id,
+    author?.profileId,
+    author?.profile?.id,
+    author?.raw?.id,
+    typeof input.author_id === "string" ? input.author_id : null,
+  ]);
+
+  if (!profileId) return null;
+
+  const kind = (author?.account_type ?? author?.type ?? "")
+    .toString()
+    .trim()
+    .toLowerCase();
+
+  if (kind === "club") return `/clubs/${profileId}`;
+  return `/players/${profileId}`;
+}
+
+function resolvePostPath(postId: string | null | undefined): string | null {
+  const id = (postId ?? "").toString().trim();
+  if (!id) return null;
+  return `/posts/${id}`;
 }
 
 function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
@@ -57,17 +102,6 @@ function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
   );
 }
 
-function resolveAuthorHref(item: FeedPost): string | null {
-  const authorId = item.author?.id ? String(item.author.id).trim() : "";
-  if (!isUuid(authorId)) return null;
-
-  const kind =
-    (item.author?.account_type ?? item.author?.type ?? "").toString().toLowerCase();
-
-  const isClub = kind === "club" || kind === "clubs";
-  return isClub ? `/clubs/${authorId}` : `/players/${authorId}`;
-}
-
 function FeedCard({ item }: { item: FeedPost }) {
   const router = useRouter();
 
@@ -78,8 +112,12 @@ function FeedCard({ item }: { item: FeedPost }) {
   const likeCount = typeof item.likeCount === "number" ? item.likeCount : 0;
   const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
 
-  const authorHref = resolveAuthorHref(item);
-  const canGoAuthor = Boolean(authorHref);
+  const profilePath = resolveProfilePath({
+    author: item.author,
+    author_id: (item as any).author_id,
+  });
+
+  const postPath = resolvePostPath(item.id);
 
   return (
     <View
@@ -92,19 +130,13 @@ function FeedCard({ item }: { item: FeedPost }) {
         gap: 10,
       }}
     >
-      {/* ✅ AREA 1 (autore) */}
       <Pressable
+        disabled={!profilePath}
         onPress={() => {
-          if (!authorHref) return;
-          router.push(authorHref as any);
+          if (!profilePath) return;
+          router.push(profilePath);
         }}
-        disabled={!canGoAuthor}
-        style={{
-          flexDirection: "row",
-          gap: 10,
-          alignItems: "center",
-          opacity: canGoAuthor ? 1 : 0.6,
-        }}
+        style={{ flexDirection: "row", gap: 10, alignItems: "center", opacity: profilePath ? 1 : 0.6 }}
       >
         <Avatar url={item.author?.avatar_url ?? null} size={40} />
         <View style={{ flex: 1 }}>
@@ -122,14 +154,12 @@ function FeedCard({ item }: { item: FeedPost }) {
         </View>
       </Pressable>
 
-      {/* ✅ AREA 2 (contenuto) */}
       <Pressable
-        onPress={() =>
-          router.push({
-            pathname: "/posts/[id]",
-            params: { id: item.id },
-          })
-        }
+        disabled={!postPath}
+        onPress={() => {
+          if (!postPath) return;
+          router.push(postPath);
+        }}
         style={{ gap: 10 }}
       >
         {!!text ? (
@@ -176,17 +206,16 @@ export default function FeedScreen() {
   const [nextPage, setNextPage] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  // ✅ banner informativo (evita “sembra buggato”)
   const [flash, setFlash] = useState<string | null>(null);
-  const flashTimerRef = useRef<any>(null);
+  const timerRef = useRef<any>(null);
 
   const web = useWebSession();
   const whoami = useWhoami(web.ready);
 
   const showFlash = useCallback((msg: string) => {
     setFlash(msg);
-    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
-    flashTimerRef.current = setTimeout(() => setFlash(null), 2200);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setFlash(null), 2200);
   }, []);
 
   const load = useCallback(
@@ -244,16 +273,13 @@ export default function FeedScreen() {
       load(feedMode);
     });
 
-    // ✅ follow changed => refresh feed (e banner se seguiti/unfollow)
     const unsubscribeFollow = on("follow:changed", (payload: any) => {
       const following = Boolean(payload?.following);
-
       if (feedMode === "following" && !following) {
         showFlash("Non segui più questo profilo: è normale che sparisca da “Seguiti”.");
       } else if (feedMode === "following" && following) {
         showFlash("Seguito! Aggiorno “Seguiti”…");
       }
-
       setLoading(true);
       load(feedMode);
     });
@@ -283,21 +309,18 @@ export default function FeedScreen() {
   };
 
   const header = useMemo(() => {
+    const isFollowing = feedMode === "following";
+    const emptyMessage = isFollowing
+      ? "Nessun contenuto nel feed dei seguiti."
+      : "Nessun contenuto ancora. Qui compariranno i post delle persone e dei club che segui.";
+
     return (
-      <View style={{ padding: 24, paddingBottom: 12, gap: 12, backgroundColor: "#ffffff" }}>
+      <View style={{ padding: 24, paddingBottom: 12, gap: 16, backgroundColor: "#ffffff" }}>
         <Text style={{ fontSize: 28, fontWeight: "800" }}>Feed</Text>
 
         {flash ? (
-          <View
-            style={{
-              borderWidth: 1,
-              borderColor: "#e5e7eb",
-              backgroundColor: "#f9fafb",
-              borderRadius: 12,
-              padding: 12,
-            }}
-          >
-            <Text style={{ color: "#111827", fontWeight: "700" }}>{flash}</Text>
+          <View style={{ borderWidth: 1, borderColor: "#e5e7eb", backgroundColor: "#f9fafb", borderRadius: 12, padding: 12 }}>
+            <Text style={{ fontWeight: "700", color: "#111827" }}>{flash}</Text>
           </View>
         ) : null}
 
@@ -380,7 +403,8 @@ export default function FeedScreen() {
           ) : whoami.data?.user ? (
             <>
               <Text style={{ color: "#111827" }}>
-                Sei loggato. {whoami.data?.role ? <Text style={{ fontWeight: "700" }}>{whoami.data.role}</Text> : null}
+                Sei loggato.{" "}
+                {whoami.data?.role ? <Text style={{ fontWeight: "700" }}>{whoami.data.role}</Text> : null}
               </Text>
 
               <Pressable
@@ -416,6 +440,8 @@ export default function FeedScreen() {
           )}
         </View>
 
+        {items.length === 0 && !error ? <Text style={{ color: "#6b7280" }}>{emptyMessage}</Text> : null}
+
         {error ? (
           <View style={{ borderWidth: 1, borderColor: "#fecaca", backgroundColor: "#fff5f5", borderRadius: 12, padding: 14, gap: 8 }}>
             <Text style={{ fontWeight: "800", color: "#b91c1c" }}>Errore</Text>
@@ -427,7 +453,7 @@ export default function FeedScreen() {
         ) : null}
       </View>
     );
-  }, [error, feedMode, flash, load, onLogout, router, web.error, web.loading, web.retry, whoami.data?.role, whoami.data?.user]);
+  }, [error, feedMode, flash, items.length, load, onLogout, router, showFlash, web.error, web.loading, web.retry, whoami.data?.role, whoami.data?.user]);
 
   const footer = useMemo(() => {
     if (loadingMore) {
@@ -467,6 +493,7 @@ export default function FeedScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       onEndReachedThreshold={0.6}
       onEndReached={loadMore}
+      style={{ backgroundColor: "#ffffff" }}
     />
   );
 }
