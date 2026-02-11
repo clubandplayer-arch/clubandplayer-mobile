@@ -105,11 +105,11 @@ export default function RootLayout() {
         <Stack.Screen name="(onboarding)" />
         <Stack.Screen name="(auth)" />
 
-        <Stack.Screen name="posts/[id]" />
-        <Stack.Screen name="clubs/[id]" />
-        <Stack.Screen name="players/[id]" />
-        <Stack.Screen name="club/profile" />
-        <Stack.Screen name="player/profile" />
+        <Stack.Screen name="posts/[id]" options={{ headerShown: true }} />
+        <Stack.Screen name="clubs/[id]" options={{ headerShown: true }} />
+        <Stack.Screen name="players/[id]" options={{ headerShown: true }} />
+        <Stack.Screen name="club/profile" options={{ headerShown: true, title: "Profilo Club" }} />
+        <Stack.Screen name="player/profile" options={{ headerShown: true, title: "Profilo" }} />
       </Stack>
     </>
   );
