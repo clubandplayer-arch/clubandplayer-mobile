@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -6,44 +6,212 @@ import {
   Pressable,
   ScrollView,
   RefreshControl,
+  ActivityIndicator,
+  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { getWebBaseUrl } from "../../../src/lib/api";
 
-type ResultItem = {
+type SearchResultItem = {
   id: string;
-  kind: "club" | "player";
   title: string;
-  subtitle: string;
+  subtitle?: string;
+  image_url?: string | null;
+  href: string;
+  kind: string;
 };
 
-const SAMPLE_RESULTS: ResultItem[] = [
-  { id: "c1", kind: "club", title: "Club Atlético Carlentini", subtitle: "Calcio • Sicilia" },
-  { id: "c2", kind: "club", title: "ASD Lentini", subtitle: "Calcio • Sicilia" },
-  { id: "p1", kind: "player", title: "Marco Rossi", subtitle: "Attaccante • 25 anni" },
-  { id: "p2", kind: "player", title: "Luca Bianchi", subtitle: "Portiere • 22 anni" },
-];
+type SearchResultsSections = {
+  clubs?: SearchResultItem[];
+  players?: SearchResultItem[];
+  opportunities?: SearchResultItem[];
+  [key: string]: SearchResultItem[] | undefined;
+};
+
+type SearchPayload = {
+  ok: boolean;
+  results?: SearchResultsSections;
+  counts?: Record<string, number>;
+  query?: string;
+  type?: string;
+  page?: number;
+  limit?: number;
+};
+
+function asString(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.trim();
+}
+
+function normalizeHref(href: string): string | null {
+  const h = asString(href);
+  if (!h) return null;
+
+  if (h.startsWith("/clubs/") || h.startsWith("/players/")) return h;
+
+  try {
+    if (h.startsWith("http://") || h.startsWith("https://")) {
+      const u = new URL(h);
+      if (u.pathname.startsWith("/clubs/") || u.pathname.startsWith("/players/")) return u.pathname;
+    }
+  } catch {
+    // ignore
+  }
+
+  return null;
+}
+
+function flattenResults(results: SearchResultsSections | undefined): SearchResultItem[] {
+  if (!results) return [];
+  const clubs = Array.isArray(results.clubs) ? results.clubs : [];
+  const players = Array.isArray(results.players) ? results.players : [];
+  return [...clubs, ...players];
+}
+
+function Avatar({ url, label }: { url: string | null; label: string }) {
+  const safeUrl = url && url.trim() ? url.trim() : null;
+
+  if (safeUrl) {
+    return (
+      <Image
+        source={{ uri: safeUrl }}
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: 999,
+          backgroundColor: "#e5e7eb",
+        }}
+      />
+    );
+  }
+
+  const letter = (label.trim().slice(0, 1) || "U").toUpperCase();
+  return (
+    <View
+      style={{
+        width: 42,
+        height: 42,
+        borderRadius: 999,
+        backgroundColor: "#e5e7eb",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Text style={{ fontWeight: "800", color: "#111827" }}>{letter}</Text>
+    </View>
+  );
+}
 
 export default function SearchScreen() {
   const router = useRouter();
+
   const [q, setQ] = useState("");
+  const [type, setType] = useState<"all" | "clubs" | "players">("all");
+  const [page] = useState(1);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const suggestions = ["Calcio", "Portiere", "Under 21", "Sicilia", "Volley"];
+  const [results, setResults] = useState<SearchResultItem[]>([]);
+  const [counts, setCounts] = useState<Record<string, number> | null>(null);
 
-  const filtered = useMemo(() => {
-    const query = q.trim().toLowerCase();
-    if (!query) return [];
-    return SAMPLE_RESULTS.filter((r) => {
-      const hay = `${r.title} ${r.subtitle}`.toLowerCase();
-      return hay.includes(query);
-    });
-  }, [q]);
+  const controllerRef = useRef<AbortController | null>(null);
 
-  const onRefresh = async () => {
-    // Placeholder: in futuro ricaricherà da backend
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 600);
-  };
+  const suggestions = ["Calcio", "Portiere", "Under 21", "Sicilia", "Volley", "Carlentini"];
+
+  const query = useMemo(() => q.trim(), [q]);
+
+  const fetchSearch = useCallback(
+    async (nextQuery: string, nextType: "all" | "clubs" | "players", nextPage: number) => {
+      const trimmed = nextQuery.trim();
+      if (trimmed.length < 2) {
+        setResults([]);
+        setCounts(null);
+        setError(null);
+        return;
+      }
+
+      controllerRef.current?.abort();
+      const controller = new AbortController();
+      controllerRef.current = controller;
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const base = getWebBaseUrl();
+        const params = new URLSearchParams({
+          q: trimmed,
+          type: nextType,
+          page: String(nextPage),
+          limit: String(30),
+        });
+
+        const res = await fetch(`${base}/api/search?${params.toString()}`, {
+          credentials: "include",
+          cache: "no-store",
+          signal: controller.signal,
+          headers: { Accept: "application/json" },
+        });
+
+        const payload = (await res.json()) as SearchPayload;
+
+        if (!res.ok || !payload?.ok) {
+          throw new Error(`Errore search (${res.status})`);
+        }
+
+        const flat =
+          nextType === "all"
+            ? flattenResults(payload.results)
+            : Array.isArray(payload.results?.[nextType])
+              ? (payload.results?.[nextType] as SearchResultItem[])
+              : [];
+
+        const mapped = flat
+          .map((item) => {
+            const href = normalizeHref(asString(item.href));
+            if (!href) return null;
+            return {
+              ...item,
+              href,
+              title: asString(item.title) || "Risultato",
+              subtitle: asString(item.subtitle) || "",
+              image_url: asString(item.image_url) || null,
+            } as SearchResultItem;
+          })
+          .filter(Boolean) as SearchResultItem[];
+
+        setResults(mapped);
+        setCounts(payload.counts ?? null);
+      } catch (e: any) {
+        if (e?.name === "AbortError") return;
+        setResults([]);
+        setCounts(null);
+        setError(e?.message ? String(e.message) : "Errore nella ricerca");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  const load = useCallback(async () => {
+    await fetchSearch(query, type, page);
+  }, [fetchSearch, page, query, type]);
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, type, page]);
+
+  const onRefresh = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [load]);
 
   const Chip = ({ label }: { label: string }) => (
     <Pressable
@@ -59,35 +227,57 @@ export default function SearchScreen() {
     </Pressable>
   );
 
-  const Row = ({ item }: { item: ResultItem }) => (
-    <Pressable
-      onPress={() => {
-        // Placeholder: in futuro navigherà al profilo club/player
-      }}
-      style={{
-        borderWidth: 1,
-        borderRadius: 12,
-        padding: 14,
-        gap: 6,
-      }}
-    >
-      <Text style={{ fontWeight: "800", fontSize: 16 }}>
-        {item.title}
-      </Text>
-      <Text style={{ color: "#374151" }}>{item.subtitle}</Text>
-      <Text style={{ color: "#6b7280", fontSize: 12 }}>
-        {item.kind === "club" ? "Club" : "Giocatore"}
-      </Text>
-    </Pressable>
-  );
+  const Tab = ({ label, value }: { label: string; value: "all" | "clubs" | "players" }) => {
+    const active = type === value;
+    const countValue = counts ? (counts as any)[value] : null;
+
+    return (
+      <Pressable
+        onPress={() => setType(value)}
+        style={{
+          borderWidth: 1,
+          borderColor: active ? "#111827" : "#e5e7eb",
+          borderRadius: 999,
+          paddingVertical: 8,
+          paddingHorizontal: 12,
+          backgroundColor: active ? "#111827" : "#ffffff",
+        }}
+      >
+        <Text style={{ fontWeight: "700", color: active ? "#ffffff" : "#111827" }}>
+          {label}
+          {typeof countValue === "number" ? ` (${countValue})` : ""}
+        </Text>
+      </Pressable>
+    );
+  };
+
+  const Row = ({ item }: { item: SearchResultItem }) => {
+    return (
+      <View style={{ borderWidth: 1, borderRadius: 12, padding: 14, gap: 6 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Pressable onPress={() => router.push(item.href)}>
+            <Avatar url={item.image_url ?? null} label={item.title} />
+          </Pressable>
+
+          <Pressable onPress={() => router.push(item.href)} style={{ flex: 1 }}>
+            <Text style={{ fontWeight: "800", fontSize: 16 }}>{item.title}</Text>
+          </Pressable>
+        </View>
+
+        {item.subtitle ? <Text style={{ color: "#374151" }}>{item.subtitle}</Text> : null}
+
+        <Text style={{ color: "#6b7280", fontSize: 12 }}>
+          {item.kind === "club" ? "Club" : item.kind === "player" ? "Giocatore" : item.kind}
+        </Text>
+      </View>
+    );
+  };
 
   return (
     <ScrollView
       style={{ flex: 1 }}
       contentContainerStyle={{ padding: 24, paddingBottom: 32, gap: 16 }}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <Text style={{ fontSize: 28, fontWeight: "800" }}>Cerca</Text>
 
@@ -95,17 +285,19 @@ export default function SearchScreen() {
         <Text style={{ fontSize: 16, fontWeight: "700" }}>Ricerca</Text>
 
         <TextInput
-          placeholder="Cerca club, giocatori, ruoli, città…"
+          placeholder="Cerca club, giocatori… (min 2 caratteri)"
           value={q}
           onChangeText={setQ}
           autoCapitalize="none"
           autoCorrect={false}
-          style={{
-            borderWidth: 1,
-            borderRadius: 12,
-            padding: 12,
-          }}
+          style={{ borderWidth: 1, borderRadius: 12, padding: 12 }}
         />
+
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+          <Tab label="Tutti" value="all" />
+          <Tab label="Club" value="clubs" />
+          <Tab label="Giocatori" value="players" />
+        </View>
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
           {suggestions.map((s) => (
@@ -117,52 +309,21 @@ export default function SearchScreen() {
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 10 }}>
         <Text style={{ fontSize: 16, fontWeight: "700" }}>Risultati</Text>
 
-        {!q.trim() ? (
-          <Text style={{ color: "#374151" }}>
-            Inizia a digitare per cercare. (Per ora i risultati sono demo: collegheremo
-            Supabase nel prossimo step.)
-          </Text>
-        ) : filtered.length === 0 ? (
-          <>
-            <Text style={{ color: "#374151" }}>
-              Nessun risultato per “{q.trim()}”.
-            </Text>
-            <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
-              <Pressable
-                onPress={() => router.push("/(tabs)/feed")}
-                style={{
-                  paddingVertical: 10,
-                  paddingHorizontal: 14,
-                  borderWidth: 1,
-                  borderColor: "#111827",
-                  borderRadius: 10,
-                }}
-              >
-                <Text style={{ color: "#111827", fontWeight: "700" }}>
-                  Vai al feed
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={() => router.push("/(tabs)/create")}
-                style={{
-                  paddingVertical: 10,
-                  paddingHorizontal: 14,
-                  borderWidth: 1,
-                  borderColor: "#111827",
-                  borderRadius: 10,
-                }}
-              >
-                <Text style={{ color: "#111827", fontWeight: "700" }}>
-                  Crea post
-                </Text>
-              </Pressable>
-            </View>
-          </>
+        {query.length < 2 ? (
+          <Text style={{ color: "#374151" }}>Digita almeno 2 caratteri per cercare.</Text>
+        ) : loading ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <ActivityIndicator size="small" />
+            <Text style={{ color: "#374151" }}>Ricerca in corso…</Text>
+          </View>
+        ) : error ? (
+          <Text style={{ color: "#b91c1c" }}>{error}</Text>
+        ) : results.length === 0 ? (
+          <Text style={{ color: "#374151" }}>Nessun risultato per “{query}”.</Text>
         ) : (
           <View style={{ gap: 10 }}>
-            {filtered.map((item) => (
-              <Row key={item.id} item={item} />
+            {results.map((item) => (
+              <Row key={`${item.kind}:${item.id}`} item={item} />
             ))}
           </View>
         )}

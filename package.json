@@ -33,6 +33,7 @@
     "react-native-worklets": "0.5.1"
   },
   "devDependencies": {
+    "@expo/cli": "^54.0.23",
     "@types/react": "~19.1.0",
     "jsonwebtoken": "^9.0.3",
     "typescript": "~5.9.3"
