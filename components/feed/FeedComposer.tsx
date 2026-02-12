@@ -8,7 +8,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 // @ts-ignore expo-image-picker types vary between SDK releases
 import * as ImagePicker from "expo-image-picker";
 
@@ -315,14 +315,17 @@ export default function FeedComposer({ onPosted }: FeedComposerProps) {
         });
       }
 
-      const payload = {
+      const payload: any = {
         content: content.trim(),
         media: uploadedMedia,
-        link_url: linkPreview?.url ?? null,
-        link_title: linkPreview?.title ?? null,
-        link_description: linkPreview?.description ?? null,
-        link_image: linkPreview?.image ?? null,
       };
+
+      if (linkPreview?.url) {
+        payload.link_url = String(linkPreview.url);
+        if (linkPreview.title) payload.link_title = String(linkPreview.title);
+        if (linkPreview.description) payload.link_description = String(linkPreview.description);
+        if (linkPreview.image) payload.link_image = String(linkPreview.image);
+      }
 
       const result = await createFeedPost(payload);
       if (!result.ok) {
