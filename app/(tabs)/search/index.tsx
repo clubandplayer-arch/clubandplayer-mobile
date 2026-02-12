@@ -1,71 +1,32 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ScrollView,
-  RefreshControl,
   ActivityIndicator,
   Image,
+  Linking,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
-import { useRouter } from "expo-router";
-import { getWebBaseUrl } from "../../../src/lib/api";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { fetchSearch, type SearchApiPayload, type SearchItem, type SearchKind } from "../../../src/lib/api";
 
-type SearchResultItem = {
-  id: string;
-  title: string;
-  subtitle?: string;
-  image_url?: string | null;
-  href: string;
-  kind: string;
-};
+const SEARCH_TYPES: SearchKind[] = ["all", "clubs", "players", "opportunities", "posts", "events"];
 
-type SearchResultsSections = {
-  clubs?: SearchResultItem[];
-  players?: SearchResultItem[];
-  opportunities?: SearchResultItem[];
-  [key: string]: SearchResultItem[] | undefined;
-};
-
-type SearchPayload = {
-  ok: boolean;
-  results?: SearchResultsSections;
-  counts?: Record<string, number>;
-  query?: string;
-  type?: string;
-  page?: number;
-  limit?: number;
-};
-
-function asString(value: unknown): string {
-  if (typeof value !== "string") return "";
-  return value.trim();
+function asSingleString(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return typeof value === "string" ? value : "";
 }
 
-function normalizeHref(href: string): string | null {
-  const h = asString(href);
-  if (!h) return null;
-
-  if (h.startsWith("/clubs/") || h.startsWith("/players/")) return h;
-
-  try {
-    if (h.startsWith("http://") || h.startsWith("https://")) {
-      const u = new URL(h);
-      if (u.pathname.startsWith("/clubs/") || u.pathname.startsWith("/players/")) return u.pathname;
-    }
-  } catch {
-    // ignore
-  }
-
-  return null;
+function normalizeKind(raw: string): SearchKind {
+  return SEARCH_TYPES.includes(raw as SearchKind) ? (raw as SearchKind) : "all";
 }
 
-function flattenResults(results: SearchResultsSections | undefined): SearchResultItem[] {
-  if (!results) return [];
-  const clubs = Array.isArray(results.clubs) ? results.clubs : [];
-  const players = Array.isArray(results.players) ? results.players : [];
-  return [...clubs, ...players];
+function normalizeNumber(raw: string, fallback: number): number {
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
 }
 
 function Avatar({ url, label }: { url: string | null; label: string }) {
@@ -104,174 +65,153 @@ function Avatar({ url, label }: { url: string | null; label: string }) {
 
 export default function SearchScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ q?: string | string[]; type?: string | string[]; page?: string | string[]; limit?: string | string[] }>();
 
-  const [q, setQ] = useState("");
-  const [type, setType] = useState<"all" | "clubs" | "players">("all");
-  const [page] = useState(1);
+  const q = asSingleString(params.q);
+  const type = normalizeKind(asSingleString(params.type));
+  const page = normalizeNumber(asSingleString(params.page), 1);
+  const limit = normalizeNumber(asSingleString(params.limit), 20);
+
+  const [input, setInput] = useState(q);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [payload, setPayload] = useState<SearchApiPayload | null>(null);
 
-  const [results, setResults] = useState<SearchResultItem[]>([]);
-  const [counts, setCounts] = useState<Record<string, number> | null>(null);
+  const prevTypeRef = useRef<SearchKind>(type);
 
-  const controllerRef = useRef<AbortController | null>(null);
-
-  const suggestions = ["Calcio", "Portiere", "Under 21", "Sicilia", "Volley", "Carlentini"];
+  useEffect(() => {
+    setInput(q);
+  }, [q]);
 
   const query = useMemo(() => q.trim(), [q]);
 
-  const fetchSearch = useCallback(
-    async (nextQuery: string, nextType: "all" | "clubs" | "players", nextPage: number) => {
-      const trimmed = nextQuery.trim();
-      if (trimmed.length < 2) {
-        setResults([]);
-        setCounts(null);
+  const updateUrl = useCallback(
+    (next: Partial<{ q: string; type: SearchKind; page: number; limit: number }>, mode: "push" | "replace" = "replace") => {
+      const nextQ = (next.q ?? q).trim();
+      const nextType = next.type ?? type;
+      const nextPage = next.page ?? page;
+      const nextLimit = next.limit ?? limit;
+
+      const sp = new URLSearchParams();
+      if (nextQ) sp.set("q", nextQ);
+      if (nextType !== "all") sp.set("type", nextType);
+      if (nextPage !== 1) sp.set("page", String(nextPage));
+      if (nextLimit !== 20) sp.set("limit", String(nextLimit));
+
+      const target = sp.toString() ? `/search?${sp.toString()}` : "/search";
+      if (mode === "push") router.push(target as any);
+      else router.replace(target as any);
+    },
+    [limit, page, q, router, type],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const search = async () => {
+      if (query.length < 2) {
+        setPayload(null);
         setError(null);
+        setLoading(false);
+        setLoadingMore(false);
         return;
       }
 
-      controllerRef.current?.abort();
-      const controller = new AbortController();
-      controllerRef.current = controller;
-
-      setLoading(true);
+      const isLoadMore = type !== "all" && prevTypeRef.current === type && page > 1;
+      if (isLoadMore) setLoadingMore(true);
+      else setLoading(true);
       setError(null);
 
-      try {
-        const base = getWebBaseUrl();
-        const params = new URLSearchParams({
-          q: trimmed,
-          type: nextType,
-          page: String(nextPage),
-          limit: String(30),
-        });
+      const response = await fetchSearch({ q: query, type, page, limit });
+      if (cancelled) return;
 
-        const res = await fetch(`${base}/api/search?${params.toString()}`, {
-          credentials: "include",
-          cache: "no-store",
-          signal: controller.signal,
-          headers: { Accept: "application/json" },
-        });
-
-        const payload = (await res.json()) as SearchPayload;
-
-        if (!res.ok || !payload?.ok) {
-          throw new Error(`Errore search (${res.status})`);
-        }
-
-        const flat =
-          nextType === "all"
-            ? flattenResults(payload.results)
-            : Array.isArray(payload.results?.[nextType])
-              ? (payload.results?.[nextType] as SearchResultItem[])
-              : [];
-
-        const mapped = flat
-          .map((item) => {
-            const href = normalizeHref(asString(item.href));
-            if (!href) return null;
-            return {
-              ...item,
-              href,
-              title: asString(item.title) || "Risultato",
-              subtitle: asString(item.subtitle) || "",
-              image_url: asString(item.image_url) || null,
-            } as SearchResultItem;
-          })
-          .filter(Boolean) as SearchResultItem[];
-
-        setResults(mapped);
-        setCounts(payload.counts ?? null);
-      } catch (e: any) {
-        if (e?.name === "AbortError") return;
-        setResults([]);
-        setCounts(null);
-        setError(e?.message ? String(e.message) : "Errore nella ricerca");
-      } finally {
+      if (response.ok === false) {
+        setPayload(null);
+        if (response.status === 429 || response.code === "RATE_LIMITED") setError("Too Many Requests");
+        else setError(response.message || "Errore nella ricerca");
         setLoading(false);
+        setLoadingMore(false);
+        return;
       }
-    },
-    [],
-  );
 
-  const load = useCallback(async () => {
-    await fetchSearch(query, type, page);
-  }, [fetchSearch, page, query, type]);
+      setPayload((prev) => {
+        if (!isLoadMore || !prev) return response.data;
 
-  useEffect(() => {
-    void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, type, page]);
+        const currentItems = Array.isArray(prev.results?.[type]) ? prev.results?.[type] ?? [] : [];
+        const incomingItems = Array.isArray(response.data.results?.[type]) ? response.data.results?.[type] ?? [] : [];
+        return {
+          ...response.data,
+          counts: response.data.counts ?? prev.counts,
+          results: {
+            ...(response.data.results ?? {}),
+            [type]: [...currentItems, ...incomingItems],
+          },
+        };
+      });
+
+      setLoading(false);
+      setLoadingMore(false);
+    };
+
+    void search();
+    prevTypeRef.current = type;
+
+    return () => {
+      cancelled = true;
+    };
+  }, [limit, page, query, type]);
 
   const onRefresh = useCallback(async () => {
-    try {
-      setRefreshing(true);
-      await load();
-    } finally {
-      setRefreshing(false);
-    }
-  }, [load]);
+    if (query.length < 2) return;
+    setRefreshing(true);
+    updateUrl({ page: 1 }, "replace");
+    setRefreshing(false);
+  }, [query.length, updateUrl]);
 
-  const Chip = ({ label }: { label: string }) => (
-    <Pressable
-      onPress={() => setQ(label)}
-      style={{
-        borderWidth: 1,
-        borderRadius: 999,
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-      }}
-    >
-      <Text style={{ fontWeight: "700" }}>{label}</Text>
-    </Pressable>
+  const onSubmitSearch = useCallback(() => {
+    updateUrl({ q: input, page: 1 }, "push");
+  }, [input, updateUrl]);
+
+  const onChangeType = useCallback(
+    (nextType: SearchKind) => {
+      updateUrl({ type: nextType, page: 1 }, "push");
+    },
+    [updateUrl],
   );
 
-  const Tab = ({ label, value }: { label: string; value: "all" | "clubs" | "players" }) => {
-    const active = type === value;
-    const countValue = counts ? (counts as any)[value] : null;
+  const onOpenResult = useCallback(
+    async (item: SearchItem) => {
+      const href = typeof item.href === "string" ? item.href.trim() : "";
+      if (!href) return;
+      if (href.startsWith("/")) {
+        router.push(href as any);
+        return;
+      }
+      await Linking.openURL(href);
+    },
+    [router],
+  );
 
-    return (
-      <Pressable
-        onPress={() => setType(value)}
-        style={{
-          borderWidth: 1,
-          borderColor: active ? "#111827" : "#e5e7eb",
-          borderRadius: 999,
-          paddingVertical: 8,
-          paddingHorizontal: 12,
-          backgroundColor: active ? "#111827" : "#ffffff",
-        }}
-      >
-        <Text style={{ fontWeight: "700", color: active ? "#ffffff" : "#111827" }}>
-          {label}
-          {typeof countValue === "number" ? ` (${countValue})` : ""}
-        </Text>
-      </Pressable>
-    );
-  };
+  const counts = payload?.counts ?? {};
+  const listItems = type !== "all" && Array.isArray(payload?.results?.[type]) ? payload?.results?.[type] ?? [] : [];
 
-  const Row = ({ item }: { item: SearchResultItem }) => {
-    return (
-      <View style={{ borderWidth: 1, borderRadius: 12, padding: 14, gap: 6 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <Pressable onPress={() => router.push(item.href)}>
-            <Avatar url={item.image_url ?? null} label={item.title} />
-          </Pressable>
+  const renderRow = (item: SearchItem) => (
+    <View key={`${item.kind}:${item.id}`} style={{ borderWidth: 1, borderRadius: 12, padding: 14, gap: 6 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        <Pressable onPress={() => void onOpenResult(item)}>
+          <Avatar url={item.image_url ?? null} label={item.title} />
+        </Pressable>
 
-          <Pressable onPress={() => router.push(item.href)} style={{ flex: 1 }}>
-            <Text style={{ fontWeight: "800", fontSize: 16 }}>{item.title}</Text>
-          </Pressable>
-        </View>
-
-        {item.subtitle ? <Text style={{ color: "#374151" }}>{item.subtitle}</Text> : null}
-
-        <Text style={{ color: "#6b7280", fontSize: 12 }}>
-          {item.kind === "club" ? "Club" : item.kind === "player" ? "Giocatore" : item.kind}
-        </Text>
+        <Pressable onPress={() => void onOpenResult(item)} style={{ flex: 1 }}>
+          <Text style={{ fontWeight: "800", fontSize: 16 }}>{item.title || "Risultato"}</Text>
+        </Pressable>
       </View>
-    );
-  };
+
+      {item.subtitle ? <Text style={{ color: "#374151" }}>{item.subtitle}</Text> : null}
+      <Text style={{ color: "#6b7280", fontSize: 12 }}>{item.kind}</Text>
+    </View>
+  );
 
   return (
     <ScrollView
@@ -282,35 +222,49 @@ export default function SearchScreen() {
       <Text style={{ fontSize: 28, fontWeight: "800" }}>Cerca</Text>
 
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 10 }}>
-        <Text style={{ fontSize: 16, fontWeight: "700" }}>Ricerca</Text>
-
         <TextInput
-          placeholder="Cerca club, giocatori… (min 2 caratteri)"
-          value={q}
-          onChangeText={setQ}
+          placeholder="Cerca..."
+          value={input}
+          onChangeText={setInput}
+          onSubmitEditing={onSubmitSearch}
           autoCapitalize="none"
           autoCorrect={false}
           style={{ borderWidth: 1, borderRadius: 12, padding: 12 }}
         />
+        <Pressable onPress={onSubmitSearch} style={{ borderWidth: 1, borderRadius: 10, padding: 12, alignItems: "center" }}>
+          <Text style={{ fontWeight: "700" }}>Cerca</Text>
+        </Pressable>
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-          <Tab label="Tutti" value="all" />
-          <Tab label="Club" value="clubs" />
-          <Tab label="Giocatori" value="players" />
-        </View>
-
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-          {suggestions.map((s) => (
-            <Chip key={s} label={s} />
-          ))}
+          {SEARCH_TYPES.map((searchType) => {
+            const active = type === searchType;
+            const count = counts?.[searchType];
+            return (
+              <Pressable
+                key={searchType}
+                onPress={() => onChangeType(searchType)}
+                style={{
+                  borderWidth: 1,
+                  borderColor: active ? "#111827" : "#e5e7eb",
+                  borderRadius: 999,
+                  paddingVertical: 8,
+                  paddingHorizontal: 12,
+                  backgroundColor: active ? "#111827" : "#ffffff",
+                }}
+              >
+                <Text style={{ fontWeight: "700", color: active ? "#ffffff" : "#111827" }}>
+                  {searchType}
+                  {typeof count === "number" ? ` (${count})` : ""}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
 
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 10 }}>
-        <Text style={{ fontSize: 16, fontWeight: "700" }}>Risultati</Text>
-
         {query.length < 2 ? (
-          <Text style={{ color: "#374151" }}>Digita almeno 2 caratteri per cercare.</Text>
+          <Text style={{ color: "#374151" }}>Inserisci almeno 2 caratteri</Text>
         ) : loading ? (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <ActivityIndicator size="small" />
@@ -318,13 +272,36 @@ export default function SearchScreen() {
           </View>
         ) : error ? (
           <Text style={{ color: "#b91c1c" }}>{error}</Text>
-        ) : results.length === 0 ? (
+        ) : type === "all" ? (
+          <View style={{ gap: 14 }}>
+            {SEARCH_TYPES.filter((searchType) => searchType !== "all").map((sectionType) => {
+              const sectionItems = Array.isArray(payload?.results?.[sectionType]) ? payload?.results?.[sectionType] ?? [] : [];
+              if (sectionItems.length === 0) return null;
+
+              return (
+                <View key={sectionType} style={{ gap: 8 }}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    <Text style={{ fontSize: 16, fontWeight: "700" }}>{sectionType}</Text>
+                    <Pressable onPress={() => onChangeType(sectionType)}>
+                      <Text style={{ fontWeight: "700" }}>Vedi tutti</Text>
+                    </Pressable>
+                  </View>
+                  <View style={{ gap: 8 }}>{sectionItems.slice(0, 3).map((item) => renderRow(item))}</View>
+                </View>
+              );
+            })}
+          </View>
+        ) : listItems.length === 0 ? (
           <Text style={{ color: "#374151" }}>Nessun risultato per “{query}”.</Text>
         ) : (
           <View style={{ gap: 10 }}>
-            {results.map((item) => (
-              <Row key={`${item.kind}:${item.id}`} item={item} />
-            ))}
+            {listItems.map((item) => renderRow(item))}
+            <Pressable
+              onPress={() => updateUrl({ page: page + 1 }, "push")}
+              style={{ borderWidth: 1, borderRadius: 10, padding: 12, alignItems: "center" }}
+            >
+              {loadingMore ? <ActivityIndicator size="small" /> : <Text style={{ fontWeight: "700" }}>Carica altri</Text>}
+            </Pressable>
           </View>
         )}
       </View>
