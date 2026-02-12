@@ -141,6 +141,42 @@ export type FeedReactionsPostResponse = {
   mine: string | null;
 };
 
+export type SearchKind = "all" | "clubs" | "players" | "opportunities" | "posts" | "events";
+
+export type SearchItem = {
+  id: string;
+  title: string;
+  subtitle?: string;
+  image_url?: string | null;
+  href: string;
+  kind: string;
+};
+
+export type SearchApiPayload = {
+  ok: boolean;
+  results?: Partial<Record<SearchKind, SearchItem[]>>;
+  counts?: Partial<Record<SearchKind, number>>;
+  query?: string;
+  type?: SearchKind;
+  page?: number;
+  limit?: number;
+};
+
+export type SearchApiError = {
+  ok: false;
+  status: number;
+  code: string;
+  message: string;
+};
+
+export type SearchApiSuccess = {
+  ok: true;
+  status: number;
+  data: SearchApiPayload;
+};
+
+export type SearchApiResult = SearchApiSuccess | SearchApiError;
+
 export const PROFILE_PATCH_FIELDS = [
   "full_name",
   "display_name",
@@ -333,6 +369,55 @@ export async function fetchFeedPosts(params?: {
   const query = sp.toString();
   const path = query ? `/api/feed/posts?${query}` : "/api/feed/posts";
   return apiFetch<FeedPostsApiResponse>(path, { method: "GET" });
+}
+
+export async function fetchSearch(params: {
+  q: string;
+  type?: SearchKind;
+  page?: number;
+  limit?: number;
+}): Promise<SearchApiResult> {
+  const sp = new URLSearchParams();
+  sp.set("q", params.q);
+  sp.set("type", params.type ?? "all");
+  sp.set("page", String(params.page ?? 1));
+  sp.set("limit", String(params.limit ?? 20));
+
+  const url = buildUrl(`/api/search?${sp.toString()}`);
+  const response = await fetch(url, {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    },
+  });
+
+  const status = response.status;
+
+  let json: any = null;
+  try {
+    json = await response.json();
+  } catch {
+    json = null;
+  }
+
+  if (!response.ok) {
+    const fallbackMessage = status === 429 ? "Too Many Requests" : `HTTP ${status}`;
+    const errorCode = typeof json?.code === "string" ? json.code : response.status === 429 ? "RATE_LIMITED" : "ERROR";
+    const errorMessage = typeof json?.message === "string" && json.message.trim() ? json.message : fallbackMessage;
+    return {
+      ok: false,
+      status,
+      code: errorCode,
+      message: errorMessage,
+    };
+  }
+
+  const payload = (json ?? {}) as SearchApiPayload;
+  return { ok: true, status, data: payload };
 }
 
 function buildIdsQuery(ids: string[]): string {
