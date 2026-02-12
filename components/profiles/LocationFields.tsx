@@ -91,6 +91,7 @@ function PickerModal({
             padding: 16,
             gap: 12,
             maxHeight: "75%",
+            paddingBottom: 12,
           }}
         >
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -107,6 +108,7 @@ function PickerModal({
             data={options}
             keyExtractor={(item) => String(item.id)}
             keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 24 }}
             renderItem={({ item }) => (
               <Pressable
                 onPress={() => onSelect(item)}

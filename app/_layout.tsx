@@ -106,8 +106,8 @@ export default function RootLayout() {
         <Stack.Screen name="(auth)" />
 
         <Stack.Screen name="posts/[id]" options={{ headerShown: true }} />
-        <Stack.Screen name="clubs/[id]" options={{ headerShown: true }} />
-        <Stack.Screen name="players/[id]" options={{ headerShown: true }} />
+        <Stack.Screen name="clubs/[id]" options={{ headerShown: true, title: "Club" }} />
+        <Stack.Screen name="players/[id]" options={{ headerShown: true, title: "Player" }} />
         <Stack.Screen name="club/profile" options={{ headerShown: true, title: "Profilo Club" }} />
         <Stack.Screen name="player/profile" options={{ headerShown: true, title: "Profilo" }} />
       </Stack>
