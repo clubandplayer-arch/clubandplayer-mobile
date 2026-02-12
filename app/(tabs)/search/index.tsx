@@ -166,8 +166,13 @@ export default function SearchScreen() {
     if (query.length < 2) return;
     setRefreshing(true);
     updateUrl({ page: 1 }, "replace");
-    setRefreshing(false);
   }, [query.length, updateUrl]);
+
+  useEffect(() => {
+    if (!refreshing) return;
+    if (loading || loadingMore) return;
+    setRefreshing(false);
+  }, [refreshing, loading, loadingMore]);
 
   const onSubmitSearch = useCallback(() => {
     updateUrl({ q: input, page: 1 }, "push");
@@ -195,6 +200,8 @@ export default function SearchScreen() {
 
   const counts = payload?.counts ?? {};
   const listItems = type !== "all" && Array.isArray(payload?.results?.[type]) ? payload?.results?.[type] ?? [] : [];
+  const totalForType = type !== "all" && typeof counts?.[type] === "number" ? counts[type] : null;
+  const canLoadMore = totalForType !== null && listItems.length < totalForType;
 
   const renderRow = (item: SearchItem) => (
     <View key={`${item.kind}:${item.id}`} style={{ borderWidth: 1, borderRadius: 12, padding: 14, gap: 6 }}>
@@ -296,12 +303,14 @@ export default function SearchScreen() {
         ) : (
           <View style={{ gap: 10 }}>
             {listItems.map((item) => renderRow(item))}
-            <Pressable
-              onPress={() => updateUrl({ page: page + 1 }, "push")}
-              style={{ borderWidth: 1, borderRadius: 10, padding: 12, alignItems: "center" }}
-            >
-              {loadingMore ? <ActivityIndicator size="small" /> : <Text style={{ fontWeight: "700" }}>Carica altri</Text>}
-            </Pressable>
+            {canLoadMore ? (
+              <Pressable
+                onPress={() => updateUrl({ page: page + 1 }, "push")}
+                style={{ borderWidth: 1, borderRadius: 10, padding: 12, alignItems: "center" }}
+              >
+                {loadingMore ? <ActivityIndicator size="small" /> : <Text style={{ fontWeight: "700" }}>Carica altri</Text>}
+              </Pressable>
+            ) : null}
           </View>
         )}
       </View>
