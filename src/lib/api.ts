@@ -141,6 +141,43 @@ export type FeedReactionsPostResponse = {
   mine: string | null;
 };
 
+export type LinkPreviewResponse = {
+  ok: boolean;
+  url?: string;
+  title?: string | null;
+  description?: string | null;
+  image?: string | null;
+  code?: string;
+  message?: string;
+};
+
+export type CreateFeedPostPayload = {
+  content: string;
+  media: Array<{
+    mediaType: "image" | "video";
+    url: string;
+    posterUrl: string | null;
+    width: number;
+    height: number;
+    position: number;
+  }>;
+  link_url?: string | null;
+  link_title?: string | null;
+  link_description?: string | null;
+  link_image?: string | null;
+};
+
+export type CreateFeedPostResult =
+  | {
+      ok: true;
+      item: unknown;
+    }
+  | {
+      ok: false;
+      code?: string;
+      message: string;
+    };
+
 export type SearchKind = "all" | "clubs" | "players" | "opportunities" | "posts" | "events";
 
 export type SearchItem = {
@@ -369,6 +406,50 @@ export async function fetchFeedPosts(params?: {
   const query = sp.toString();
   const path = query ? `/api/feed/posts?${query}` : "/api/feed/posts";
   return apiFetch<FeedPostsApiResponse>(path, { method: "GET" });
+}
+
+export async function fetchLinkPreview(url: string): Promise<LinkPreviewResponse> {
+  const res = await apiFetch<LinkPreviewResponse>("/api/link-preview", {
+    method: "POST",
+    body: JSON.stringify({ url }),
+  });
+
+  if (!res.ok || !res.data) {
+    return {
+      ok: false,
+      message: res.errorText || "Link preview non disponibile",
+    };
+  }
+
+  return res.data;
+}
+
+export async function createFeedPost(payload: CreateFeedPostPayload): Promise<CreateFeedPostResult> {
+  const res = await apiFetch<CreateFeedPostResult>("/api/feed/posts", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok || !res.data) {
+    return {
+      ok: false,
+      message: res.errorText || "Creazione post non riuscita",
+    };
+  }
+
+  if (!res.data.ok) {
+    const errorData = res.data as { ok: false; code?: string; message?: string };
+    return {
+      ok: false,
+      code: errorData.code,
+      message: errorData.message || "Creazione post non riuscita",
+    };
+  }
+
+  return {
+    ok: true,
+    item: res.data.item,
+  };
 }
 
 export async function fetchSearch(params: {
