@@ -298,12 +298,19 @@ export default function FeedComposer({ onPosted }: FeedComposerProps) {
           posterUrl = supabase.storage.from(bucket).getPublicUrl(posterPath).data.publicUrl;
         }
 
+        const w = Number.isFinite(item.width) ? item.width : (item.posterWidth ?? 0);
+        const h = Number.isFinite(item.height) ? item.height : (item.posterHeight ?? 0);
+
+        if (item.mediaType === "video" && (w <= 0 || h <= 0)) {
+          throw new Error("Dimensioni video non disponibili");
+        }
+
         uploadedMedia.push({
           mediaType: item.mediaType,
           url: mediaUrl,
           posterUrl,
-          width: item.mediaType === "video" ? item.posterWidth ?? item.width : item.width,
-          height: item.mediaType === "video" ? item.posterHeight ?? item.height : item.height,
+          width: w,
+          height: h,
           position: index,
         });
       }
