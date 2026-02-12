@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Constants from "expo-constants";
 import { supabase } from "./supabase";
+import { resolveItalianLocationLabels } from "./geo/location";
 
 const DEFAULT_WEB_BASE_URL = "https://www.clubandplayer.com";
 
@@ -185,6 +186,12 @@ export const PROFILE_PATCH_FIELDS = [
 ] as const;
 
 export type ProfilePatchField = (typeof PROFILE_PATCH_FIELDS)[number];
+
+type AvatarUploadInput = {
+  uri: string;
+  fileName?: string;
+  mimeType?: string;
+};
 
 export function isUuid(value: unknown): value is string {
   if (typeof value !== "string") return false;
@@ -421,11 +428,215 @@ export function buildProfilePatch(input: Partial<Record<ProfilePatchField, unkno
 }
 
 export async function patchProfileMe(input: Partial<Record<ProfilePatchField, unknown>>): Promise<ApiResponse<ProfileMe>> {
-  const payload = buildProfilePatch(input);
+  const payload = await normalizeProfilePatch(input);
   return apiFetch<ProfileMe>("/api/profiles/me", {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
+}
+
+function normalizeOptionalString(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const normalized = String(value).trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeOptionalNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function normalizeOptionalBoolean(value: unknown): boolean | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "boolean") return value;
+  const v = String(value).trim().toLowerCase();
+  if (["true", "1", "yes", "y", "on"].includes(v)) return true;
+  if (["false", "0", "no", "n", "off"].includes(v)) return false;
+  return null;
+}
+
+function normalizeJsonOrNull(value: unknown): unknown {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "string") {
+    const raw = value.trim();
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  return value;
+}
+
+function normalizeSport(value: unknown): string | null {
+  return normalizeOptionalString(value);
+}
+
+function toDbSkills(value: unknown): unknown[] | null {
+  const parsed = normalizeJsonOrNull(value);
+  let arr: unknown[] = [];
+  if (Array.isArray(parsed)) arr = parsed;
+  else if (typeof parsed === "string") arr = parsed.split(",");
+  else return null;
+
+  const normalized = arr
+    .map((item) => normalizeOptionalString(item))
+    .filter(Boolean)
+    .slice(0, 10) as string[];
+
+  return normalized;
+}
+
+async function normalizeProfilePatch(input: Partial<Record<ProfilePatchField, unknown>>) {
+  const payload = buildProfilePatch(input);
+
+  const stringFields: ProfilePatchField[] = [
+    "full_name",
+    "display_name",
+    "avatar_url",
+    "bio",
+    "country",
+    "region",
+    "province",
+    "birth_place",
+    "city",
+    "birth_country",
+    "foot",
+    "role",
+    "visibility",
+    "interest_country",
+    "interest_region",
+    "interest_province",
+    "interest_city",
+    "account_type",
+    "club_stadium",
+    "club_stadium_address",
+    "club_league_category",
+    "club_motto",
+  ];
+
+  for (const field of stringFields) {
+    if (Object.prototype.hasOwnProperty.call(payload, field)) {
+      payload[field] = normalizeOptionalString(payload[field]);
+    }
+  }
+
+  const numberFields: ProfilePatchField[] = [
+    "birth_year",
+    "residence_region_id",
+    "residence_province_id",
+    "residence_municipality_id",
+    "birth_region_id",
+    "birth_province_id",
+    "birth_municipality_id",
+    "height_cm",
+    "weight_kg",
+    "interest_region_id",
+    "interest_province_id",
+    "interest_municipality_id",
+    "club_foundation_year",
+    "club_stadium_lat",
+    "club_stadium_lng",
+  ];
+
+  for (const field of numberFields) {
+    if (Object.prototype.hasOwnProperty.call(payload, field)) {
+      payload[field] = normalizeOptionalNumber(payload[field]);
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, "notify_email_new_message")) {
+    payload.notify_email_new_message = normalizeOptionalBoolean(payload.notify_email_new_message);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, "sport")) {
+    payload.sport = normalizeSport(payload.sport);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, "links")) {
+    payload.links = normalizeJsonOrNull(payload.links);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, "skills")) {
+    payload.skills = toDbSkills(payload.skills);
+  }
+
+  if (!payload.interest_country) payload.interest_country = "IT";
+
+  if (payload.country) payload.country = String(payload.country).toUpperCase();
+  if (payload.interest_country) payload.interest_country = String(payload.interest_country).toUpperCase();
+  if (payload.birth_country) payload.birth_country = String(payload.birth_country).toUpperCase();
+
+  const fullName = normalizeOptionalString(payload.full_name);
+  const displayName = normalizeOptionalString(payload.display_name);
+  if (fullName && !displayName) payload.display_name = fullName;
+  if (displayName && !fullName) payload.full_name = displayName;
+
+  if (String(payload.account_type ?? "").toLowerCase() === "club") {
+    payload.role = "Club";
+  }
+
+  const labels = await resolveItalianLocationLabels({
+    country: (payload.interest_country as string | null | undefined) ?? null,
+    regionId: (payload.interest_region_id as number | null | undefined) ?? null,
+    provinceId: (payload.interest_province_id as number | null | undefined) ?? null,
+    municipalityId: (payload.interest_municipality_id as number | null | undefined) ?? null,
+    regionLabel: (payload.interest_region as string | null | undefined) ?? null,
+    provinceLabel: (payload.interest_province as string | null | undefined) ?? null,
+    cityLabel: (payload.interest_city as string | null | undefined) ?? null,
+  });
+
+  if (!payload.interest_region && labels.region) payload.interest_region = labels.region;
+  if (!payload.interest_province && labels.province) payload.interest_province = labels.province;
+  if (!payload.interest_city && labels.city) payload.interest_city = labels.city;
+
+  return payload;
+}
+
+export async function uploadProfileAvatar(file: AvatarUploadInput): Promise<ApiResponse<{ avatar_url: string | null }>> {
+  const form = new FormData();
+  form.append("file", {
+    uri: file.uri,
+    name: file.fileName ?? `avatar-${Date.now()}.jpg`,
+    type: file.mimeType ?? "image/jpeg",
+  } as any);
+
+  const response = await fetch(buildUrl("/api/profiles/avatar"), {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+    },
+    body: form,
+  });
+
+  const status = response.status;
+  let json: any = null;
+
+  try {
+    json = await response.json();
+  } catch (error) {
+    return { ok: false, status, errorText: String(error) };
+  }
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      status,
+      errorText: typeof json === "string" ? json : `HTTP ${status}`,
+    };
+  }
+
+  return {
+    ok: true,
+    status,
+    data: {
+      avatar_url: typeof json?.avatar_url === "string" ? json.avatar_url : null,
+    },
+  };
 }
 
 export function useWhoami(enabled: boolean = true) {
