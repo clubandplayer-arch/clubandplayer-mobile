@@ -186,15 +186,19 @@ export default function NotificationsScreen() {
           onPress={async () => {
             const href = resolveNotificationHref(item);
             if (isUnread) {
-              await patchNotificationsMarkRead({ ids: [item.id] });
-              emit("app:notifications-updated");
-              setItems((prev) =>
-                prev.map((current) =>
-                  current.id === item.id
-                    ? { ...current, read_at: new Date().toISOString(), read: true }
-                    : current,
-                ),
-              );
+              const response = await patchNotificationsMarkRead({ ids: [item.id] });
+              if (response.ok && (response.data?.updated ?? 0) > 0) {
+                emit("app:notifications-updated");
+                setItems((prev) =>
+                  prev.map((current) =>
+                    current.id === item.id
+                      ? { ...current, read_at: new Date().toISOString(), read: true }
+                      : current,
+                  ),
+                );
+              } else {
+                setError("Impossibile segnare come letta");
+              }
             }
             router.push(href as never);
           }}
