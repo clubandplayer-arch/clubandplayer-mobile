@@ -64,6 +64,29 @@ function inferContentType(fileName: string, mediaType: "image" | "video") {
   return map[ext] ?? (mediaType === "video" ? "video/mp4" : "image/jpeg");
 }
 
+function decodeHtmlEntities(input: string): string {
+  return input
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
+      try {
+        return String.fromCodePoint(parseInt(hex, 16));
+      } catch {
+        return "";
+      }
+    })
+    .replace(/&#([0-9]+);/g, (_, dec) => {
+      try {
+        return String.fromCodePoint(parseInt(dec, 10));
+      } catch {
+        return "";
+      }
+    });
+}
+
 async function readBytes(uri: string): Promise<Uint8Array> {
   const base64 = await FileSystem.readAsStringAsync(uri, {
     encoding: "base64",
@@ -157,10 +180,10 @@ export default function FeedComposer({ onPosted }: FeedComposerProps) {
         if (!active) return;
         if (res.ok) {
           setLinkPreview({
-            url: res.url,
-            title: res.title,
-            description: res.description,
-            image: res.image,
+            url: res.url ? decodeHtmlEntities(res.url) : null,
+            title: res.title ? decodeHtmlEntities(res.title) : null,
+            description: res.description ? decodeHtmlEntities(res.description) : null,
+            image: res.image ? decodeHtmlEntities(res.image) : null,
           });
         } else {
           setLinkPreview(null);
@@ -322,8 +345,10 @@ export default function FeedComposer({ onPosted }: FeedComposerProps) {
 
       if (linkPreview?.url) {
         payload.link_url = String(linkPreview.url);
-        if (linkPreview.title) payload.link_title = String(linkPreview.title);
-        if (linkPreview.description) payload.link_description = String(linkPreview.description);
+        if (linkPreview.title) payload.link_title = String(linkPreview.title).slice(0, 500);
+        if (linkPreview.description) {
+          payload.link_description = String(linkPreview.description).slice(0, 2000);
+        }
         if (linkPreview.image) payload.link_image = String(linkPreview.image);
       }
 
