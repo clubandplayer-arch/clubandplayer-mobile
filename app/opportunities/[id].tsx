@@ -18,7 +18,7 @@ function formatDate(value?: string | null): string {
 }
 
 function getClubProfileId(data: OpportunityDetail): string | null {
-  return data.club_id ?? data.owner_id ?? data.created_by ?? null;
+  return data.club_id ?? data.created_by ?? data.owner_id ?? null;
 }
 
 function formatLocation(opp: OpportunityDetail): string {

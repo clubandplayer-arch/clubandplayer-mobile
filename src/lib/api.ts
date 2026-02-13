@@ -358,15 +358,23 @@ function buildUrl(path: string): string {
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<ApiResponse<T>> {
   const url = buildUrl(path);
+  const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData;
+  const headers = isFormData
+    ? {
+        Accept: "application/json",
+        ...(init?.headers ?? {}),
+      }
+    : {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+      };
+
   const response = await fetch(url, {
     ...init,
     credentials: "include",
     cache: "no-store",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
+    headers,
   });
 
   const status = response.status;
