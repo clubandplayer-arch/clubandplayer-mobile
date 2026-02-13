@@ -1,7 +1,8 @@
 export type OpportunityStatus = string;
 
 export type Opportunity = {
-  id: string;
+  id?: string;
+  id_uuid?: string;
   title?: string | null;
   description?: string | null;
   created_at?: string | null;

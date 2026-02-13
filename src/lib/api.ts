@@ -592,11 +592,16 @@ export async function fetchOpportunities(params?: FetchOpportunitiesParams): Pro
     return { ok: false, status: response.status, errorText: "Formato risposta opportunità non valido" };
   }
 
+  const normalized = (response.data.data ?? []).map((o: any) => {
+    const id = String(o?.id_uuid ?? o?.id ?? "");
+    return { ...o, id };
+  });
+
   return {
     ok: true,
     status: response.status,
     data: {
-      data: response.data.data,
+      data: normalized,
       page: response.data.page,
       pageSize: response.data.pageSize,
       total: response.data.total,

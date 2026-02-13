@@ -60,7 +60,10 @@ function OpportunityCard({ item }: { item: Opportunity }) {
   const opportunityId = String(item.id ?? "").trim();
 
   const onOpenOpportunity = () => {
-    if (!opportunityId) return;
+    if (!opportunityId) {
+      console.warn("[opportunities] missing opportunity id", item);
+      return;
+    }
     router.push({ pathname: "/opportunities/[id]", params: { id: opportunityId } });
   };
 
@@ -186,7 +189,7 @@ export default function OpportunitiesScreen() {
   return (
     <FlatList
       data={items}
-      keyExtractor={(item) => item.id}
+      keyExtractor={(item) => String(item.id)}
       renderItem={({ item }) => <OpportunityCard item={item} />}
       contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }}
       ListHeaderComponent={<Text style={{ fontSize: 28, fontWeight: "800", marginBottom: 10 }}>Opportunità</Text>}
