@@ -119,7 +119,6 @@ function OpportunityCard({ item }: { item: Opportunity }) {
 }
 
 export default function OpportunitiesScreen() {
-  const router = useRouter();
   const [items, setItems] = useState<Opportunity[]>([]);
   const [page, setPage] = useState(1);
   const [pageCount, setPageCount] = useState(1);
@@ -194,14 +193,6 @@ export default function OpportunitiesScreen() {
       keyExtractor={(item) => String(item.id)}
       renderItem={({ item }) => <OpportunityCard item={item} />}
       contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }}
-      ListHeaderComponent={(
-        <View style={{ marginBottom: 10, gap: 8 }}>
-          <Text style={{ fontSize: 28, fontWeight: "800" }}>Opportunità</Text>
-          <Pressable onPress={() => router.push("/my/applications")}>
-            <Text style={{ color: "#1d4ed8", fontWeight: "700" }}>Le mie candidature</Text>
-          </Pressable>
-        </View>
-      )}
       ListEmptyComponent={<Text style={{ color: "#6b7280" }}>Nessuna opportunità disponibile.</Text>}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       onEndReachedThreshold={0.35}
