@@ -19,6 +19,11 @@ export type Opportunity = {
   city?: string | null;
   club_name?: string | null;
   club_id?: string | null;
+  club_profile_id?: string | null;
+  club_display_name?: string | null;
+  club_city?: string | null;
+  club_province?: string | null;
+  club_region?: string | null;
   owner_id?: string | null;
   created_by?: string | null;
   gender?: string | null;

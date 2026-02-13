@@ -18,7 +18,8 @@ function formatDate(value?: string | null): string {
 }
 
 function getClubProfileId(data: OpportunityDetail): string | null {
-  return data.club_id ? String(data.club_id) : null;
+  const v = (data as any)?.club_profile_id ?? null;
+  return v ? String(v) : null;
 }
 
 function formatLocation(opp: OpportunityDetail): string {
@@ -67,13 +68,6 @@ export default function OpportunityDetailScreen() {
       return;
     }
 
-    console.warn("[opportunity detail] ids", {
-      id: response.data?.id,
-      club_id: response.data?.club_id,
-      owner_id: response.data?.owner_id,
-      created_by: (response.data as any)?.created_by,
-      club_name: response.data?.club_name,
-    });
 
     setItem(response.data);
     setError(null);
@@ -133,7 +127,7 @@ export default function OpportunityDetailScreen() {
           style={{ borderWidth: 1, borderColor: "#d1d5db", borderRadius: 12, padding: 14 }}
         >
           <Text style={{ fontSize: 16, fontWeight: "700", color: "#1d4ed8" }}>
-            Visita club {item.club_name ? `· ${item.club_name}` : ""}
+            Visita club · {item.club_display_name ?? item.club_name ?? "Club"}
           </Text>
         </Pressable>
       ) : null}
