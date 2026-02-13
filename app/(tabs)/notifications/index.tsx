@@ -58,13 +58,11 @@ function resolveNotificationHref(notification: NotificationWithActor): string {
   const kind = notification.kind;
 
   if (kind === "new_message" || kind === "message") {
-    const conversationId = payloadValue(payload, "conversation_id");
-    if (conversationId) return `/messages?conversationId=${encodeURIComponent(conversationId)}`;
-
     const senderId =
       payloadValue(payload, "sender_profile_id") ||
       (notification.actor_profile_id ? notification.actor_profile_id : null);
     if (senderId) return `/messages/${encodeURIComponent(senderId)}`;
+    return "/messages";
   }
 
   if (kind === "new_follower") {
@@ -199,12 +197,6 @@ export default function NotificationsScreen() {
               } else {
                 setError("Impossibile segnare come letta");
               }
-            }
-
-            if (href.startsWith("/messages")) {
-              router.push("/notifications" as never);
-              setError("Messaggi non ancora disponibili");
-              return;
             }
 
             router.push(href as never);
