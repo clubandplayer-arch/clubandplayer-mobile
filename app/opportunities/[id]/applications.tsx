@@ -157,7 +157,7 @@ export default function OpportunityApplicationsScreen() {
                 <Text style={{ fontSize: 16, fontWeight: "700", color: "#1d4ed8" }}>{athleteLabel(item)}</Text>
               </Pressable>
 
-              <Text style={{ marginTop: 6, opacity: 0.8 }}>Status: {statusLabel(item.status)}</Text>
+              <Text style={{ marginTop: 6, opacity: 0.8 }}>Stato: {statusLabel(item.status)}</Text>
               {item.note ? <Text style={{ marginTop: 4, opacity: 0.75 }}>Nota: {item.note}</Text> : null}
 
               <Pressable

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 
@@ -61,6 +61,7 @@ export default function ClubApplicationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
+  const hasFocusedOnceRef = useRef(false);
 
   const load = useCallback(
     async (mode: "initial" | "refresh") => {
@@ -95,9 +96,15 @@ export default function ClubApplicationsScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      hasFocusedOnceRef.current = true;
       void load("initial");
     }, [load]),
   );
+
+  useEffect(() => {
+    if (!hasFocusedOnceRef.current) return;
+    void load("refresh");
+  }, [status, load]);
 
   const empty = useMemo(() => {
     if (loading || error) return null;
