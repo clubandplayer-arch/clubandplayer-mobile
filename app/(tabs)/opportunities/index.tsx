@@ -57,9 +57,21 @@ function OpportunityCard({ item }: { item: Opportunity }) {
   const location = formatLocation(item);
   const ageRange = formatAgeRange(item.age_min, item.age_max);
 
+  const opportunityId = String(item.id ?? "").trim();
+
+  const onOpenOpportunity = () => {
+    if (!opportunityId) return;
+    router.push({ pathname: "/opportunities/[id]", params: { id: opportunityId } });
+  };
+
+  const onOpenClub = () => {
+    if (!clubProfileId) return;
+    router.push({ pathname: "/clubs/[id]", params: { id: String(clubProfileId) } });
+  };
+
   return (
     <Pressable
-      onPress={() => router.push(`/opportunities/${item.id}`)}
+      onPress={onOpenOpportunity}
       style={{
         borderWidth: 1,
         borderColor: "#e5e7eb",
@@ -73,7 +85,7 @@ function OpportunityCard({ item }: { item: Opportunity }) {
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 4 }}>
         {clubProfileId ? (
-          <Pressable onPress={() => router.push(`/clubs/${clubProfileId}`)}>
+          <Pressable onPress={(event) => { event.stopPropagation(); onOpenClub(); }}>
             <Text style={{ color: "#1d4ed8", fontWeight: "700" }}>{item.club_name || "Club"}</Text>
           </Pressable>
         ) : (
