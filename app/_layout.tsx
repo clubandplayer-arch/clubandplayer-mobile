@@ -114,6 +114,8 @@ export default function RootLayout() {
         <Stack.Screen name="club/profile" options={{ headerShown: true, title: "Profilo Club" }} />
         <Stack.Screen name="player/profile" options={{ headerShown: true, title: "Profilo" }} />
         <Stack.Screen name="my/applications" options={{ headerShown: true, title: "Le mie candidature" }} />
+        <Stack.Screen name="club/applications" options={{ headerShown: true, title: "Candidature ricevute" }} />
+        <Stack.Screen name="opportunities/[id]/applications" options={{ headerShown: true, title: "Candidati" }} />
       </Stack>
     </>
   );
