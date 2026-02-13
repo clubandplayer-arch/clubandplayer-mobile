@@ -20,6 +20,7 @@ import {
 import { isCertifiedClub } from "../../../src/lib/profiles/certification";
 import { on } from "../../../src/lib/events/appEvents";
 import { clearSession, useWebSession, useWhoami } from "../../../src/lib/api";
+import FeedComposer from "../../../components/feed/FeedComposer";
 
 function formatWhen(iso?: string | null) {
   if (!iso) return "";
@@ -299,6 +300,10 @@ export default function FeedScreen() {
     }
   }, [feedMode, load]);
 
+  const refetchFeed = useCallback(async () => {
+    await onRefresh();
+  }, [onRefresh]);
+
   const onLogout = async () => {
     try {
       await clearSession();
@@ -440,6 +445,8 @@ export default function FeedScreen() {
           )}
         </View>
 
+        <FeedComposer onPosted={refetchFeed} />
+
         {items.length === 0 && !error ? <Text style={{ color: "#6b7280" }}>{emptyMessage}</Text> : null}
 
         {error ? (
@@ -453,7 +460,7 @@ export default function FeedScreen() {
         ) : null}
       </View>
     );
-  }, [error, feedMode, flash, items.length, load, onLogout, router, showFlash, web.error, web.loading, web.retry, whoami.data?.role, whoami.data?.user]);
+  }, [error, feedMode, flash, items.length, load, onLogout, refetchFeed, router, showFlash, web.error, web.loading, web.retry, whoami.data?.role, whoami.data?.user]);
 
   const footer = useMemo(() => {
     if (loadingMore) {
