@@ -64,6 +64,7 @@ function OpportunityCard({ item }: { item: Opportunity }) {
       console.warn("[opportunities] missing opportunity id", item);
       return;
     }
+    console.warn("[opportunities] push detail", { id: opportunityId });
     router.push({ pathname: "/opportunities/[id]", params: { id: opportunityId } });
   };
 
