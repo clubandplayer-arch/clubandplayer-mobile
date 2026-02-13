@@ -18,7 +18,7 @@ function formatDate(value?: string | null): string {
 }
 
 function getClubProfileId(data: OpportunityDetail): string | null {
-  return data.club_id ?? data.created_by ?? data.owner_id ?? null;
+  return data.club_id ? String(data.club_id) : null;
 }
 
 function formatLocation(opp: OpportunityDetail): string {
@@ -66,6 +66,14 @@ export default function OpportunityDetailScreen() {
       setLoading(false);
       return;
     }
+
+    console.warn("[opportunity detail] ids", {
+      id: response.data?.id,
+      club_id: response.data?.club_id,
+      owner_id: response.data?.owner_id,
+      created_by: (response.data as any)?.created_by,
+      club_name: response.data?.club_name,
+    });
 
     setItem(response.data);
     setError(null);
@@ -121,7 +129,7 @@ export default function OpportunityDetailScreen() {
 
       {clubProfileId ? (
         <Pressable
-          onPress={() => router.push(`/clubs/${clubProfileId}`)}
+          onPress={() => router.push({ pathname: "/clubs/[id]", params: { id: String(clubProfileId) } })}
           style={{ borderWidth: 1, borderColor: "#d1d5db", borderRadius: 12, padding: 14 }}
         >
           <Text style={{ fontSize: 16, fontWeight: "700", color: "#1d4ed8" }}>
