@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { Pressable, Text } from "react-native";
 
 import {
   fetchDirectMessagesUnreadCount,
@@ -9,6 +10,7 @@ import {
 import { on } from "../../src/lib/events/appEvents";
 
 export default function TabsLayout() {
+  const router = useRouter();
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [messagesUnreadCount, setMessagesUnreadCount] = useState<number>(0);
 
@@ -103,7 +105,16 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="opportunities/index"
-        options={{ title: "Opportunità", tabBarLabel: "Opportunità" }}
+        options={{
+          title: "Opportunità",
+          tabBarLabel: "Opportunità",
+          headerShown: true,
+          headerRight: () => (
+            <Pressable onPress={() => router.push("/my/applications")} hitSlop={8}>
+              <Text style={{ color: "#1d4ed8", fontWeight: "700" }}>Candidature</Text>
+            </Pressable>
+          ),
+        }}
       />
       <Tabs.Screen
         name="create/index"
