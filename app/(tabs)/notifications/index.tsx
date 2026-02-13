@@ -184,7 +184,7 @@ export default function NotificationsScreen() {
       return (
         <Pressable
           onPress={async () => {
-            const href = resolveNotificationHref(item);
+            const href = resolveNotificationHref(item) || "/notifications";
             if (isUnread) {
               const response = await patchNotificationsMarkRead({ ids: [item.id] });
               if (response.ok && (response.data?.updated ?? 0) > 0) {
@@ -200,6 +200,13 @@ export default function NotificationsScreen() {
                 setError("Impossibile segnare come letta");
               }
             }
+
+            if (href.startsWith("/messages")) {
+              router.push("/notifications" as never);
+              setError("Messaggi non ancora disponibili");
+              return;
+            }
+
             router.push(href as never);
           }}
           style={{
