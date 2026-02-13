@@ -4,6 +4,13 @@ import { supabase } from "./supabase";
 import { resolveItalianLocationLabels } from "./geo/location";
 import type { NotificationWithActor } from "../types/notifications";
 import type {
+  FetchOpportunitiesParams,
+  FetchOpportunitiesResult,
+  OpportunityDetail,
+  OpportunityDetailResponse,
+  OpportunitiesListResponse,
+} from "../types/opportunity";
+import type {
   DirectMessageMarkReadResponse,
   DirectMessagePostResponse,
   DirectMessageThreadsResponse,
@@ -351,15 +358,23 @@ function buildUrl(path: string): string {
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<ApiResponse<T>> {
   const url = buildUrl(path);
+  const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData;
+  const headers = isFormData
+    ? {
+        Accept: "application/json",
+        ...(init?.headers ?? {}),
+      }
+    : {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+      };
+
   const response = await fetch(url, {
     ...init,
     credentials: "include",
     cache: "no-store",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
+    headers,
   });
 
   const status = response.status;
@@ -557,6 +572,62 @@ export async function fetchSearch(params: {
 
   const payload = (json ?? {}) as SearchApiPayload;
   return { ok: true, status, data: payload };
+}
+
+
+export async function fetchOpportunities(params?: FetchOpportunitiesParams): Promise<ApiResponse<FetchOpportunitiesResult>> {
+  const sp = new URLSearchParams();
+  sp.set("page", String(params?.page ?? 1));
+  sp.set("pageSize", String(params?.pageSize ?? 20));
+  sp.set("sort", params?.sort ?? "recent");
+  if (typeof params?.q === "string" && params.q.trim()) sp.set("q", params.q.trim());
+
+  const response = await apiFetch<OpportunitiesListResponse>(`/api/opportunities?${sp.toString()}`, { method: "GET" });
+
+  if (!response.ok || !response.data) {
+    return { ok: false, status: response.status, errorText: response.errorText || "Errore nel caricamento opportunità" };
+  }
+
+  if (!response.data.ok || !Array.isArray(response.data.data)) {
+    return { ok: false, status: response.status, errorText: "Formato risposta opportunità non valido" };
+  }
+
+  const normalized = (response.data.data ?? []).map((o: any) => {
+    const id = String(o?.id_uuid ?? o?.id ?? "");
+    return { ...o, id };
+  });
+
+  return {
+    ok: true,
+    status: response.status,
+    data: {
+      data: normalized,
+      page: response.data.page,
+      pageSize: response.data.pageSize,
+      total: response.data.total,
+      pageCount: response.data.pageCount,
+      sort: response.data.sort,
+    },
+  };
+}
+
+export async function fetchOpportunityById(id: string): Promise<ApiResponse<OpportunityDetail>> {
+  const safeId = encodeURIComponent(String(id).trim());
+  const response = await apiFetch<OpportunityDetailResponse>(`/api/opportunities/${safeId}`, { method: "GET" });
+
+  if (!response.ok || !response.data?.data) {
+    return {
+      ok: false,
+      status: response.status,
+      errorText: response.errorText || "Opportunità non trovata",
+    };
+  }
+
+  return {
+    ok: true,
+    status: response.status,
+    data: response.data.data,
+  };
 }
 
 export async function fetchNotifications(params?: {

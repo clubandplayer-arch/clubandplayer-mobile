@@ -67,6 +67,9 @@ export default function TabsLayout() {
             case "messages/index":
               iconName = focused ? "chatbubble" : "chatbubble-outline";
               break;
+            case "opportunities/index":
+              iconName = focused ? "briefcase" : "briefcase-outline";
+              break;
             case "create/index":
               iconName = focused ? "add-circle" : "add-circle-outline";
               break;
@@ -97,6 +100,10 @@ export default function TabsLayout() {
           tabBarLabel: "Messaggi",
           tabBarBadge: messagesUnreadCount > 0 ? messagesUnreadCount : undefined,
         }}
+      />
+      <Tabs.Screen
+        name="opportunities/index"
+        options={{ title: "Opportunità", tabBarLabel: "Opportunità" }}
       />
       <Tabs.Screen
         name="create/index"
