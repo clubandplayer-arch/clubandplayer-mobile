@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import Constants from "expo-constants";
 import { supabase } from "./supabase";
 import { resolveItalianLocationLabels } from "./geo/location";
+import type { NotificationWithActor } from "../types/notifications";
 
 const DEFAULT_WEB_BASE_URL = "https://www.clubandplayer.com";
 
@@ -213,6 +214,27 @@ export type SearchApiSuccess = {
 };
 
 export type SearchApiResult = SearchApiSuccess | SearchApiError;
+
+export type NotificationsResponse = {
+  ok: true;
+  data: NotificationWithActor[];
+};
+
+export type NotificationsPatchResponse = {
+  ok: true;
+  updated: number;
+};
+
+export type NotificationsMarkAllReadResponse = {
+  ok: true;
+  success: true;
+  updated: number;
+};
+
+export type NotificationsUnreadCountResponse = {
+  ok: true;
+  count: number;
+};
 
 export const PROFILE_PATCH_FIELDS = [
   "full_name",
@@ -499,6 +521,42 @@ export async function fetchSearch(params: {
 
   const payload = (json ?? {}) as SearchApiPayload;
   return { ok: true, status, data: payload };
+}
+
+export async function fetchNotifications(params?: {
+  limit?: number;
+  page?: number;
+  all?: 1;
+  unread?: boolean;
+}): Promise<ApiResponse<NotificationsResponse>> {
+  const sp = new URLSearchParams();
+  if (typeof params?.limit === "number") sp.set("limit", String(params.limit));
+  if (typeof params?.page === "number") sp.set("page", String(params.page));
+  if (params?.all === 1) sp.set("all", "1");
+  if (params?.unread) sp.set("unread", "true");
+  const query = sp.toString();
+  const path = query ? `/api/notifications?${query}` : "/api/notifications";
+  return apiFetch<NotificationsResponse>(path, { method: "GET" });
+}
+
+export async function patchNotificationsMarkRead(params: {
+  ids?: string[];
+  markAll?: boolean;
+}): Promise<ApiResponse<NotificationsPatchResponse>> {
+  return apiFetch<NotificationsPatchResponse>("/api/notifications", {
+    method: "PATCH",
+    body: JSON.stringify(params),
+  });
+}
+
+export async function postNotificationsMarkAllRead(): Promise<ApiResponse<NotificationsMarkAllReadResponse>> {
+  return apiFetch<NotificationsMarkAllReadResponse>("/api/notifications/mark-all-read", {
+    method: "POST",
+  });
+}
+
+export async function fetchNotificationsUnreadCount(): Promise<ApiResponse<NotificationsUnreadCountResponse>> {
+  return apiFetch<NotificationsUnreadCountResponse>("/api/notifications/unread-count", { method: "GET" });
 }
 
 function buildIdsQuery(ids: string[]): string {

@@ -1,7 +1,36 @@
+import { useCallback, useEffect, useState } from "react";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
+import { fetchNotificationsUnreadCount } from "../../src/lib/api";
+import { on } from "../../src/lib/events/appEvents";
+
 export default function TabsLayout() {
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+
+  const loadUnreadCount = useCallback(async () => {
+    const response = await fetchNotificationsUnreadCount();
+    if (!response.ok || !response.data) return;
+    setUnreadCount(response.data.count || 0);
+  }, []);
+
+  useEffect(() => {
+    loadUnreadCount();
+
+    const timer = setInterval(() => {
+      loadUnreadCount();
+    }, 45000);
+
+    const unsubscribe = on("app:notifications-updated", () => {
+      loadUnreadCount();
+    });
+
+    return () => {
+      clearInterval(timer);
+      unsubscribe();
+    };
+  }, [loadUnreadCount]);
+
   return (
     <Tabs
       screenOptions={({ route }) => ({
@@ -47,7 +76,11 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="notifications/index"
-        options={{ title: "Notifiche", tabBarLabel: "Notifiche" }}
+        options={{
+          title: "Notifiche",
+          tabBarLabel: "Notifiche",
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+        }}
       />
       <Tabs.Screen
         name="me/index"
