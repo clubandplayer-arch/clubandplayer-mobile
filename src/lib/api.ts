@@ -3,6 +3,13 @@ import Constants from "expo-constants";
 import { supabase } from "./supabase";
 import { resolveItalianLocationLabels } from "./geo/location";
 import type { NotificationWithActor } from "../types/notifications";
+import type {
+  DirectMessageMarkReadResponse,
+  DirectMessagePostResponse,
+  DirectMessageThreadsResponse,
+  DirectMessagesUnreadCountResponse,
+  DirectThreadResponse,
+} from "../types/directMessages";
 
 const DEFAULT_WEB_BASE_URL = "https://www.clubandplayer.com";
 
@@ -235,6 +242,35 @@ export type NotificationsUnreadCountResponse = {
   ok: true;
   count: number;
 };
+
+export async function fetchDirectMessageThreads(): Promise<ApiResponse<DirectMessageThreadsResponse>> {
+  return apiFetch<DirectMessageThreadsResponse>("/api/direct-messages/threads", { method: "GET" });
+}
+
+export async function fetchDirectMessageThread(profileId: string): Promise<ApiResponse<DirectThreadResponse>> {
+  return apiFetch<DirectThreadResponse>(`/api/direct-messages/${encodeURIComponent(profileId)}`, {
+    method: "GET",
+  });
+}
+
+export async function postDirectMessage(profileId: string, content: string): Promise<ApiResponse<DirectMessagePostResponse>> {
+  return apiFetch<DirectMessagePostResponse>(`/api/direct-messages/${encodeURIComponent(profileId)}`, {
+    method: "POST",
+    body: JSON.stringify({ content }),
+  });
+}
+
+export async function postDirectMessageMarkRead(profileId: string): Promise<ApiResponse<DirectMessageMarkReadResponse>> {
+  return apiFetch<DirectMessageMarkReadResponse>(`/api/direct-messages/${encodeURIComponent(profileId)}/mark-read`, {
+    method: "POST",
+  });
+}
+
+export async function fetchDirectMessagesUnreadCount(): Promise<ApiResponse<DirectMessagesUnreadCountResponse>> {
+  return apiFetch<DirectMessagesUnreadCountResponse>("/api/direct-messages/unread-count", {
+    method: "GET",
+  });
+}
 
 export const PROFILE_PATCH_FIELDS = [
   "full_name",
