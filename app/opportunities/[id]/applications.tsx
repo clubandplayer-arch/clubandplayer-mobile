@@ -25,10 +25,10 @@ function asSingle(value: string | string[] | undefined): string {
 
 function statusLabel(value?: string | null): string {
   const v = String(value || "").toLowerCase();
-  if (v === "submitted") return "Submitted";
-  if (v === "seen") return "Seen";
-  if (v === "accepted") return "Accepted";
-  if (v === "rejected") return "Rejected";
+  if (v === "submitted") return "Inviata";
+  if (v === "seen") return "Visualizzata";
+  if (v === "accepted") return "Accettata";
+  if (v === "rejected") return "Rifiutata";
   return value ? String(value) : "-";
 }
 
@@ -64,7 +64,7 @@ export default function OpportunityApplicationsScreen() {
 
         const whoami = await fetchWhoami();
         if (!whoami.ok || whoami.data?.role !== "club") {
-          router.replace("/feed");
+          router.replace("/(tabs)/feed");
           return;
         }
 

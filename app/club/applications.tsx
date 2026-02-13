@@ -14,7 +14,7 @@ type ClubFilterStatus = "pending" | "all" | "accepted" | "rejected";
 const FILTERS: ClubFilterStatus[] = ["pending", "all", "accepted", "rejected"];
 
 function labelForFilter(status: ClubFilterStatus): string {
-  if (status === "pending") return "Pending";
+  if (status === "pending") return "In attesa";
   if (status === "all") return "Tutte";
   if (status === "accepted") return "Accettate";
   return "Rifiutate";
@@ -22,10 +22,10 @@ function labelForFilter(status: ClubFilterStatus): string {
 
 function labelForStatus(status?: string | null): string {
   const v = String(status || "").toLowerCase();
-  if (v === "submitted") return "Submitted";
-  if (v === "seen") return "Seen";
-  if (v === "accepted") return "Accepted";
-  if (v === "rejected") return "Rejected";
+  if (v === "submitted") return "Inviata";
+  if (v === "seen") return "Visualizzata";
+  if (v === "accepted") return "Accettata";
+  if (v === "rejected") return "Rifiutata";
   return status ? String(status) : "-";
 }
 
@@ -72,7 +72,7 @@ export default function ClubApplicationsScreen() {
         const whoami = await fetchWhoami();
         const role = whoami.data?.role;
         if (!whoami.ok || role !== "club") {
-          router.replace("/feed");
+          router.replace("/(tabs)/feed");
           return;
         }
 
