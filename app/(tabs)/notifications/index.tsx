@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -114,6 +114,7 @@ export default function NotificationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [updatingAll, setUpdatingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const localReadIdsRef = useRef<Set<string>>(new Set());
 
   const load = useCallback(async (mode: FilterMode) => {
     setError(null);
@@ -131,7 +132,14 @@ export default function NotificationsScreen() {
       return;
     }
 
-    setItems(Array.isArray(response.data.data) ? response.data.data : []);
+    const serverItems = Array.isArray(response.data.data) ? response.data.data : [];
+    const mergedItems = serverItems.map((notification) => {
+      const shouldForceRead = localReadIdsRef.current.has(notification.id) && !notification.read_at;
+      if (!shouldForceRead) return notification;
+      return { ...notification, read_at: new Date().toISOString(), read: true };
+    });
+
+    setItems(mergedItems);
   }, []);
 
   useEffect(() => {
@@ -186,6 +194,7 @@ export default function NotificationsScreen() {
             const href = resolveNotificationHref(item) || "/notifications";
             if (isUnread) {
               const readAt = new Date().toISOString();
+              localReadIdsRef.current.add(item.id);
               setItems((prev) =>
                 prev.map((current) =>
                   current.id === item.id
