@@ -110,7 +110,7 @@ export default function TabsLayout() {
           tabBarLabel: "Opportunità",
           headerShown: true,
           headerRight: () => (
-            <Pressable onPress={() => router.push("/my/applications")} hitSlop={8}>
+            <Pressable onPress={() => router.push("/applications")} hitSlop={8}>
               <Text style={{ color: "#1d4ed8", fontWeight: "700" }}>Candidature</Text>
             </Pressable>
           ),

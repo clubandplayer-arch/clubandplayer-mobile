@@ -64,7 +64,8 @@ function AuthGate() {
       pathname.startsWith("/opportunities/") ||
       pathname.startsWith("/my/") ||
       pathname.startsWith("/club/") ||
-      pathname.startsWith("/player/");
+      pathname.startsWith("/player/") ||
+      pathname.startsWith("/applications");
 
     let target: string | null = null;
 
@@ -113,6 +114,7 @@ export default function RootLayout() {
         <Stack.Screen name="players/[id]" options={{ headerShown: true, title: "Player" }} />
         <Stack.Screen name="club/profile" options={{ headerShown: true, title: "Profilo Club" }} />
         <Stack.Screen name="player/profile" options={{ headerShown: true, title: "Profilo" }} />
+        <Stack.Screen name="applications/index" options={{ headerShown: false }} />
         <Stack.Screen name="my/applications" options={{ headerShown: true, title: "Le mie candidature" }} />
         <Stack.Screen name="club/applications" options={{ headerShown: true, title: "Candidature ricevute" }} />
         <Stack.Screen name="opportunities/[id]/applications" options={{ headerShown: true, title: "Candidati" }} />
