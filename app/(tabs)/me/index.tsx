@@ -17,12 +17,12 @@ export default function MeProfileDispatcher() {
 
   useEffect(() => {
     if (web.loading || who.loading) return;
-    if (who.error || !who.data) {
+    if (who.error) {
       router.replace("/(tabs)/feed");
     }
-  }, [router, web.loading, who.data, who.error, who.loading]);
+  }, [router, web.loading, who.error, who.loading]);
 
-  if (web.loading || who.loading) {
+  if (web.loading || who.loading || !who.data) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator />
@@ -30,7 +30,7 @@ export default function MeProfileDispatcher() {
     );
   }
 
-  if (who.error || !who.data) {
+  if (who.error) {
     return null;
   }
 
