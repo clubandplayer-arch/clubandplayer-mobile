@@ -303,6 +303,15 @@ export type MyApplicationItem = {
   updated_at?: string | null;
 };
 
+export type ApplyToOpportunityResult = {
+  id: string;
+  opportunity_id: string;
+  athlete_id?: string | null;
+  status?: string | null;
+  created_at?: string | null;
+  club_id?: string | null;
+};
+
 export async function fetchDirectMessageThreads(): Promise<ApiResponse<DirectMessageThreadsResponse>> {
   return apiFetch<DirectMessageThreadsResponse>("/api/direct-messages/threads", { method: "GET" });
 }
@@ -775,6 +784,20 @@ export async function fetchMyApplications(params?: {
       : [];
 
   return { ok: true, status: response.status, data: normalized };
+}
+
+
+export async function applyToOpportunity(opportunityId: string, note?: string | null): Promise<ApiResponse<ApplyToOpportunityResult>> {
+  const cleanId = String(opportunityId ?? "").trim();
+  const cleanNote = typeof note === "string" ? note.trim() : "";
+
+  return apiFetch<ApplyToOpportunityResult>("/api/applications", {
+    method: "POST",
+    body: JSON.stringify({
+      opportunity_id: cleanId,
+      note: cleanNote ? cleanNote : null,
+    }),
+  });
 }
 
 export async function fetchNotifications(params?: {
