@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   fetchClubApplicationsReceived,
@@ -54,6 +55,7 @@ function opportunityLabel(item: ReceivedApplicationItem): string {
 
 export default function ClubApplicationsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [status, setStatus] = useState<ClubFilterStatus>("pending");
   const [items, setItems] = useState<ReceivedApplicationItem[]>([]);
@@ -140,7 +142,7 @@ export default function ClubApplicationsScreen() {
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, paddingBottom: insets.bottom + 12 }}>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 12 }}>
         {FILTERS.map((filter) => {
           const active = filter === status;
@@ -173,6 +175,7 @@ export default function ClubApplicationsScreen() {
         keyExtractor={(item) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load("refresh")} />}
         ListEmptyComponent={empty}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
         renderItem={({ item }) => {
           const oppId = item.opportunity_id ? String(item.opportunity_id) : null;
           const profileId = athleteProfileId(item);

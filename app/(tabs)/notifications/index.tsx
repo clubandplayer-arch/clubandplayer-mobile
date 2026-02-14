@@ -16,6 +16,7 @@ import {
   postNotificationsMarkAllRead,
 } from "../../../src/lib/api";
 import { emit } from "../../../src/lib/events/appEvents";
+import { devWarn } from "../../../src/lib/debug/devLog";
 import type { NotificationWithActor } from "../../../src/types/notifications";
 
 type FilterMode = "all" | "unread";
@@ -184,18 +185,24 @@ export default function NotificationsScreen() {
           onPress={async () => {
             const href = resolveNotificationHref(item) || "/notifications";
             if (isUnread) {
+              const readAt = new Date().toISOString();
+              setItems((prev) =>
+                prev.map((current) =>
+                  current.id === item.id
+                    ? { ...current, read_at: readAt, read: true }
+                    : current,
+                ),
+              );
+
               const response = await patchNotificationsMarkRead({ ids: [item.id] });
               if (response.ok && (response.data?.updated ?? 0) > 0) {
                 emit("app:notifications-updated");
-                setItems((prev) =>
-                  prev.map((current) =>
-                    current.id === item.id
-                      ? { ...current, read_at: new Date().toISOString(), read: true }
-                      : current,
-                  ),
-                );
               } else {
-                setError("Impossibile segnare come letta");
+                devWarn("[notifications] mark-as-read failed", {
+                  id: item.id,
+                  status: response.status,
+                  errorText: response.errorText,
+                });
               }
             }
 
@@ -258,7 +265,7 @@ export default function NotificationsScreen() {
               backgroundColor: filter === "all" ? "#111827" : "#ffffff",
             }}
           >
-            <Text style={{ color: filter === "all" ? "#ffffff" : "#111827", fontWeight: "700" }}>All</Text>
+            <Text style={{ color: filter === "all" ? "#ffffff" : "#111827", fontWeight: "700" }}>Tutte</Text>
           </Pressable>
 
           <Pressable
@@ -273,7 +280,7 @@ export default function NotificationsScreen() {
             }}
           >
             <Text style={{ color: filter === "unread" ? "#ffffff" : "#111827", fontWeight: "700" }}>
-              Unread
+              Da leggere
             </Text>
           </Pressable>
 
