@@ -15,7 +15,7 @@ export default function MeProfileDispatcher() {
 
   const targetRoute = useMemo(() => {
     const role = normalizeRole((who.data as { role?: unknown } | null)?.role);
-    return role === "club" ? "/club/profile" : "/player/profile";
+    return role === "club" ? "/(tabs)/me/club-profile" : "/(tabs)/me/player-profile";
   }, [who.data]);
 
   useEffect(() => {

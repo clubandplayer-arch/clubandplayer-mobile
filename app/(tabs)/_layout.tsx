@@ -136,6 +136,10 @@ export default function TabsLayout() {
         name="messages/[profileId]"
         options={{ href: null }}
       />
+      <Tabs.Screen
+        name="me/debug"
+        options={{ href: null }}
+      />
     </Tabs>
   );
 }
