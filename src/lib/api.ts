@@ -250,6 +250,68 @@ export type NotificationsUnreadCountResponse = {
   count: number;
 };
 
+export type ApplicationStatus = "submitted" | "seen" | "accepted" | "rejected";
+
+export type ReceivedApplicationItem = {
+  id: string;
+  opportunity_id?: string | null;
+  athlete_id?: string | null;
+  status?: string | null;
+  note?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  player_location?: string | null;
+  player_headline?: string | null;
+  athlete?: {
+    id?: string | null;
+    full_name?: string | null;
+    display_name?: string | null;
+    avatar_url?: string | null;
+    athlete_profile_id?: string | null;
+  } | null;
+  opportunity?: {
+    id?: string | null;
+    title?: string | null;
+    role?: string | null;
+    city?: string | null;
+    province?: string | null;
+    region?: string | null;
+  } | null;
+};
+
+export type OpportunityApplicationItem = {
+  id: string;
+  athlete_id?: string | null;
+  note?: string | null;
+  status?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  athlete?: {
+    id?: string | null;
+    full_name?: string | null;
+    display_name?: string | null;
+    avatar_url?: string | null;
+    athlete_profile_id?: string | null;
+  } | null;
+};
+
+export type MyApplicationItem = {
+  id: string;
+  opportunity_id: string;
+  status?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type ApplyToOpportunityResult = {
+  id: string;
+  opportunity_id: string;
+  athlete_id?: string | null;
+  status?: string | null;
+  created_at?: string | null;
+  club_id?: string | null;
+};
+
 export async function fetchDirectMessageThreads(): Promise<ApiResponse<DirectMessageThreadsResponse>> {
   return apiFetch<DirectMessageThreadsResponse>("/api/direct-messages/threads", { method: "GET" });
 }
@@ -628,6 +690,114 @@ export async function fetchOpportunityById(id: string): Promise<ApiResponse<Oppo
     status: response.status,
     data: response.data.data,
   };
+}
+
+export async function fetchClubApplicationsReceived(params?: {
+  status?: "pending" | "accepted" | "rejected" | "all" | string;
+  opportunityId?: string;
+}): Promise<ApiResponse<ReceivedApplicationItem[]>> {
+  const sp = new URLSearchParams();
+  if (typeof params?.status === "string" && params.status.trim()) sp.set("status", params.status.trim());
+  if (typeof params?.opportunityId === "string" && params.opportunityId.trim()) {
+    sp.set("opportunity_id", params.opportunityId.trim());
+  }
+
+  const query = sp.toString();
+  const path = query ? `/api/applications/received?${query}` : "/api/applications/received";
+  const response = await apiFetch<{ data?: ReceivedApplicationItem[] } | ReceivedApplicationItem[]>(path, { method: "GET" });
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      status: response.status,
+      errorText: response.errorText || "Errore nel caricamento candidature ricevute",
+    };
+  }
+
+  const payload = response.data;
+  const normalized = Array.isArray(payload)
+    ? payload
+    : Array.isArray((payload as { data?: ReceivedApplicationItem[] } | undefined)?.data)
+      ? ((payload as { data?: ReceivedApplicationItem[] }).data ?? [])
+      : [];
+
+  return { ok: true, status: response.status, data: normalized };
+}
+
+export async function fetchOpportunityApplications(opportunityId: string): Promise<ApiResponse<OpportunityApplicationItem[]>> {
+  const safeId = encodeURIComponent(String(opportunityId).trim());
+  const response = await apiFetch<{ data?: OpportunityApplicationItem[] } | OpportunityApplicationItem[]>(
+    `/api/opportunities/${safeId}/applications`,
+    { method: "GET" },
+  );
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      status: response.status,
+      errorText: response.errorText || "Errore nel caricamento candidature",
+    };
+  }
+
+  const payload = response.data;
+  const normalized = Array.isArray(payload)
+    ? payload
+    : Array.isArray((payload as { data?: OpportunityApplicationItem[] } | undefined)?.data)
+      ? ((payload as { data?: OpportunityApplicationItem[] }).data ?? [])
+      : [];
+
+  return { ok: true, status: response.status, data: normalized };
+}
+
+export async function patchApplicationStatus(appId: string, status: ApplicationStatus): Promise<ApiResponse<{ ok?: boolean }>> {
+  return apiFetch<{ ok?: boolean }>(`/api/applications/${encodeURIComponent(String(appId).trim())}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function fetchMyApplications(params?: {
+  status?: "all" | "submitted" | "seen" | "accepted" | "rejected" | string;
+}): Promise<ApiResponse<MyApplicationItem[]>> {
+  const sp = new URLSearchParams();
+  if (typeof params?.status === "string" && params.status.trim()) {
+    sp.set("status", params.status.trim());
+  }
+
+  const query = sp.toString();
+  const path = query ? `/api/applications/me?${query}` : "/api/applications/me";
+  const response = await apiFetch<{ data?: MyApplicationItem[] } | MyApplicationItem[]>(path, { method: "GET" });
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      status: response.status,
+      errorText: response.errorText || "Errore nel caricamento candidature utente",
+    };
+  }
+
+  const payload = response.data;
+  const normalized = Array.isArray(payload)
+    ? payload
+    : Array.isArray((payload as { data?: MyApplicationItem[] } | undefined)?.data)
+      ? ((payload as { data?: MyApplicationItem[] }).data ?? [])
+      : [];
+
+  return { ok: true, status: response.status, data: normalized };
+}
+
+
+export async function applyToOpportunity(opportunityId: string, note?: string | null): Promise<ApiResponse<ApplyToOpportunityResult>> {
+  const cleanId = String(opportunityId ?? "").trim();
+  const cleanNote = typeof note === "string" ? note.trim() : "";
+
+  return apiFetch<ApplyToOpportunityResult>("/api/applications", {
+    method: "POST",
+    body: JSON.stringify({
+      opportunity_id: cleanId,
+      note: cleanNote ? cleanNote : null,
+    }),
+  });
 }
 
 export async function fetchNotifications(params?: {

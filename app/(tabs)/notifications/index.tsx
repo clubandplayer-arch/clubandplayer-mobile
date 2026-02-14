@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -16,6 +16,7 @@ import {
   postNotificationsMarkAllRead,
 } from "../../../src/lib/api";
 import { emit } from "../../../src/lib/events/appEvents";
+import { devWarn } from "../../../src/lib/debug/devLog";
 import type { NotificationWithActor } from "../../../src/types/notifications";
 
 type FilterMode = "all" | "unread";
@@ -113,6 +114,7 @@ export default function NotificationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [updatingAll, setUpdatingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const localReadIdsRef = useRef<Set<string>>(new Set());
 
   const load = useCallback(async (mode: FilterMode) => {
     setError(null);
@@ -130,7 +132,14 @@ export default function NotificationsScreen() {
       return;
     }
 
-    setItems(Array.isArray(response.data.data) ? response.data.data : []);
+    const serverItems = Array.isArray(response.data.data) ? response.data.data : [];
+    const mergedItems = serverItems.map((notification) => {
+      const shouldForceRead = localReadIdsRef.current.has(notification.id) && !notification.read_at;
+      if (!shouldForceRead) return notification;
+      return { ...notification, read_at: new Date().toISOString(), read: true };
+    });
+
+    setItems(mergedItems);
   }, []);
 
   useEffect(() => {
@@ -184,18 +193,25 @@ export default function NotificationsScreen() {
           onPress={async () => {
             const href = resolveNotificationHref(item) || "/notifications";
             if (isUnread) {
+              const readAt = new Date().toISOString();
+              localReadIdsRef.current.add(item.id);
+              setItems((prev) =>
+                prev.map((current) =>
+                  current.id === item.id
+                    ? { ...current, read_at: readAt, read: true }
+                    : current,
+                ),
+              );
+
               const response = await patchNotificationsMarkRead({ ids: [item.id] });
               if (response.ok && (response.data?.updated ?? 0) > 0) {
                 emit("app:notifications-updated");
-                setItems((prev) =>
-                  prev.map((current) =>
-                    current.id === item.id
-                      ? { ...current, read_at: new Date().toISOString(), read: true }
-                      : current,
-                  ),
-                );
               } else {
-                setError("Impossibile segnare come letta");
+                devWarn("[notifications] mark-as-read failed", {
+                  id: item.id,
+                  status: response.status,
+                  errorText: response.errorText,
+                });
               }
             }
 
@@ -258,7 +274,7 @@ export default function NotificationsScreen() {
               backgroundColor: filter === "all" ? "#111827" : "#ffffff",
             }}
           >
-            <Text style={{ color: filter === "all" ? "#ffffff" : "#111827", fontWeight: "700" }}>All</Text>
+            <Text style={{ color: filter === "all" ? "#ffffff" : "#111827", fontWeight: "700" }}>Tutte</Text>
           </Pressable>
 
           <Pressable
@@ -273,7 +289,7 @@ export default function NotificationsScreen() {
             }}
           >
             <Text style={{ color: filter === "unread" ? "#ffffff" : "#111827", fontWeight: "700" }}>
-              Unread
+              Da leggere
             </Text>
           </Pressable>
 
