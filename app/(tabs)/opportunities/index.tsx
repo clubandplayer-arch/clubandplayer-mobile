@@ -9,7 +9,8 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 
-import { fetchOpportunities } from "../../../src/lib/api";
+import { devWarn } from "../../../src/lib/debug/devLog";
+import { fetchMyApplications, fetchOpportunities, useWebSession, useWhoami } from "../../../src/lib/api";
 import type { Opportunity } from "../../../src/types/opportunity";
 
 function getClubProfileId(opp: Opportunity): string | null {
@@ -50,7 +51,19 @@ function Chip({ label }: { label: string }) {
   );
 }
 
-function OpportunityCard({ item }: { item: Opportunity }) {
+function normalizeRole(role: unknown): string {
+  return String(role ?? "").trim().toLowerCase();
+}
+
+function OpportunityCard({
+  item,
+  showApplyActions,
+  alreadyApplied,
+}: {
+  item: Opportunity;
+  showApplyActions: boolean;
+  alreadyApplied: boolean;
+}) {
   const router = useRouter();
 
   const clubProfileId = getClubProfileId(item);
@@ -114,18 +127,60 @@ function OpportunityCard({ item }: { item: Opportunity }) {
         <Text style={{ color: "#6b7280", textTransform: "capitalize" }}>{item.status || "-"}</Text>
         <Text style={{ color: "#6b7280" }}>{formatDate(item.created_at)}</Text>
       </View>
+
+      {showApplyActions ? (
+        alreadyApplied ? (
+          <View
+            style={{
+              alignSelf: "flex-start",
+              borderWidth: 1,
+              borderColor: "#86efac",
+              backgroundColor: "#f0fdf4",
+              borderRadius: 999,
+              paddingVertical: 6,
+              paddingHorizontal: 10,
+            }}
+          >
+            <Text style={{ fontWeight: "700", color: "#166534" }}>Candidatura inviata</Text>
+          </View>
+        ) : (
+          <Pressable
+            onPress={(event) => {
+              event.stopPropagation();
+              onOpenOpportunity();
+            }}
+            style={{
+              alignSelf: "flex-start",
+              borderRadius: 10,
+              backgroundColor: "#111827",
+              paddingVertical: 8,
+              paddingHorizontal: 12,
+            }}
+          >
+            <Text style={{ color: "#ffffff", fontWeight: "700" }}>Candidati</Text>
+          </Pressable>
+        )
+      ) : null}
     </Pressable>
   );
 }
 
 export default function OpportunitiesScreen() {
+  const web = useWebSession();
+  const whoami = useWhoami(web.ready);
+
   const [items, setItems] = useState<Opportunity[]>([]);
+  const [appliedOpportunityIds, setAppliedOpportunityIds] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [pageCount, setPageCount] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const role = normalizeRole((whoami.data as { role?: unknown } | null)?.role);
+  const isClub = role === "club";
+  const isPlayer = !isClub;
 
   const canLoadMore = useMemo(() => page < pageCount, [page, pageCount]);
 
@@ -144,6 +199,25 @@ export default function OpportunitiesScreen() {
     }
 
     setError(null);
+
+    if (mode === "replace" && isPlayer) {
+      const applicationsResponse = await fetchMyApplications({ status: "all" });
+      if (applicationsResponse.ok && applicationsResponse.data) {
+        const nextAppliedIds = new Set(
+          applicationsResponse.data
+            .map((application) => String(application.opportunity_id ?? "").trim())
+            .filter(Boolean),
+        );
+        setAppliedOpportunityIds(nextAppliedIds);
+      } else {
+        devWarn("[opportunities] fetchMyApplications failed", {
+          status: applicationsResponse.status,
+          errorText: applicationsResponse.errorText,
+        });
+        setAppliedOpportunityIds(new Set());
+      }
+    }
+
     setPage(response.data.page || nextPage);
     setPageCount(response.data.pageCount || 1);
     setItems((prev) => (mode === "append" ? [...prev, ...response.data.data] : response.data.data));
@@ -151,11 +225,12 @@ export default function OpportunitiesScreen() {
     setLoading(false);
     setLoadingMore(false);
     setRefreshing(false);
-  }, []);
+  }, [isPlayer]);
 
   useEffect(() => {
+    if (web.loading || whoami.loading) return;
     void loadPage(1, "replace");
-  }, [loadPage]);
+  }, [loadPage, web.loading, whoami.loading]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -191,7 +266,16 @@ export default function OpportunitiesScreen() {
     <FlatList
       data={items}
       keyExtractor={(item) => String(item.id)}
-      renderItem={({ item }) => <OpportunityCard item={item} />}
+      renderItem={({ item }) => {
+        const alreadyApplied = appliedOpportunityIds.has(String(item.id));
+        return (
+          <OpportunityCard
+            item={item}
+            showApplyActions={isPlayer}
+            alreadyApplied={alreadyApplied}
+          />
+        );
+      }}
       contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }}
       ListEmptyComponent={<Text style={{ color: "#6b7280" }}>Nessuna opportunità disponibile.</Text>}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}

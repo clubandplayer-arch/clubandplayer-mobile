@@ -295,6 +295,14 @@ export type OpportunityApplicationItem = {
   } | null;
 };
 
+export type MyApplicationItem = {
+  id: string;
+  opportunity_id: string;
+  status?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
 export async function fetchDirectMessageThreads(): Promise<ApiResponse<DirectMessageThreadsResponse>> {
   return apiFetch<DirectMessageThreadsResponse>("/api/direct-messages/threads", { method: "GET" });
 }
@@ -737,6 +745,36 @@ export async function patchApplicationStatus(appId: string, status: ApplicationS
     method: "PATCH",
     body: JSON.stringify({ status }),
   });
+}
+
+export async function fetchMyApplications(params?: {
+  status?: "all" | "submitted" | "seen" | "accepted" | "rejected" | string;
+}): Promise<ApiResponse<MyApplicationItem[]>> {
+  const sp = new URLSearchParams();
+  if (typeof params?.status === "string" && params.status.trim()) {
+    sp.set("status", params.status.trim());
+  }
+
+  const query = sp.toString();
+  const path = query ? `/api/applications/me?${query}` : "/api/applications/me";
+  const response = await apiFetch<{ data?: MyApplicationItem[] } | MyApplicationItem[]>(path, { method: "GET" });
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      status: response.status,
+      errorText: response.errorText || "Errore nel caricamento candidature utente",
+    };
+  }
+
+  const payload = response.data;
+  const normalized = Array.isArray(payload)
+    ? payload
+    : Array.isArray((payload as { data?: MyApplicationItem[] } | undefined)?.data)
+      ? ((payload as { data?: MyApplicationItem[] }).data ?? [])
+      : [];
+
+  return { ok: true, status: response.status, data: normalized };
 }
 
 export async function fetchNotifications(params?: {
