@@ -14,14 +14,6 @@ export default function MeProfileDispatcher() {
   const web = useWebSession();
   const who = useWhoami(web.ready);
 
-  if (web.loading || who.loading || !who.data) {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator />
-      </View>
-    );
-  }
-
   if (web.error || who.error) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 20 }}>
@@ -43,6 +35,14 @@ export default function MeProfileDispatcher() {
             <Text style={{ fontWeight: "600" }}>Vai al Feed</Text>
           </Pressable>
         </View>
+      </View>
+    );
+  }
+
+  if (web.loading || who.loading || !who.data) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator />
       </View>
     );
   }
