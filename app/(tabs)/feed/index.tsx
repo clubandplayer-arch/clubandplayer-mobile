@@ -23,6 +23,11 @@ import { clearSession, useWebSession, useWhoami } from "../../../src/lib/api";
 import FeedComposer from "../../../components/feed/FeedComposer";
 import { sharePostById } from "../../../src/lib/sharePost";
 import { devWarn } from "../../../src/lib/debug/devLog";
+import AdSlot from "../../../components/ads/AdSlot";
+
+type FeedRow =
+  | { type: "post"; key: string; item: FeedPost }
+  | { type: "ad"; key: string };
 
 function formatWhen(iso?: string | null) {
   if (!iso) return "";
@@ -496,6 +501,27 @@ export default function FeedScreen() {
     return <View style={{ height: 16 }} />;
   }, [items.length, loadingMore, nextPage]);
 
+  const rows = useMemo<FeedRow[]>(() => {
+    const out: FeedRow[] = [];
+
+    items.forEach((item, index) => {
+      out.push({
+        type: "post",
+        key: `post-${item.id}`,
+        item,
+      });
+
+      if ((index + 1) % 3 === 0) {
+        out.push({
+          type: "ad",
+          key: `ad-after-${index + 1}`,
+        });
+      }
+    });
+
+    return out;
+  }, [items]);
+
   if (loading || web.loading) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
@@ -507,9 +533,15 @@ export default function FeedScreen() {
 
   return (
     <FlatList
-      data={items}
-      keyExtractor={(it) => it.id}
-      renderItem={({ item }) => <FeedCard item={item} onToast={showFlash} />}
+      data={rows}
+      keyExtractor={(it) => it.key}
+      renderItem={({ item }) => {
+        if (item.type === "ad") {
+          return <AdSlot slot="feed_infeed" page="feed" />;
+        }
+
+        return <FeedCard item={item.item} onToast={showFlash} />;
+      }}
       ListHeaderComponent={header}
       ListFooterComponent={footer}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}

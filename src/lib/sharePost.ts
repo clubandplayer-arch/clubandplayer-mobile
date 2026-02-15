@@ -1,5 +1,4 @@
 import { Share } from "react-native";
-import * as Clipboard from "expo-clipboard";
 
 import { devWarn } from "./debug/devLog";
 import { createPostShareLink } from "./shareLinks";
@@ -14,9 +13,8 @@ export async function sharePostById(postId: string, toast?: ToastFn) {
     await Share.share({ message: url });
     return { ok: true as const, url };
   } catch (err) {
-    devWarn("Share.share failed, falling back to clipboard", err);
-    await Clipboard.setStringAsync(url);
-    toast?.("Link copiato");
-    return { ok: true as const, url, copied: true as const };
+    devWarn("Share.share failed", err);
+    toast?.("Condivisione non disponibile");
+    return { ok: false as const, url };
   }
 }

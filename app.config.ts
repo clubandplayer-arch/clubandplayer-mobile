@@ -37,6 +37,7 @@ const config: ExpoConfig = {
 
   // ✅ NECESSARIO per collegare il progetto locale a EAS (dynamic config)
   extra: {
+    NEXT_PUBLIC_ADS_ENABLED: process.env.NEXT_PUBLIC_ADS_ENABLED ?? "false",
     eas: {
       projectId: "a7dfd4f0-0687-4503-9c73-17f0a294cfbc",
     },
