@@ -196,14 +196,15 @@ function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: strin
           </View>
         ) : null}
 
-        <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
-          <Text style={{ fontSize: 12, color: "#6b7280" }}>👍 {likeCount}</Text>
-          <Text style={{ fontSize: 12, color: "#6b7280" }}>💬 {commentCount}</Text>
-          <Pressable onPress={handleShare}>
-            <Text style={{ fontSize: 12, color: "#111827", fontWeight: "700" }}>Condividi</Text>
-          </Pressable>
-        </View>
       </Pressable>
+
+      <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
+        <Text style={{ fontSize: 12, color: "#6b7280" }}>👍 {likeCount}</Text>
+        <Text style={{ fontSize: 12, color: "#6b7280" }}>💬 {commentCount}</Text>
+        <Pressable onPress={handleShare}>
+          <Text style={{ fontSize: 12, color: "#111827", fontWeight: "700" }}>Condividi</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }

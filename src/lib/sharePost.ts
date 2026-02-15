@@ -1,4 +1,5 @@
-import { Clipboard, Share } from "react-native";
+import { Share } from "react-native";
+import * as Clipboard from "expo-clipboard";
 
 import { devWarn } from "./debug/devLog";
 import { createPostShareLink } from "./shareLinks";
@@ -14,7 +15,7 @@ export async function sharePostById(postId: string, toast?: ToastFn) {
     return { ok: true as const, url };
   } catch (err) {
     devWarn("Share.share failed, falling back to clipboard", err);
-    Clipboard.setString(url);
+    await Clipboard.setStringAsync(url);
     toast?.("Link copiato");
     return { ok: true as const, url, copied: true as const };
   }
