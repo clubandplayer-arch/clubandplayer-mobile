@@ -24,6 +24,8 @@ import {
   type FeedAuthor,
 } from "../../src/lib/feed/getFeedPosts";
 import { emit } from "../../src/lib/events/appEvents";
+import { sharePostById } from "../../src/lib/sharePost";
+import { devWarn } from "../../src/lib/debug/devLog";
 
 const POST_FIELDS =
   "id, content, created_at, author_id, media_url, media_type, media_aspect, kind, event_payload, quoted_post_id";
@@ -234,6 +236,7 @@ export default function PostDetailScreen() {
   });
 
   const [isToggling, setIsToggling] = useState(false);
+  const [flash, setFlash] = useState<string | null>(null);
 
   const loadSocial = useCallback(async (targetPostId: string) => {
     setSocial((prev) => ({ ...prev, loading: true, error: null }));
@@ -355,6 +358,16 @@ export default function PostDetailScreen() {
   };
 
 
+  const handleShare = async () => {
+    if (!postId) return;
+    try {
+      await sharePostById(postId, setFlash);
+    } catch (error: any) {
+      devWarn("sharePostById failed", error);
+      setFlash(error?.message ? String(error.message) : "Condivisione non disponibile");
+    }
+  };
+
   const handleCommentCountChange = (nextCount: number) => {
     setSocial((prev) => ({ ...prev, commentCount: Math.max(0, nextCount) }));
     emit("feed:refresh");
@@ -472,6 +485,12 @@ export default function PostDetailScreen() {
       <PostCard post={post} />
       {quotedPost ? <PostCard post={quotedPost} title="Post citato" /> : null}
 
+      {flash ? (
+        <View style={{ borderWidth: 1, borderColor: "#e5e7eb", backgroundColor: "#f9fafb", borderRadius: 12, padding: 12 }}>
+          <Text style={{ fontWeight: "700", color: "#111827" }}>{flash}</Text>
+        </View>
+      ) : null}
+
       <View
         style={{
           borderWidth: 1,
@@ -498,23 +517,39 @@ export default function PostDetailScreen() {
 
         {social.error ? <Text style={{ color: "#b91c1c" }}>{social.error}</Text> : null}
 
-        <Pressable
-          onPress={handleLikeToggle}
-          style={{
-            paddingVertical: 10,
-            paddingHorizontal: 14,
-            borderRadius: 10,
-            borderWidth: 1,
-            borderColor: social.viewerHasLiked ? "#111827" : "#d1d5db",
-            backgroundColor: social.viewerHasLiked ? "#111827" : "transparent",
-            alignSelf: "flex-start",
-            opacity: isToggling ? 0.6 : 1,
-          }}
-        >
-          <Text style={{ color: social.viewerHasLiked ? "#ffffff" : "#111827", fontWeight: "700" }}>
-            {social.viewerHasLiked ? "Hai messo 👍" : "Metti 👍"}
-          </Text>
-        </Pressable>
+        <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+          <Pressable
+            onPress={handleLikeToggle}
+            style={{
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: social.viewerHasLiked ? "#111827" : "#d1d5db",
+              backgroundColor: social.viewerHasLiked ? "#111827" : "transparent",
+              alignSelf: "flex-start",
+              opacity: isToggling ? 0.6 : 1,
+            }}
+          >
+            <Text style={{ color: social.viewerHasLiked ? "#ffffff" : "#111827", fontWeight: "700" }}>
+              {social.viewerHasLiked ? "Hai messo 👍" : "Metti 👍"}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={handleShare}
+            style={{
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: "#d1d5db",
+              alignSelf: "flex-start",
+            }}
+          >
+            <Text style={{ color: "#111827", fontWeight: "700" }}>Condividi</Text>
+          </Pressable>
+        </View>
       </View>
 
       <CommentsSection
