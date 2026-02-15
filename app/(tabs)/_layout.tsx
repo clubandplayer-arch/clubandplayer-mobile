@@ -5,20 +5,14 @@ import { Pressable, Text } from "react-native";
 
 import {
   fetchDirectMessagesUnreadCount,
-  fetchNotificationsUnreadCount,
 } from "../../src/lib/api";
 import { on } from "../../src/lib/events/appEvents";
+import { useNotificationsBadgeCount } from "../../src/lib/notificationsBadge";
 
 export default function TabsLayout() {
   const router = useRouter();
-  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const unreadCount = useNotificationsBadgeCount();
   const [messagesUnreadCount, setMessagesUnreadCount] = useState<number>(0);
-
-  const loadUnreadCount = useCallback(async () => {
-    const response = await fetchNotificationsUnreadCount();
-    if (!response.ok || !response.data) return;
-    setUnreadCount(response.data.count || 0);
-  }, []);
 
   const loadMessagesUnreadCount = useCallback(async () => {
     const response = await fetchDirectMessagesUnreadCount();
@@ -27,17 +21,11 @@ export default function TabsLayout() {
   }, []);
 
   useEffect(() => {
-    loadUnreadCount();
     loadMessagesUnreadCount();
 
     const timer = setInterval(() => {
-      loadUnreadCount();
       loadMessagesUnreadCount();
     }, 45000);
-
-    const unsubscribeNotifications = on("app:notifications-updated", () => {
-      loadUnreadCount();
-    });
 
     const unsubscribeMessages = on("app:direct-messages-updated", () => {
       loadMessagesUnreadCount();
@@ -45,10 +33,9 @@ export default function TabsLayout() {
 
     return () => {
       clearInterval(timer);
-      unsubscribeNotifications();
       unsubscribeMessages();
     };
-  }, [loadMessagesUnreadCount, loadUnreadCount]);
+  }, [loadMessagesUnreadCount]);
 
   return (
     <Tabs

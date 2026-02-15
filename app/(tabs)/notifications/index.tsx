@@ -14,12 +14,19 @@ import {
   fetchNotifications,
   patchNotificationsMarkRead,
   postNotificationsMarkAllRead,
+  useWebSession,
+  useWhoami,
 } from "../../../src/lib/api";
 import { emit } from "../../../src/lib/events/appEvents";
 import { devWarn } from "../../../src/lib/debug/devLog";
+import { setNotificationsBadgeCount } from "../../../src/lib/notificationsBadge";
 import type { NotificationWithActor } from "../../../src/types/notifications";
 
 type FilterMode = "all" | "unread";
+
+function normalizeRole(role: unknown): string {
+  return String(role ?? "").toLowerCase().trim();
+}
 
 function formatWhen(iso?: string | null): string {
   if (!iso) return "";
@@ -115,6 +122,13 @@ export default function NotificationsScreen() {
   const [updatingAll, setUpdatingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const localReadIdsRef = useRef<Set<string>>(new Set());
+  const web = useWebSession();
+  const whoami = useWhoami(web.ready);
+
+  const updateItemsWithBadge = useCallback((nextItems: NotificationWithActor[]) => {
+    setItems(nextItems);
+    setNotificationsBadgeCount(nextItems.filter((notification) => !notification.read_at).length);
+  }, []);
 
   const load = useCallback(async (mode: FilterMode) => {
     setError(null);
@@ -127,7 +141,7 @@ export default function NotificationsScreen() {
     });
 
     if (!response.ok || !response.data) {
-      setItems([]);
+      updateItemsWithBadge([]);
       setError(response.errorText || "Errore nel caricamento notifiche");
       return;
     }
@@ -139,8 +153,8 @@ export default function NotificationsScreen() {
       return { ...notification, read_at: new Date().toISOString(), read: true };
     });
 
-    setItems(mergedItems);
-  }, []);
+    updateItemsWithBadge(mergedItems);
+  }, [updateItemsWithBadge]);
 
   useEffect(() => {
     let mounted = true;
@@ -176,12 +190,16 @@ export default function NotificationsScreen() {
         return;
       }
 
+      const readAt = new Date().toISOString();
+      const markedItems = items.map((item) => ({ ...item, read_at: readAt, read: true }));
+      localReadIdsRef.current = new Set(markedItems.map((item) => item.id));
+      updateItemsWithBadge(markedItems);
       emit("app:notifications-updated");
       await load(filter);
     } finally {
       setUpdatingAll(false);
     }
-  }, [filter, load]);
+  }, [filter, items, load, updateItemsWithBadge]);
 
   const renderItem = useCallback(
     ({ item }: { item: NotificationWithActor }) => {
@@ -191,17 +209,26 @@ export default function NotificationsScreen() {
       return (
         <Pressable
           onPress={async () => {
-            const href = resolveNotificationHref(item) || "/notifications";
+            const role = normalizeRole((whoami.data as { role?: unknown } | null)?.role);
+            const href =
+              item.kind === "application_received"
+                ? role === "club"
+                  ? "/club/applications"
+                  : "/applications"
+                : resolveNotificationHref(item) || "/notifications";
+
             if (isUnread) {
               const readAt = new Date().toISOString();
               localReadIdsRef.current.add(item.id);
-              setItems((prev) =>
-                prev.map((current) =>
+              setItems((prev) => {
+                const nextItems = prev.map((current) =>
                   current.id === item.id
                     ? { ...current, read_at: readAt, read: true }
                     : current,
-                ),
-              );
+                );
+                setNotificationsBadgeCount(nextItems.filter((notification) => !notification.read_at).length);
+                return nextItems;
+              });
 
               const response = await patchNotificationsMarkRead({ ids: [item.id] });
               if (response.ok && (response.data?.updated ?? 0) > 0) {
@@ -254,7 +281,7 @@ export default function NotificationsScreen() {
         </Pressable>
       );
     },
-    [router],
+    [router, whoami.data],
   );
 
   const header = useMemo(
