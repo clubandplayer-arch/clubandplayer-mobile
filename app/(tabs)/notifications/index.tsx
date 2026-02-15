@@ -229,10 +229,13 @@ export default function NotificationsScreen() {
         <Pressable
           onPress={async () => {
             const role = normalizeRole((whoami.data as { role?: unknown } | null)?.role);
+            const opportunityId = payloadValue(item.payload, "opportunity_id");
             const href =
               item.kind === "application_received"
                 ? role === "club"
-                  ? "/club/applications"
+                  ? opportunityId
+                    ? { pathname: "/club/applications", params: { opportunity_id: opportunityId } }
+                    : "/club/applications"
                   : "/applications"
                 : resolveNotificationHref(item) || "/notifications";
 

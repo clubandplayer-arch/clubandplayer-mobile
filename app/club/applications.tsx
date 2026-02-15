@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
@@ -56,6 +56,10 @@ function opportunityLabel(item: ReceivedApplicationItem): string {
 export default function ClubApplicationsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ opportunity_id?: string | string[] }>();
+  const opportunityId = Array.isArray(params.opportunity_id)
+    ? params.opportunity_id[0]?.trim() || ""
+    : String(params.opportunity_id ?? "").trim();
 
   const [status, setStatus] = useState<ClubFilterStatus>("pending");
   const [items, setItems] = useState<ReceivedApplicationItem[]>([]);
@@ -79,7 +83,7 @@ export default function ClubApplicationsScreen() {
           return;
         }
 
-        const response = await fetchClubApplicationsReceived({ status });
+        const response = await fetchClubApplicationsReceived({ status, opportunityId });
         if (!response.ok || !response.data) {
           throw new Error(response.errorText || "Errore nel caricamento");
         }
@@ -93,7 +97,7 @@ export default function ClubApplicationsScreen() {
         setRefreshing(false);
       }
     },
-    [router, status],
+    [opportunityId, router, status],
   );
 
   useFocusEffect(
@@ -106,7 +110,7 @@ export default function ClubApplicationsScreen() {
   useEffect(() => {
     if (!hasFocusedOnceRef.current) return;
     void load("refresh");
-  }, [status, load]);
+  }, [opportunityId, status, load]);
 
   const empty = useMemo(() => {
     if (loading || error) return null;
