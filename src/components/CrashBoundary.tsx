@@ -1,56 +1,88 @@
 import React from "react";
-import { Link } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { setCrashLog } from "../lib/crashlog";
 
 type CrashBoundaryProps = {
   children: React.ReactNode;
 };
 
 type CrashBoundaryState = {
-  error: Error | null;
+  hasError: boolean;
+  error?: Error;
+  boundaryKey: number;
 };
 
 export class CrashBoundary extends React.Component<
   CrashBoundaryProps,
   CrashBoundaryState
 > {
-  state: CrashBoundaryState = { error: null };
+  state: CrashBoundaryState = {
+    hasError: false,
+    error: undefined,
+    boundaryKey: 0,
+  };
 
-  componentDidCatch(error: Error) {
-    this.setState({ error });
-    void setCrashLog({
-      message: error.message || "Unknown error",
-      stack: error.stack ?? null,
-      name: error.name ?? null,
-    });
+  static getDerivedStateFromError(error: Error): Partial<CrashBoundaryState> {
+    return {
+      hasError: true,
+      error,
+    };
   }
 
-  render() {
-    const { error } = this.state;
-    if (!error) {
-      return this.props.children;
+  componentDidCatch(error: Error) {
+    if (__DEV__) {
+      console.error("CrashBoundary caught an error", error);
     }
+    // TODO: integrate remote crash reporting (e.g. Sentry) in production.
+  }
 
-    return (
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 32 }}
-      >
-        <Text style={{ fontSize: 24, fontWeight: "800" }}>Errore</Text>
-        <View style={{ gap: 8 }}>
-          <Text style={{ fontWeight: "700" }}>Message</Text>
-          <Text style={{ color: "#b91c1c" }}>{error.message || "—"}</Text>
-        </View>
-        <View style={{ gap: 8 }}>
-          <Text style={{ fontWeight: "700" }}>Stack</Text>
-          <Text style={{ fontFamily: "Courier", color: "#111827" }}>
-            {error.stack || "—"}
+  private handleRetry = () => {
+    this.setState((prev) => ({
+      hasError: false,
+      error: undefined,
+      boundaryKey: prev.boundaryKey + 1,
+    }));
+  };
+
+  render() {
+    const { hasError, error, boundaryKey } = this.state;
+
+    if (hasError) {
+      return (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: "center",
+            padding: 24,
+            gap: 12,
+          }}
+        >
+          <Text style={{ fontSize: 24, fontWeight: "800" }}>
+            Si è verificato un errore
           </Text>
-        </View>
-        <Link href="/(tabs)/me/debug" asChild>
+          {!!error?.message && <Text style={{ color: "#374151" }}>{error.message}</Text>}
+
+          {__DEV__ && !!error && (
+            <View style={{ gap: 8 }}>
+              <Text style={{ fontWeight: "700" }}>Dettagli (DEV)</Text>
+              <Text style={{ color: "#111827" }} selectable>
+                {JSON.stringify(
+                  {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack,
+                  },
+                  null,
+                  2,
+                )}
+              </Text>
+            </View>
+          )}
+
           <Pressable
+            onPress={this.handleRetry}
             style={{
+              marginTop: 8,
               paddingVertical: 10,
               paddingHorizontal: 14,
               borderRadius: 8,
@@ -58,12 +90,12 @@ export class CrashBoundary extends React.Component<
               alignSelf: "flex-start",
             }}
           >
-            <Text style={{ color: "#ffffff", fontWeight: "700" }}>
-              Torna al debug
-            </Text>
+            <Text style={{ color: "#ffffff", fontWeight: "700" }}>Riprova</Text>
           </Pressable>
-        </Link>
-      </ScrollView>
-    );
+        </ScrollView>
+      );
+    }
+
+    return <View key={boundaryKey} style={{ flex: 1 }}>{this.props.children}</View>;
   }
 }
