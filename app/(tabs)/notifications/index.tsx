@@ -56,9 +56,28 @@ function buildNotificationText(notification: NotificationWithActor): string {
       return "Nuova opportunità disponibile";
     case "application_status":
       return "Aggiornamento sullo stato candidatura";
+    case "application_received":
+      return "Nuova candidatura ricevuta";
     default:
       return "Hai ricevuto una nuova notifica";
   }
+}
+
+function buildNotificationPreview(notification: NotificationWithActor): string | null {
+  const payloadPreview = payloadValue(notification.payload, "preview");
+  if (payloadPreview) return payloadPreview;
+
+  if (notification.kind === "application_received") {
+    const actorName = notification.actor?.public_name ?? "Un player";
+    const opportunityTitle =
+      payloadValue(notification.payload, "opportunity_title") ||
+      payloadValue(notification.payload, "title");
+
+    if (opportunityTitle) return `${actorName} si è candidato a ${opportunityTitle}`;
+    return `${actorName} si è candidato a una tua opportunità`;
+  }
+
+  return null;
 }
 
 function resolveNotificationHref(notification: NotificationWithActor): string {
@@ -203,7 +222,7 @@ export default function NotificationsScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: NotificationWithActor }) => {
-      const preview = payloadValue(item.payload, "preview");
+      const preview = buildNotificationPreview(item);
       const isUnread = !item.read_at;
 
       return (
