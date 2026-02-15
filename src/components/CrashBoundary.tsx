@@ -29,7 +29,10 @@ export class CrashBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error) {
-    this.setState({ hasError: true, error });
+    if (__DEV__) {
+      console.error("CrashBoundary caught an error", error);
+    }
+    // TODO: integrate remote crash reporting (e.g. Sentry) in production.
   }
 
   private handleRetry = () => {
