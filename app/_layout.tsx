@@ -2,6 +2,7 @@ import { Stack, usePathname, useRouter, useSegments } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import type { Session } from "@supabase/supabase-js";
+import { CrashBoundary } from "../src/components/CrashBoundary";
 import { supabase } from "../src/lib/supabase";
 import { getOnboardingSeen, subscribeOnboardingSeen } from "../src/lib/onboarding";
 
@@ -101,7 +102,7 @@ function AuthGate() {
 
 export default function RootLayout() {
   return (
-    <>
+    <CrashBoundary>
       <AuthGate />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
@@ -119,6 +120,6 @@ export default function RootLayout() {
         <Stack.Screen name="club/applications" options={{ headerShown: true, title: "Candidature ricevute" }} />
         <Stack.Screen name="opportunities/[id]/applications" options={{ headerShown: true, title: "Candidati" }} />
       </Stack>
-    </>
+    </CrashBoundary>
   );
 }
