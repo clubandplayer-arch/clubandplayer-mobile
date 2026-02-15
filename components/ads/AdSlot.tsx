@@ -30,7 +30,7 @@ type AdsServeResponse = {
 };
 
 type AdCreative = {
-  creativeId: string;
+  id: string;
   campaignId: string;
   title: string | null;
   body: string | null;
@@ -49,11 +49,11 @@ function normalizeCreative(input: unknown): AdCreative | null {
   if (!input || typeof input !== "object") return null;
   const row = input as Record<string, unknown>;
 
-  const creativeId = normalizeString(row.creativeId ?? row.creative_id ?? row.id);
+  const id = normalizeString(row.id);
   const campaignId = normalizeString(row.campaignId ?? row.campaign_id);
   const targetUrl = normalizeString(row.targetUrl ?? row.target_url);
 
-  if (!creativeId || !campaignId || !targetUrl) return null;
+  if (!id || !campaignId || !targetUrl) return null;
 
   const title = normalizeString(row.title ?? row.headline);
   const body = normalizeString(row.body ?? row.description);
@@ -61,7 +61,7 @@ function normalizeCreative(input: unknown): AdCreative | null {
   const ctaText = normalizeString(row.ctaText ?? row.cta_text ?? row.ctaLabel) ?? "Scopri di più";
 
   return {
-    creativeId,
+    id,
     campaignId,
     title,
     body,
@@ -77,13 +77,9 @@ function isAdsEnabled(): boolean {
     (Constants.manifest as any)?.extra ??
     {};
 
-  const raw =
-    process.env.NEXT_PUBLIC_ADS_ENABLED ??
-    extra.NEXT_PUBLIC_ADS_ENABLED ??
-    extra.adsEnabled ??
-    "false";
-
-  return String(raw).toLowerCase() === "true";
+  const raw = extra.NEXT_PUBLIC_ADS_ENABLED ?? "false";
+  const normalized = String(raw).trim().toLowerCase();
+  return normalized === "true" || normalized === "1";
 }
 
 async function serveFeedAd(slot: string, page: string, withExclude: boolean): Promise<AdCreative | null> {
@@ -100,14 +96,18 @@ async function serveFeedAd(slot: string, page: string, withExclude: boolean): Pr
     exclude_creative_ids: coordinatorInput.excludeCreativeIds,
   };
 
-  const response = await apiFetch<AdsServeResponse>("/api/ads/serve", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  try {
+    const response = await apiFetch<AdsServeResponse>("/api/ads/serve", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
 
-  if (!response.ok) return null;
+    if (!response.ok) return null;
 
-  return normalizeCreative(response.data?.creative ?? null);
+    return normalizeCreative(response.data?.creative ?? null);
+  } catch {
+    return null;
+  }
 }
 
 export default function AdSlot({ slot, page }: AdSlotProps) {
@@ -128,7 +128,7 @@ export default function AdSlot({ slot, page }: AdSlotProps) {
 
       if (firstAttempt) {
         rememberFeedAdSuccess({
-          creativeId: firstAttempt.creativeId,
+          creativeId: firstAttempt.id,
           campaignId: firstAttempt.campaignId,
         });
         setCreative(firstAttempt);
@@ -142,7 +142,7 @@ export default function AdSlot({ slot, page }: AdSlotProps) {
 
       if (retryWithoutExclude) {
         rememberFeedAdSuccess({
-          creativeId: retryWithoutExclude.creativeId,
+          creativeId: retryWithoutExclude.id,
           campaignId: retryWithoutExclude.campaignId,
         });
         setCreative(retryWithoutExclude);
@@ -162,17 +162,25 @@ export default function AdSlot({ slot, page }: AdSlotProps) {
   if (!adsEnabled || !creative) return null;
 
   const onPressCta = async () => {
-    await Linking.openURL(creative.targetUrl);
+    try {
+      void apiFetch("/api/ads/click", {
+        method: "POST",
+        body: JSON.stringify({
+          creativeId: creative.id,
+          campaignId: creative.campaignId,
+          slot,
+          page,
+        }),
+      });
+    } catch {
+      // best effort
+    }
 
-    await apiFetch("/api/ads/click", {
-      method: "POST",
-      body: JSON.stringify({
-        creativeId: creative.creativeId,
-        campaignId: creative.campaignId,
-        slot,
-        page,
-      }),
-    });
+    try {
+      await Linking.openURL(creative.targetUrl);
+    } catch {
+      // no crash
+    }
   };
 
   return (
