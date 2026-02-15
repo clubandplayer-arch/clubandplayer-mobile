@@ -418,7 +418,7 @@ function buildUrl(path: string): string {
   return `${base}${normalized}`;
 }
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<ApiResponse<T>> {
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<ApiResponse<T>> {
   const url = buildUrl(path);
   const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData;
   const headers = isFormData

@@ -21,6 +21,8 @@ import { isCertifiedClub } from "../../../src/lib/profiles/certification";
 import { on } from "../../../src/lib/events/appEvents";
 import { clearSession, useWebSession, useWhoami } from "../../../src/lib/api";
 import FeedComposer from "../../../components/feed/FeedComposer";
+import { sharePostById } from "../../../src/lib/sharePost";
+import { devWarn } from "../../../src/lib/debug/devLog";
 
 function formatWhen(iso?: string | null) {
   if (!iso) return "";
@@ -103,7 +105,7 @@ function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
   );
 }
 
-function FeedCard({ item }: { item: FeedPost }) {
+function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: string) => void }) {
   const router = useRouter();
 
   const authorName = getAuthorName(item.author);
@@ -119,6 +121,15 @@ function FeedCard({ item }: { item: FeedPost }) {
   });
 
   const postPath = resolvePostPath(item.id);
+
+  const handleShare = async () => {
+    try {
+      await sharePostById(item.id, onToast);
+    } catch (error) {
+      devWarn("sharePostById failed", error);
+      onToast?.("Condivisione non disponibile");
+    }
+  };
 
   return (
     <View
@@ -185,9 +196,12 @@ function FeedCard({ item }: { item: FeedPost }) {
           </View>
         ) : null}
 
-        <View style={{ flexDirection: "row", gap: 14 }}>
+        <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
           <Text style={{ fontSize: 12, color: "#6b7280" }}>👍 {likeCount}</Text>
           <Text style={{ fontSize: 12, color: "#6b7280" }}>💬 {commentCount}</Text>
+          <Pressable onPress={handleShare}>
+            <Text style={{ fontSize: 12, color: "#111827", fontWeight: "700" }}>Condividi</Text>
+          </Pressable>
         </View>
       </Pressable>
     </View>
@@ -494,7 +508,7 @@ export default function FeedScreen() {
     <FlatList
       data={items}
       keyExtractor={(it) => it.id}
-      renderItem={({ item }) => <FeedCard item={item} />}
+      renderItem={({ item }) => <FeedCard item={item} onToast={showFlash} />}
       ListHeaderComponent={header}
       ListFooterComponent={footer}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
