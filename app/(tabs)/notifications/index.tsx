@@ -14,12 +14,19 @@ import {
   fetchNotifications,
   patchNotificationsMarkRead,
   postNotificationsMarkAllRead,
+  useWebSession,
+  useWhoami,
 } from "../../../src/lib/api";
 import { emit } from "../../../src/lib/events/appEvents";
 import { devWarn } from "../../../src/lib/debug/devLog";
+import { setNotificationsBadgeCount } from "../../../src/lib/notificationsBadge";
 import type { NotificationWithActor } from "../../../src/types/notifications";
 
 type FilterMode = "all" | "unread";
+
+function normalizeRole(role: unknown): string {
+  return String(role ?? "").toLowerCase().trim();
+}
 
 function formatWhen(iso?: string | null): string {
   if (!iso) return "";
@@ -49,9 +56,28 @@ function buildNotificationText(notification: NotificationWithActor): string {
       return "Nuova opportunità disponibile";
     case "application_status":
       return "Aggiornamento sullo stato candidatura";
+    case "application_received":
+      return "Nuova candidatura ricevuta";
     default:
       return "Hai ricevuto una nuova notifica";
   }
+}
+
+function buildNotificationPreview(notification: NotificationWithActor): string | null {
+  const payloadPreview = payloadValue(notification.payload, "preview");
+  if (payloadPreview) return payloadPreview;
+
+  if (notification.kind === "application_received") {
+    const actorName = notification.actor?.public_name ?? "Un player";
+    const opportunityTitle =
+      payloadValue(notification.payload, "opportunity_title") ||
+      payloadValue(notification.payload, "title");
+
+    if (opportunityTitle) return `${actorName} si è candidato a ${opportunityTitle}`;
+    return `${actorName} si è candidato a una tua opportunità`;
+  }
+
+  return null;
 }
 
 function resolveNotificationHref(notification: NotificationWithActor): string {
@@ -115,6 +141,13 @@ export default function NotificationsScreen() {
   const [updatingAll, setUpdatingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const localReadIdsRef = useRef<Set<string>>(new Set());
+  const web = useWebSession();
+  const whoami = useWhoami(web.ready);
+
+  const updateItemsWithBadge = useCallback((nextItems: NotificationWithActor[]) => {
+    setItems(nextItems);
+    setNotificationsBadgeCount(nextItems.filter((notification) => !notification.read_at).length);
+  }, []);
 
   const load = useCallback(async (mode: FilterMode) => {
     setError(null);
@@ -127,7 +160,7 @@ export default function NotificationsScreen() {
     });
 
     if (!response.ok || !response.data) {
-      setItems([]);
+      updateItemsWithBadge([]);
       setError(response.errorText || "Errore nel caricamento notifiche");
       return;
     }
@@ -139,8 +172,8 @@ export default function NotificationsScreen() {
       return { ...notification, read_at: new Date().toISOString(), read: true };
     });
 
-    setItems(mergedItems);
-  }, []);
+    updateItemsWithBadge(mergedItems);
+  }, [updateItemsWithBadge]);
 
   useEffect(() => {
     let mounted = true;
@@ -176,32 +209,48 @@ export default function NotificationsScreen() {
         return;
       }
 
+      const readAt = new Date().toISOString();
+      const markedItems = items.map((item) => ({ ...item, read_at: readAt, read: true }));
+      localReadIdsRef.current = new Set(markedItems.map((item) => item.id));
+      updateItemsWithBadge(markedItems);
       emit("app:notifications-updated");
       await load(filter);
     } finally {
       setUpdatingAll(false);
     }
-  }, [filter, load]);
+  }, [filter, items, load, updateItemsWithBadge]);
 
   const renderItem = useCallback(
     ({ item }: { item: NotificationWithActor }) => {
-      const preview = payloadValue(item.payload, "preview");
+      const preview = buildNotificationPreview(item);
       const isUnread = !item.read_at;
 
       return (
         <Pressable
           onPress={async () => {
-            const href = resolveNotificationHref(item) || "/notifications";
+            const role = normalizeRole((whoami.data as { role?: unknown } | null)?.role);
+            const opportunityId = payloadValue(item.payload, "opportunity_id");
+            const href =
+              item.kind === "application_received"
+                ? role === "club"
+                  ? opportunityId
+                    ? { pathname: "/club/applications", params: { opportunity_id: opportunityId } }
+                    : "/club/applications"
+                  : "/applications"
+                : resolveNotificationHref(item) || "/notifications";
+
             if (isUnread) {
               const readAt = new Date().toISOString();
               localReadIdsRef.current.add(item.id);
-              setItems((prev) =>
-                prev.map((current) =>
+              setItems((prev) => {
+                const nextItems = prev.map((current) =>
                   current.id === item.id
                     ? { ...current, read_at: readAt, read: true }
                     : current,
-                ),
-              );
+                );
+                setNotificationsBadgeCount(nextItems.filter((notification) => !notification.read_at).length);
+                return nextItems;
+              });
 
               const response = await patchNotificationsMarkRead({ ids: [item.id] });
               if (response.ok && (response.data?.updated ?? 0) > 0) {
@@ -254,7 +303,7 @@ export default function NotificationsScreen() {
         </Pressable>
       );
     },
-    [router],
+    [router, whoami.data],
   );
 
   const header = useMemo(
