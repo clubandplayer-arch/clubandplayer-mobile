@@ -1,4 +1,4 @@
-import { Modal, Pressable, Text, View, Image } from "react-native";
+import { Image, Modal, Pressable, Text, View } from "react-native";
 import { VideoView, useVideoPlayer } from "expo-video";
 
 type LightboxItem = {
@@ -23,7 +23,10 @@ export default function LightboxModal({ visible, onClose, items, initialIndex }:
   const mediaUrl = selectedItem?.url ?? null;
   const posterUri = selectedItem?.poster_url || selectedItem?.posterUrl || null;
 
-  const player = useVideoPlayer(mediaUrl ? { uri: mediaUrl } : { uri: "" }, (videoPlayer) => {
+  // Nota: manteniamo l'hook incondizionale (regola hooks).
+  // Usiamo uri non vuota SOLO quando mediaUrl è presente; altrimenti mettiamo un uri "safe".
+  // In UI, il VideoView viene renderizzato solo se mediaType === "video" e mediaUrl esiste.
+  const player = useVideoPlayer(mediaUrl ? { uri: mediaUrl } : { uri: "about:blank" }, (videoPlayer) => {
     videoPlayer.muted = false;
     videoPlayer.pause();
   });
@@ -59,13 +62,22 @@ export default function LightboxModal({ visible, onClose, items, initialIndex }:
 
         {mediaUrl ? (
           mediaType === "video" ? (
-            <VideoView
-              player={player}
-              style={{ width: "100%", aspectRatio: 4 / 5, maxHeight: "80%" }}
-              nativeControls
-              contentFit="contain"
-              posterSource={posterUri ? { uri: posterUri } : undefined}
-            />
+            <View style={{ width: "100%", aspectRatio: 4 / 5, maxHeight: "80%" }}>
+              {posterUri ? (
+                <Image
+                  source={{ uri: posterUri }}
+                  style={{ position: "absolute", left: 0, top: 0, right: 0, bottom: 0 }}
+                  resizeMode="cover"
+                />
+              ) : null}
+
+              <VideoView
+                player={player}
+                style={{ width: "100%", height: "100%" }}
+                nativeControls
+                contentFit="contain"
+              />
+            </View>
           ) : (
             <Image
               source={{ uri: mediaUrl }}
