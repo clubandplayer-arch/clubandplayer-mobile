@@ -336,12 +336,12 @@ export default function FeedComposer({ onPosted }: FeedComposerProps) {
           }
         }
 
-        const w = Number.isFinite(item.width) ? item.width : (item.posterWidth ?? 0);
-        const h = Number.isFinite(item.height) ? item.height : (item.posterHeight ?? 0);
+        const w = typeof item.width === "number" && item.width > 0 ? item.width : (item.posterWidth ?? 0);
+		    const h = typeof item.height === "number" && item.height > 0 ? item.height : (item.posterHeight ?? 0);
 
-        if (item.mediaType === "video" && (w <= 0 || h <= 0)) {
-          throw new Error("Dimensioni video non disponibili");
-        }
+		    if (item.mediaType === "video" && (w <= 0 || h <= 0)) {
+		    throw new Error("Dimensioni video non disponibili");
+		    }
 
         uploadedMedia.push({
           mediaType: item.mediaType,
