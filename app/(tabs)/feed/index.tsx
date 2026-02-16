@@ -21,6 +21,8 @@ import { isCertifiedClub } from "../../../src/lib/profiles/certification";
 import { on } from "../../../src/lib/events/appEvents";
 import { clearSession, useWebSession, useWhoami } from "../../../src/lib/api";
 import FeedComposer from "../../../components/feed/FeedComposer";
+import FeedVideoPreview from "../../../components/feed/FeedVideoPreview";
+import LightboxModal from "../../../components/media/LightboxModal";
 import { sharePostById } from "../../../src/lib/sharePost";
 import { devWarn } from "../../../src/lib/debug/devLog";
 import AdSlot from "../../../components/ads/AdSlot";
@@ -112,6 +114,10 @@ function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
 
 function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: string) => void }) {
   const router = useRouter();
+  const [lightbox, setLightbox] = useState<{ open: boolean; index: number }>({
+    open: false,
+    index: 0,
+  });
 
   const authorName = getAuthorName(item.author);
   const text = getPostText(item.raw);
@@ -171,37 +177,56 @@ function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: strin
         </View>
       </Pressable>
 
-      <Pressable
-        disabled={!postPath}
-        onPress={() => {
-          if (!postPath) return;
-          router.push(postPath);
-        }}
-        style={{ gap: 10 }}
-      >
+      <View style={{ gap: 10 }}>
         {!!text ? (
-          <Text style={{ fontSize: 14, lineHeight: 19, color: "#111827" }}>
-            {text}
-          </Text>
+          <Pressable
+            disabled={!postPath}
+            onPress={() => {
+              if (!postPath) return;
+              router.push(postPath);
+            }}
+          >
+            <Text style={{ fontSize: 14, lineHeight: 19, color: "#111827" }}>
+              {text}
+            </Text>
+          </Pressable>
         ) : null}
 
         {firstMedia?.url ? (
-          <View style={{ borderRadius: 12, overflow: "hidden", backgroundColor: "#f3f4f6" }}>
-            <Image
-              source={{ uri: firstMedia.poster_url || firstMedia.url }}
-              style={{ width: "100%", height: 220 }}
-              resizeMode="cover"
-            />
+          <Pressable
+            onPress={() => {
+              setLightbox({ open: true, index: 0 });
+            }}
+            style={{ borderRadius: 12, overflow: "hidden", backgroundColor: "#f3f4f6" }}
+          >
+            {firstMedia.media_type === "video" ? (
+              <FeedVideoPreview
+                uri={firstMedia.url}
+                posterUri={firstMedia.poster_url || (firstMedia as any).posterUrl}
+              />
+            ) : (
+              <Image
+                source={{ uri: firstMedia.poster_url || firstMedia.url }}
+                style={{ width: "100%", aspectRatio: 4 / 5 }}
+                resizeMode="cover"
+              />
+            )}
             <View style={{ padding: 10 }}>
               <Text style={{ fontSize: 12, color: "#6b7280" }}>
                 {firstMedia.media_type === "video" ? "🎬 Video" : "🖼️ Foto"}
                 {item.media.length > 1 ? ` • +${item.media.length - 1}` : ""}
               </Text>
             </View>
-          </View>
+          </Pressable>
         ) : null}
+      </View>
 
-      </Pressable>
+      <LightboxModal
+        visible={lightbox.open}
+        items={item.media ?? []}
+        initialIndex={lightbox.index}
+        onClose={() => setLightbox({ open: false, index: 0 })}
+      />
 
       <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
         <Text style={{ fontSize: 12, color: "#6b7280" }}>👍 {likeCount}</Text>

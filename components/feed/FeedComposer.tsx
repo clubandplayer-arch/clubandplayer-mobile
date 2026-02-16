@@ -11,6 +11,7 @@ import {
 import * as FileSystem from "expo-file-system/legacy";
 // @ts-ignore expo-image-picker types vary between SDK releases
 import * as ImagePicker from "expo-image-picker";
+import * as VideoThumbnails from "expo-video-thumbnails";
 
 import { supabase } from "../../src/lib/supabase";
 import { createFeedPost, fetchLinkPreview } from "../../src/lib/api";
@@ -130,14 +131,19 @@ function getImageSize(uri: string): Promise<{ width: number; height: number }> {
 }
 
 async function generateVideoPoster(uri: string) {
-  const videoThumbnails = require("expo-video-thumbnails");
-  const result = await videoThumbnails.getThumbnailAsync(uri, {
-    time: 0,
-    quality: 0.8,
+  const result = await VideoThumbnails.getThumbnailAsync(uri, {
+    time: 500,
   });
 
   const size = await getImageSize(result.uri);
   return { uri: result.uri, width: size.width, height: size.height };
+}
+
+function buildPosterFileName(fileName: string): string {
+  const cleanName = sanitizeFileName(fileName);
+  const dotIndex = cleanName.lastIndexOf(".");
+  const baseName = dotIndex > 0 ? cleanName.slice(0, dotIndex) : cleanName;
+  return `${baseName}-poster.jpg`;
 }
 
 async function pickAsset(type: "image" | "video"): Promise<ImagePicker.ImagePickerAsset | null> {
@@ -231,28 +237,37 @@ export default function FeedComposer({ onPosted }: FeedComposerProps) {
 
       const fileName = sanitizeFileName(asset.fileName ?? `video-${Date.now()}.mp4`);
       const mimeType = asset.mimeType ?? inferContentType(fileName, "video");
-      const poster = await generateVideoPoster(asset.uri);
+      let poster: { uri: string; width: number; height: number } | null = null;
+      try {
+        poster = await generateVideoPoster(asset.uri);
+      } catch {
+        poster = null;
+      }
 
       setMedia((prev) => [
         ...prev,
         {
           uri: asset.uri,
           mediaType: "video",
-          width: typeof asset.width === "number" ? asset.width : poster.width,
-          height: typeof asset.height === "number" ? asset.height : poster.height,
+          width:
+            typeof asset.width === "number"
+              ? asset.width
+              : (poster?.width ?? 0),
+          height:
+            typeof asset.height === "number"
+              ? asset.height
+              : (poster?.height ?? 0),
           fileName,
           mimeType,
-          posterUri: poster.uri,
-          posterWidth: poster.width,
-          posterHeight: poster.height,
+          posterUri: poster?.uri,
+          posterWidth: poster?.width,
+          posterHeight: poster?.height,
         },
       ]);
     } catch (error: any) {
       Alert.alert(
         "Errore",
-        error?.message
-          ? String(error.message)
-          : "Impossibile selezionare il video o generare il poster",
+        error?.message ? String(error.message) : "Impossibile selezionare il video",
       );
     }
   }, []);
@@ -302,31 +317,31 @@ export default function FeedComposer({ onPosted }: FeedComposerProps) {
         const mediaUrl = supabase.storage.from(bucket).getPublicUrl(mediaPath).data.publicUrl;
 
         let posterUrl: string | null = null;
-        if (item.mediaType === "video") {
-          if (!item.posterUri) {
-            throw new Error("Poster video mancante");
+        if (item.mediaType === "video" && item.posterUri) {
+          const posterFileName = buildPosterFileName(item.fileName);
+          const posterPath = `${user.id}/posters/${Date.now()}-${posterFileName}`;
+
+          try {
+            const posterBytes = await readBytes(item.posterUri);
+            const posterUpload = await supabase.storage.from(bucket).upload(posterPath, posterBytes, {
+              contentType: "image/jpeg",
+              upsert: false,
+            });
+
+            if (!posterUpload.error) {
+              posterUrl = supabase.storage.from(bucket).getPublicUrl(posterPath).data.publicUrl;
+            }
+          } catch {
+            posterUrl = null;
           }
-
-          const posterPath = `${user.id}/posters/${Date.now()}-${sanitizeFileName(item.fileName)}.jpg`;
-          const posterBytes = await readBytes(item.posterUri);
-          const posterUpload = await supabase.storage.from(bucket).upload(posterPath, posterBytes, {
-            contentType: "image/jpeg",
-            upsert: false,
-          });
-
-          if (posterUpload.error) {
-            throw new Error(posterUpload.error.message || "Upload poster fallito");
-          }
-
-          posterUrl = supabase.storage.from(bucket).getPublicUrl(posterPath).data.publicUrl;
         }
 
-        const w = Number.isFinite(item.width) ? item.width : (item.posterWidth ?? 0);
-        const h = Number.isFinite(item.height) ? item.height : (item.posterHeight ?? 0);
+        const w = typeof item.width === "number" && item.width > 0 ? item.width : (item.posterWidth ?? 0);
+		    const h = typeof item.height === "number" && item.height > 0 ? item.height : (item.posterHeight ?? 0);
 
-        if (item.mediaType === "video" && (w <= 0 || h <= 0)) {
-          throw new Error("Dimensioni video non disponibili");
-        }
+		    if (item.mediaType === "video" && (w <= 0 || h <= 0)) {
+		    throw new Error("Dimensioni video non disponibili");
+		    }
 
         uploadedMedia.push({
           mediaType: item.mediaType,
