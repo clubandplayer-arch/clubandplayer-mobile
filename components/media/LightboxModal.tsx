@@ -1,4 +1,5 @@
-import { Image, Modal, Pressable, Text, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { Modal, Pressable, Text, View, Image } from "react-native";
 import { VideoView, useVideoPlayer } from "expo-video";
 
 type LightboxItem = {
@@ -17,22 +18,82 @@ type LightboxModalProps = {
   initialIndex: number;
 };
 
+type LightboxVideoProps = {
+  uri: string;
+  posterUri?: string | null;
+  visible: boolean;
+  closeSignal: number;
+};
+
+function LightboxVideo({ uri, posterUri, visible, closeSignal }: LightboxVideoProps) {
+  const player = useVideoPlayer({ uri }, (videoPlayer) => {
+    videoPlayer.muted = false;
+    videoPlayer.pause();
+  });
+
+  useEffect(() => {
+    if (!visible) {
+      player.pause();
+      if ("currentTime" in player) {
+        (player as { currentTime: number }).currentTime = 0;
+      }
+    }
+  }, [visible, player]);
+
+  useEffect(() => {
+    player.pause();
+    if ("currentTime" in player) {
+      (player as { currentTime: number }).currentTime = 0;
+    }
+  }, [closeSignal, player]);
+
+  return (
+    <View style={{ width: "100%", aspectRatio: 4 / 5, maxHeight: "80%", overflow: "hidden" }}>
+      {posterUri ? (
+        <>
+          <Image
+            source={{ uri: posterUri }}
+            style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, width: "100%", height: "100%" }}
+            resizeMode="cover"
+            blurRadius={20}
+          />
+          <View
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              bottom: 0,
+              left: 0,
+              backgroundColor: "rgba(0,0,0,0.25)",
+            }}
+          />
+        </>
+      ) : null}
+
+	<VideoView
+	  player={player}
+	  style={{ width: "100%", height: "100%" }}
+	  nativeControls
+	  contentFit="contain"
+	/>
+    </View>
+  );
+}
+
 export default function LightboxModal({ visible, onClose, items, initialIndex }: LightboxModalProps) {
+  const [closeSignal, setCloseSignal] = useState(0);
   const selectedItem = items[initialIndex] ?? null;
   const mediaType = selectedItem?.media_type?.toLowerCase();
   const mediaUrl = selectedItem?.url ?? null;
   const posterUri = selectedItem?.poster_url || selectedItem?.posterUrl || null;
 
-  // Nota: manteniamo l'hook incondizionale (regola hooks).
-  // Usiamo uri non vuota SOLO quando mediaUrl è presente; altrimenti mettiamo un uri "safe".
-  // In UI, il VideoView viene renderizzato solo se mediaType === "video" e mediaUrl esiste.
-  const player = useVideoPlayer(mediaUrl ? { uri: mediaUrl } : { uri: "about:blank" }, (videoPlayer) => {
-    videoPlayer.muted = false;
-    videoPlayer.pause();
-  });
+  const handleClose = useCallback(() => {
+    setCloseSignal((prev) => prev + 1);
+    onClose();
+  }, [onClose]);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
       <View
         style={{
           flex: 1,
@@ -43,7 +104,7 @@ export default function LightboxModal({ visible, onClose, items, initialIndex }:
         }}
       >
         <Pressable
-          onPress={onClose}
+          onPress={handleClose}
           style={{
             position: "absolute",
             top: 56,
@@ -62,22 +123,7 @@ export default function LightboxModal({ visible, onClose, items, initialIndex }:
 
         {mediaUrl ? (
           mediaType === "video" ? (
-            <View style={{ width: "100%", aspectRatio: 4 / 5, maxHeight: "80%" }}>
-              {posterUri ? (
-                <Image
-                  source={{ uri: posterUri }}
-                  style={{ position: "absolute", left: 0, top: 0, right: 0, bottom: 0 }}
-                  resizeMode="cover"
-                />
-              ) : null}
-
-              <VideoView
-                player={player}
-                style={{ width: "100%", height: "100%" }}
-                nativeControls
-                contentFit="contain"
-              />
-            </View>
+            <LightboxVideo uri={mediaUrl} posterUri={posterUri} visible={visible} closeSignal={closeSignal} />
           ) : (
             <Image
               source={{ uri: mediaUrl }}
