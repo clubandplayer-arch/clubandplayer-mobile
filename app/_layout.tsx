@@ -106,7 +106,6 @@ export default function RootLayout() {
       <AuthGate />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="(onboarding)" />
         <Stack.Screen name="(auth)" />
 
         <Stack.Screen name="posts/[id]" options={{ headerShown: true, title: "Post" }} />
