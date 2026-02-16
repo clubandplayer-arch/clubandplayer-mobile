@@ -1,5 +1,4 @@
 import { Modal, Pressable, Text, View, Image } from "react-native";
-// @ts-ignore expo-video is provided at runtime in target app
 import { VideoView, useVideoPlayer } from "expo-video";
 
 type LightboxItem = {
@@ -24,7 +23,7 @@ export default function LightboxModal({ visible, onClose, items, initialIndex }:
   const mediaUrl = selectedItem?.url ?? null;
   const posterUri = selectedItem?.poster_url || selectedItem?.posterUrl || null;
 
-  const player = useVideoPlayer(mediaUrl ? { uri: mediaUrl } : null, (videoPlayer: any) => {
+  const player = useVideoPlayer(mediaUrl ? { uri: mediaUrl } : { uri: "" }, (videoPlayer) => {
     videoPlayer.muted = false;
     videoPlayer.pause();
   });

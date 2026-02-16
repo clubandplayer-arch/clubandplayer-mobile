@@ -1,5 +1,4 @@
 import { View } from "react-native";
-// @ts-ignore expo-video is provided at runtime in target app
 import { VideoView, useVideoPlayer } from "expo-video";
 
 type FeedVideoPreviewProps = {
@@ -8,7 +7,7 @@ type FeedVideoPreviewProps = {
 };
 
 export default function FeedVideoPreview({ uri, posterUri }: FeedVideoPreviewProps) {
-  const player = useVideoPlayer({ uri }, (videoPlayer: any) => {
+  const player = useVideoPlayer({ uri }, (videoPlayer) => {
     videoPlayer.muted = true;
     videoPlayer.pause();
   });
@@ -22,6 +21,7 @@ export default function FeedVideoPreview({ uri, posterUri }: FeedVideoPreviewPro
         overflow: "hidden",
         backgroundColor: "#111827",
       }}
+      pointerEvents="none"
     >
       <VideoView
         player={player}
@@ -29,7 +29,6 @@ export default function FeedVideoPreview({ uri, posterUri }: FeedVideoPreviewPro
         nativeControls={false}
         contentFit="contain"
         posterSource={posterUri ? { uri: posterUri } : undefined}
-        pointerEvents="none"
       />
     </View>
   );
