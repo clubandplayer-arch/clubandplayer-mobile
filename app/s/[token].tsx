@@ -1,7 +1,10 @@
-import { useMemo } from "react";
-import { Pressable, Text, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
+
+type ShareLinksResponse =
+  | { ok: true; post: { id: string } }
+  | { ok: false; message?: string };
 
 function getWebBaseUrl() {
   const base = (process.env.EXPO_PUBLIC_WEB_BASE_URL || "https://www.clubandplayer.com").trim();
@@ -13,45 +16,87 @@ export default function ShareTokenDeepLinkScreen() {
   const { token } = useLocalSearchParams<{ token?: string }>();
 
   const normalizedToken = useMemo(() => (token ?? "").trim(), [token]);
-  const webUrl = useMemo(() => {
-    const base = getWebBaseUrl();
-    return normalizedToken ? `${base}/s/${normalizedToken}` : `${base}/s`;
-  }, [normalizedToken]);
 
-  const openInBrowser = async () => {
-    // IMPORTANT: do NOT auto-open, otherwise App Links can cause a loop (app -> browser -> app -> ...)
+  const [status, setStatus] = useState<"loading" | "error">("loading");
+  const [error, setError] = useState<string>("");
+
+  const run = async () => {
+    if (!normalizedToken) {
+      setStatus("error");
+      setError("Link non valido (token mancante).");
+      return;
+    }
+
+    setStatus("loading");
+    setError("");
+
     try {
-      await WebBrowser.openBrowserAsync(webUrl);
+      const baseUrl = getWebBaseUrl();
+      const res = await fetch(`${baseUrl}/api/share-links/${normalizedToken}`, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        // Avoid any caching weirdness
+        cache: "no-store" as any,
+      });
+
+      const data = (await res.json().catch(() => null)) as ShareLinksResponse | null;
+
+      if (!res.ok || !data || (data as any).ok !== true) {
+        setStatus("error");
+        setError((data as any)?.message ?? "Link non valido o scaduto.");
+        return;
+      }
+
+      const postId = (data as any).post?.id as string | undefined;
+      if (!postId) {
+        setStatus("error");
+        setError("Post non trovato.");
+        return;
+      }
+
+      // ✅ Navigate to the real post detail route
+      router.replace(`/posts/${postId}`);
     } catch {
-      // ignore
+      setStatus("error");
+      setError("Errore temporaneo. Riprova.");
     }
   };
 
+  useEffect(() => {
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [normalizedToken]);
+
   return (
-    <View style={{ flex: 1, justifyContent: "center", padding: 16 }}>
-      <Text style={{ fontSize: 18, fontWeight: "700", marginBottom: 8 }}>Link condiviso</Text>
-      <Text style={{ opacity: 0.8, marginBottom: 18 }}>
-        Ho aperto l’app dal link. Per evitare un loop con gli App Links, non apro automaticamente il browser.
-      </Text>
-
-      <View style={{ gap: 10 }}>
-        <Pressable
-          onPress={openInBrowser}
-          style={{ paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1 }}
-        >
-          <Text style={{ fontWeight: "700" }}>Apri il post (browser)</Text>
-          <Text style={{ marginTop: 4, opacity: 0.7 }} numberOfLines={1}>
-            {webUrl}
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 16 }}>
+      {status === "loading" ? (
+        <>
+          <ActivityIndicator />
+          <Text style={{ marginTop: 12, opacity: 0.8 }}>Apro il post…</Text>
+          <Text style={{ marginTop: 6, opacity: 0.55, fontSize: 12 }} numberOfLines={1}>
+            token: {normalizedToken || "—"}
           </Text>
-        </Pressable>
+        </>
+      ) : (
+        <>
+          <Text style={{ fontSize: 16, fontWeight: "700", marginBottom: 6 }}>Impossibile aprire il link</Text>
+          <Text style={{ textAlign: "center", opacity: 0.8, marginBottom: 14 }}>{error}</Text>
 
-        <Pressable
-          onPress={() => router.replace("/feed")}
-          style={{ paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, opacity: 0.8 }}
-        >
-          <Text style={{ fontWeight: "600" }}>Vai alla feed</Text>
-        </Pressable>
-      </View>
+          <Pressable
+            onPress={run}
+            style={{ paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderRadius: 10 }}
+          >
+            <Text style={{ fontWeight: "700" }}>Riprova</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => router.replace("/feed")}
+            style={{ marginTop: 10, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderRadius: 10, opacity: 0.8 }}
+          >
+            <Text>Vai alla feed</Text>
+          </Pressable>
+        </>
+      )}
     </View>
   );
 }
