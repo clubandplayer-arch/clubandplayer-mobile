@@ -16,6 +16,7 @@ const config: ExpoConfig = {
   android: {
     package: "com.clubandplayer.app",
     intentFilters: [
+      // Existing custom-scheme callback deep links
       {
         action: "VIEW",
         data: [
@@ -26,6 +27,20 @@ const config: ExpoConfig = {
           {
             scheme: "clubandplayer",
             pathPrefix: "/callback",
+          },
+        ],
+        category: ["BROWSABLE", "DEFAULT"],
+      },
+
+      // NEW: Android App Links for https://www.clubandplayer.com/s/<token>
+      {
+        action: "VIEW",
+        autoVerify: true,
+        data: [
+          {
+            scheme: "https",
+            host: "www.clubandplayer.com",
+            pathPrefix: "/s",
           },
         ],
         category: ["BROWSABLE", "DEFAULT"],
