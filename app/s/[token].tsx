@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { useMemo } from "react";
+import { Pressable, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 
@@ -13,96 +13,45 @@ export default function ShareTokenDeepLinkScreen() {
   const { token } = useLocalSearchParams<{ token?: string }>();
 
   const normalizedToken = useMemo(() => (token ?? "").trim(), [token]);
-  const [status, setStatus] = useState<"opening" | "error" | "done">("opening");
-  const [error, setError] = useState<string | null>(null);
+  const webUrl = useMemo(() => {
+    const base = getWebBaseUrl();
+    return normalizedToken ? `${base}/s/${normalizedToken}` : `${base}/s`;
+  }, [normalizedToken]);
 
-  const open = async () => {
-    if (!normalizedToken) {
-      setError("Link non valido (token mancante).");
-      setStatus("error");
-      return;
-    }
-
+  const openInBrowser = async () => {
+    // IMPORTANT: do NOT auto-open, otherwise App Links can cause a loop (app -> browser -> app -> ...)
     try {
-      setError(null);
-      setStatus("opening");
-
-      const baseUrl = getWebBaseUrl();
-      const url = `${baseUrl}/s/${normalizedToken}`;
-
-      // Open the shared post in an in-app browser (stable, no app-route assumptions).
-      const res = await WebBrowser.openBrowserAsync(url);
-
-      // If user closed the browser, bring them to a stable place.
-      if (res.type === "dismiss" || res.type === "cancel") {
-        setStatus("done");
-        router.replace("/feed");
-        return;
-      }
-
-      // Default fallback
-      setStatus("done");
-      router.replace("/feed");
-    } catch (e) {
-      setError("Impossibile aprire il post. Riprova.");
-      setStatus("error");
+      await WebBrowser.openBrowserAsync(webUrl);
+    } catch {
+      // ignore
     }
   };
 
-  useEffect(() => {
-    // Try once on mount.
-    open();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [normalizedToken]);
-
   return (
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 16 }}>
-      {status === "opening" ? (
-        <>
-          <ActivityIndicator />
-          <Text style={{ marginTop: 12, opacity: 0.8 }}>Apro il post…</Text>
-          <Text style={{ marginTop: 6, opacity: 0.55, fontSize: 12 }} numberOfLines={1}>
-            token: {normalizedToken || "—"}
+    <View style={{ flex: 1, justifyContent: "center", padding: 16 }}>
+      <Text style={{ fontSize: 18, fontWeight: "700", marginBottom: 8 }}>Link condiviso</Text>
+      <Text style={{ opacity: 0.8, marginBottom: 18 }}>
+        Ho aperto l’app dal link. Per evitare un loop con gli App Links, non apro automaticamente il browser.
+      </Text>
+
+      <View style={{ gap: 10 }}>
+        <Pressable
+          onPress={openInBrowser}
+          style={{ paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1 }}
+        >
+          <Text style={{ fontWeight: "700" }}>Apri il post (browser)</Text>
+          <Text style={{ marginTop: 4, opacity: 0.7 }} numberOfLines={1}>
+            {webUrl}
           </Text>
-        </>
-      ) : status === "error" ? (
-        <>
-          <Text style={{ fontSize: 16, fontWeight: "600", marginBottom: 8 }}>Impossibile aprire il link</Text>
-          <Text style={{ textAlign: "center", opacity: 0.8, marginBottom: 12 }}>{error}</Text>
+        </Pressable>
 
-          <Pressable
-            onPress={open}
-            style={{
-              paddingHorizontal: 14,
-              paddingVertical: 10,
-              borderWidth: 1,
-              borderRadius: 10,
-              opacity: 0.95,
-            }}
-          >
-            <Text style={{ fontWeight: "600" }}>Riprova</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => router.replace("/feed")}
-            style={{
-              marginTop: 10,
-              paddingHorizontal: 14,
-              paddingVertical: 10,
-              borderWidth: 1,
-              borderRadius: 10,
-              opacity: 0.7,
-            }}
-          >
-            <Text>Vai alla feed</Text>
-          </Pressable>
-        </>
-      ) : (
-        <>
-          <Text style={{ fontSize: 16, fontWeight: "600", marginBottom: 8 }}>Ok</Text>
-          <Text style={{ textAlign: "center", opacity: 0.8 }}>Ti porto alla feed…</Text>
-        </>
-      )}
+        <Pressable
+          onPress={() => router.replace("/feed")}
+          style={{ paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, opacity: 0.8 }}
+        >
+          <Text style={{ fontWeight: "600" }}>Vai alla feed</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
