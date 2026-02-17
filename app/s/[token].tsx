@@ -1,16 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-
-type ShareLinksResponse =
-  | { ok: true; post: { id: string } }
-  | { ok: false; message?: string };
+import * as WebBrowser from "expo-web-browser";
 
 function getWebBaseUrl() {
-  const base =
-    process.env.EXPO_PUBLIC_WEB_BASE_URL ||
-    process.env.EXPO_PUBLIC_WEB_BASE_URL?.trim() ||
-    "https://www.clubandplayer.com";
+  const base = (process.env.EXPO_PUBLIC_WEB_BASE_URL || "https://www.clubandplayer.com").trim();
   return base.replace(/\/+$/, "");
 }
 
@@ -32,33 +26,17 @@ export default function ShareTokenDeepLinkScreen() {
 
       try {
         const baseUrl = getWebBaseUrl();
-        const res = await fetch(`${baseUrl}/api/share-links/${normalizedToken}`, {
-          method: "GET",
-          headers: { Accept: "application/json" },
-        });
+        const url = `${baseUrl}/s/${normalizedToken}`;
 
-        const data = (await res.json().catch(() => null)) as ShareLinksResponse | null;
+        // Open the shared post in an in-app browser.
+        // This avoids route mismatch/auth redirects that cause the "bounce to feed".
+        await WebBrowser.openBrowserAsync(url);
 
         if (cancelled) return;
 
-        if (!res.ok || !data || (data as any).ok !== true) {
-          setError((data as any)?.message ?? "Link non valido o scaduto.");
-          return;
-        }
-
-        const postId = (data as any).post?.id as string | undefined;
-        if (!postId) {
-          setError("Post non trovato.");
-          return;
-        }
-
-        // Prefer post detail route if present
-        try {
-          router.replace(`/posts/${postId}`);
-        } catch {
-          router.replace("/feed");
-        }
-      } catch (e) {
+        // After closing the browser, go to a stable default.
+        router.replace("/feed");
+      } catch {
         if (cancelled) return;
         setError("Errore temporaneo. Riprova.");
       }
