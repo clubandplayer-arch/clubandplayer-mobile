@@ -1,13 +1,11 @@
-import { View } from "react-native";
-// @ts-ignore expo-av is provided at runtime in target app
-import { Video, ResizeMode } from "expo-av";
+import { Image, View } from "react-native";
 
 type FeedVideoPreviewProps = {
   uri: string;
   posterUri?: string | null;
 };
 
-export default function FeedVideoPreview({ uri, posterUri }: FeedVideoPreviewProps) {
+export default function FeedVideoPreview({ posterUri }: FeedVideoPreviewProps) {
   return (
     <View
       style={{
@@ -18,16 +16,9 @@ export default function FeedVideoPreview({ uri, posterUri }: FeedVideoPreviewPro
         backgroundColor: "#111827",
       }}
     >
-      <Video
-        source={{ uri }}
-        style={{ width: "100%", height: "100%" }}
-        useNativeControls={false}
-        isMuted
-        shouldPlay={false}
-        resizeMode={ResizeMode.CONTAIN}
-        usePoster={Boolean(posterUri)}
-        posterSource={posterUri ? { uri: posterUri } : undefined}
-      />
+      {posterUri ? (
+        <Image source={{ uri: posterUri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+      ) : null}
     </View>
   );
 }

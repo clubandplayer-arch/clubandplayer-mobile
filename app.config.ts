@@ -16,6 +16,7 @@ const config: ExpoConfig = {
   android: {
     package: "com.clubandplayer.app",
     intentFilters: [
+      // Existing custom-scheme callback deep links
       {
         action: "VIEW",
         data: [
@@ -30,10 +31,24 @@ const config: ExpoConfig = {
         ],
         category: ["BROWSABLE", "DEFAULT"],
       },
+
+      // NEW: Android App Links for https://www.clubandplayer.com/s/<token>
+      {
+        action: "VIEW",
+        autoVerify: true,
+        data: [
+          {
+            scheme: "https",
+            host: "www.clubandplayer.com",
+            pathPrefix: "/s",
+          },
+        ],
+        category: ["BROWSABLE", "DEFAULT"],
+      },
     ],
   },
 
-  plugins: ["expo-router"],
+  plugins: ["expo-router", "expo-video"],
 
   // ✅ NECESSARIO per collegare il progetto locale a EAS (dynamic config)
   extra: {

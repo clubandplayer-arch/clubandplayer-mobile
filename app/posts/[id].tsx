@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { VideoView, useVideoPlayer } from "expo-video";
 
 import { supabase } from "../../src/lib/supabase";
 import {
@@ -155,6 +156,27 @@ async function fetchPostCore(postId: string): Promise<PostDetail | null> {
   };
 }
 
+function PostVideo({ uri }: { uri: string }) {
+  const player = useVideoPlayer({ uri }, (p) => {
+    // Detail view: show controls, no autoplay (do not call play()).
+    p.muted = false;
+    p.loop = false;
+  });
+
+  return (
+    <View style={{ width: "100%", height: 240, backgroundColor: "#111827" }}>
+      <VideoView
+        player={player}
+        style={{ width: "100%", height: "100%" }}
+        nativeControls
+        allowsFullscreen
+        allowsPictureInPicture
+        contentFit="contain"
+      />
+    </View>
+  );
+}
+
 function PostCard({ post, title }: { post: PostDetail; title?: string }) {
   const authorName = getAuthorName(post.author);
   const when = formatWhen(post.created_at);
@@ -197,7 +219,15 @@ function PostCard({ post, title }: { post: PostDetail; title?: string }) {
 
       {mediaUrl ? (
         <View style={{ borderRadius: 14, overflow: "hidden", backgroundColor: "#f3f4f6" }}>
-          <Image source={{ uri: mediaUrl }} style={{ width: "100%", height: 240 }} resizeMode="cover" />
+          {mediaType === "video" ? (
+            <PostVideo uri={mediaUrl} />
+          ) : (
+            <Image
+              source={{ uri: mediaUrl }}
+              style={{ width: "100%", height: 240 }}
+              resizeMode="cover"
+            />
+          )}
           <View style={{ padding: 10 }}>
             <Text style={{ fontSize: 12, color: "#6b7280" }}>
               {mediaType === "video" ? "Video" : "Media"}
@@ -356,7 +386,6 @@ export default function PostDetailScreen() {
       await loadSocial(postId);
     }
   };
-
 
   const handleShare = async () => {
     if (!postId) return;
