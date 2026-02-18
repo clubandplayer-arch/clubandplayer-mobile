@@ -91,7 +91,7 @@ export default function TabsLayout() {
             headerShown: true,
             headerRight: () => (
               <Pressable onPress={() => router.push("/applications")} hitSlop={8}>
-                <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>
+                <Text style={{ color: theme.colors.primary, fontWeight: "700", marginRight: 12 }}>
                   Candidature
                 </Text>
               </Pressable>

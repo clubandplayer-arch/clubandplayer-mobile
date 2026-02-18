@@ -374,7 +374,9 @@ export default function FeedScreen() {
 
     return (
       <View style={{ padding: theme.spacing.xl, paddingBottom: 12, gap: 16, backgroundColor: theme.colors.background }}>
-        <Text style={{ ...theme.typography.h1, color: theme.colors.primary }}>Feed</Text>
+        <Text style={{ ...theme.typography.h1, color: theme.colors.primary, fontFamily: theme.fonts.brand }}>
+          Feed
+        </Text>
 
         {flash ? (
           <View

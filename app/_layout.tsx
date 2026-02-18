@@ -1,10 +1,12 @@
 import { Stack, usePathname, useRouter, useSegments } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
+import { useFonts } from "expo-font";
 import type { Session } from "@supabase/supabase-js";
 import { CrashBoundary } from "../src/components/CrashBoundary";
 import { supabase } from "../src/lib/supabase";
 import { getOnboardingSeen, subscribeOnboardingSeen } from "../src/lib/onboarding";
+import { theme } from "../src/theme";
 
 function AuthGate() {
   const router = useRouter();
@@ -101,12 +103,32 @@ function AuthGate() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+  Righteous: require("../assets/fonts/Righteous-Regular.ttf"),
+});
+
+  if (!fontsLoaded) {
   return (
-    <CrashBoundary>
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+      <ActivityIndicator />
+    </View>
+  );
+}
+
+  return (
+      <CrashBoundary>
       <AuthGate />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="(auth)" />
+      <Stack
+        screenOptions={{
+          headerTitleStyle: { fontFamily: theme.fonts.brand, color: theme.colors.primary },
+          headerTintColor: theme.colors.primary,
+          headerShadowVisible: false,
+          headerStyle: { backgroundColor: theme.colors.background },
+        }}
+      >
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
 
         <Stack.Screen name="posts/[id]" options={{ headerShown: true, title: "Post" }} />
         <Stack.Screen name="opportunities/[id]" options={{ headerShown: false }} />
