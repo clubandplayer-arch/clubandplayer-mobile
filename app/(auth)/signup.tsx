@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as AppleAuthentication from "expo-apple-authentication";
+import { Ionicons } from "@expo/vector-icons";
 import { BrandLogo } from "../../components/brand/BrandLogo";
 import { signInWithApple } from "../../src/lib/appleAuth";
 import { signInWithGoogle } from "../../src/lib/auth";
@@ -55,15 +56,11 @@ export default function SignupScreen() {
       <Text
         style={{
           fontSize: 28,
-          fontWeight: "700",
           marginBottom: 12,
+          color: theme.colors.primary,
           fontFamily: theme.fonts.brand,
         }}
       >
-        Club & Player
-      </Text>
-
-      <Text style={{ fontSize: 18, fontWeight: "600", fontFamily: theme.fonts.brand }}>
         Crea il tuo account
       </Text>
 
@@ -76,13 +73,19 @@ export default function SignupScreen() {
           padding: 14,
           borderRadius: 12,
           alignItems: "center",
+          justifyContent: "center",
+          flexDirection: "row",
+          gap: 10,
           opacity: loading ? 0.8 : 1,
         }}
       >
         {loading ? (
           <ActivityIndicator />
         ) : (
-          <Text style={{ fontWeight: "700" }}>Registrati con Google</Text>
+          <>
+            <Ionicons name="logo-google" size={18} color={theme.colors.text} />
+            <Text style={{ fontWeight: "700" }}>Registrati con Google</Text>
+          </>
         )}
       </Pressable>
 

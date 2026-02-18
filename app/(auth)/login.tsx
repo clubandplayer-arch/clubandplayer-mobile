@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as AppleAuthentication from "expo-apple-authentication";
+import { Ionicons } from "@expo/vector-icons";
 import { BrandLogo } from "../../components/brand/BrandLogo";
 import { supabase } from "../../src/lib/supabase";
 import { signInWithGoogle } from "../../src/lib/auth";
@@ -87,12 +88,12 @@ export default function LoginScreen() {
       <Text
         style={{
           fontSize: 28,
-          fontWeight: "700",
           marginBottom: 12,
+          color: theme.colors.primary,
           fontFamily: theme.fonts.brand,
         }}
       >
-        Club & Player
+        Accedi
       </Text>
 
       <TextInput
@@ -143,9 +144,13 @@ export default function LoginScreen() {
           padding: 14,
           borderRadius: 12,
           alignItems: "center",
+          justifyContent: "center",
+          flexDirection: "row",
+          gap: 10,
           opacity: loading ? 0.8 : 1,
         }}
       >
+        <Ionicons name="logo-google" size={18} color={theme.colors.text} />
         <Text style={{ fontWeight: "700" }}>Continua con Google</Text>
       </Pressable>
 

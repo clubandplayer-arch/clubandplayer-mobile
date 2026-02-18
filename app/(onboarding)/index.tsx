@@ -30,7 +30,7 @@ export default function OnboardingScreen() {
     >
       <BrandLogo />
 
-      <Text style={{ fontSize: 30, fontWeight: "800", fontFamily: theme.fonts.brand }}>
+      <Text style={{ fontSize: 30, color: theme.colors.primary, fontFamily: theme.fonts.brand }}>
         Benvenuto su Club & Player
       </Text>
 
