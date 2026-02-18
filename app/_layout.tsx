@@ -1,6 +1,7 @@
 import { Stack, usePathname, useRouter, useSegments } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
+import { useFonts } from "expo-font";
 import type { Session } from "@supabase/supabase-js";
 import { CrashBoundary } from "../src/components/CrashBoundary";
 import { supabase } from "../src/lib/supabase";
@@ -101,6 +102,18 @@ function AuthGate() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+  Righteous: require("../assets/fonts/Righteous-Regular.ttf"),
+});
+
+  if (!fontsLoaded) {
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+      <ActivityIndicator />
+    </View>
+  );
+}
+
   return (
     <CrashBoundary>
       <AuthGate />

@@ -46,4 +46,8 @@ export const theme = {
     small: { fontSize: 12, fontWeight: "400" as const },
     smallStrong: { fontSize: 12, fontWeight: "700" as const },
   },
+
+  fonts: {
+    brand: "Righteous",
+  },
 } as const;
