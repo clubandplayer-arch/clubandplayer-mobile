@@ -49,3 +49,4 @@ yarn-error.*
 # local android build artifacts
 *.apk
 *.aab
+PR-UIA1-mobile-files.txt

@@ -26,6 +26,7 @@ import LightboxModal from "../../../components/media/LightboxModal";
 import { sharePostById } from "../../../src/lib/sharePost";
 import { devWarn } from "../../../src/lib/debug/devLog";
 import AdSlot from "../../../components/ads/AdSlot";
+import { theme } from "../../../src/theme";
 
 type FeedRow =
   | { type: "post"; key: string; item: FeedPost }
@@ -94,7 +95,7 @@ function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: "#e5e7eb",
+          backgroundColor: theme.colors.neutral200,
         }}
       />
     );
@@ -106,7 +107,7 @@ function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: "#e5e7eb",
+        backgroundColor: theme.colors.neutral200,
       }}
     />
   );
@@ -146,10 +147,10 @@ function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: strin
     <View
       style={{
         borderBottomWidth: 1,
-        borderBottomColor: "#f3f4f6",
-        paddingHorizontal: 24,
+        borderBottomColor: theme.colors.neutral100,
+        paddingHorizontal: theme.spacing.xl,
         paddingVertical: 16,
-        backgroundColor: "#ffffff",
+        backgroundColor: theme.colors.background,
         gap: 10,
       }}
     >
@@ -159,21 +160,26 @@ function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: strin
           if (!profilePath) return;
           router.push(profilePath);
         }}
-        style={{ flexDirection: "row", gap: 10, alignItems: "center", opacity: profilePath ? 1 : 0.6 }}
+        style={{
+          flexDirection: "row",
+          gap: 10,
+          alignItems: "center",
+          opacity: profilePath ? 1 : 0.6,
+        }}
       >
         <Avatar url={item.author?.avatar_url ?? null} size={40} />
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Text style={{ fontSize: 15, fontWeight: "800", color: "#111827" }}>
+            <Text style={{ fontSize: 15, fontWeight: "800", color: theme.colors.text }}>
               {authorName}
             </Text>
             {item.author && isCertifiedClub(item.author) ? (
-              <Text style={{ fontSize: 11, fontWeight: "900", color: "#111827" }}>
+              <Text style={{ fontSize: 11, fontWeight: "900", color: theme.colors.text }}>
                 C
               </Text>
             ) : null}
           </View>
-          <Text style={{ fontSize: 12, color: "#6b7280" }}>{when}</Text>
+          <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>{when}</Text>
         </View>
       </Pressable>
 
@@ -186,9 +192,7 @@ function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: strin
               router.push(postPath);
             }}
           >
-            <Text style={{ fontSize: 14, lineHeight: 19, color: "#111827" }}>
-              {text}
-            </Text>
+            <Text style={{ fontSize: 14, lineHeight: 19, color: theme.colors.text }}>{text}</Text>
           </Pressable>
         ) : null}
 
@@ -197,7 +201,11 @@ function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: strin
             onPress={() => {
               setLightbox({ open: true, index: 0 });
             }}
-            style={{ borderRadius: 12, overflow: "hidden", backgroundColor: "#f3f4f6" }}
+            style={{
+              borderRadius: theme.radius.md,
+              overflow: "hidden",
+              backgroundColor: theme.colors.neutral100,
+            }}
           >
             {firstMedia.media_type === "video" ? (
               <FeedVideoPreview
@@ -212,7 +220,7 @@ function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: strin
               />
             )}
             <View style={{ padding: 10 }}>
-              <Text style={{ fontSize: 12, color: "#6b7280" }}>
+              <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>
                 {firstMedia.media_type === "video" ? "🎬 Video" : "🖼️ Foto"}
                 {item.media.length > 1 ? ` • +${item.media.length - 1}` : ""}
               </Text>
@@ -229,10 +237,10 @@ function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: strin
       />
 
       <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
-        <Text style={{ fontSize: 12, color: "#6b7280" }}>👍 {likeCount}</Text>
-        <Text style={{ fontSize: 12, color: "#6b7280" }}>💬 {commentCount}</Text>
+        <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>👍 {likeCount}</Text>
+        <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>💬 {commentCount}</Text>
         <Pressable onPress={handleShare}>
-          <Text style={{ fontSize: 12, color: "#111827", fontWeight: "700" }}>Condividi</Text>
+          <Text style={{ ...theme.typography.smallStrong, color: theme.colors.text }}>Condividi</Text>
         </Pressable>
       </View>
     </View>
@@ -365,12 +373,20 @@ export default function FeedScreen() {
       : "Nessun contenuto ancora. Qui compariranno i post delle persone e dei club che segui.";
 
     return (
-      <View style={{ padding: 24, paddingBottom: 12, gap: 16, backgroundColor: "#ffffff" }}>
-        <Text style={{ fontSize: 28, fontWeight: "800" }}>Feed</Text>
+      <View style={{ padding: theme.spacing.xl, paddingBottom: 12, gap: 16, backgroundColor: theme.colors.background }}>
+        <Text style={{ ...theme.typography.h1, color: theme.colors.primary }}>Feed</Text>
 
         {flash ? (
-          <View style={{ borderWidth: 1, borderColor: "#e5e7eb", backgroundColor: "#f9fafb", borderRadius: 12, padding: 12 }}>
-            <Text style={{ fontWeight: "700", color: "#111827" }}>{flash}</Text>
+          <View
+            style={{
+              borderWidth: 1,
+              borderColor: theme.colors.neutral200,
+              backgroundColor: theme.colors.neutral50,
+              borderRadius: theme.radius.md,
+              padding: 12,
+            }}
+          >
+            <Text style={{ ...theme.typography.strong, color: theme.colors.text }}>{flash}</Text>
           </View>
         ) : null}
 
@@ -378,11 +394,11 @@ export default function FeedScreen() {
           style={{
             flexDirection: "row",
             borderWidth: 1,
-            borderColor: "#e5e7eb",
-            borderRadius: 999,
+            borderColor: theme.colors.neutral200,
+            borderRadius: theme.radius.pill,
             padding: 4,
             gap: 6,
-            backgroundColor: "#f9fafb",
+            backgroundColor: theme.colors.neutral50,
             alignSelf: "flex-start",
           }}
         >
@@ -396,11 +412,16 @@ export default function FeedScreen() {
             style={{
               paddingVertical: 6,
               paddingHorizontal: 14,
-              borderRadius: 999,
-              backgroundColor: feedMode === "all" ? "#111827" : "transparent",
+              borderRadius: theme.radius.pill,
+              backgroundColor: feedMode === "all" ? theme.colors.primary : "transparent",
             }}
           >
-            <Text style={{ color: feedMode === "all" ? "#ffffff" : "#111827", fontWeight: "700" }}>
+            <Text
+              style={{
+                color: feedMode === "all" ? theme.colors.background : theme.colors.text,
+                fontWeight: "700",
+              }}
+            >
               Tutti
             </Text>
           </Pressable>
@@ -415,44 +436,58 @@ export default function FeedScreen() {
             style={{
               paddingVertical: 6,
               paddingHorizontal: 14,
-              borderRadius: 999,
-              backgroundColor: feedMode === "following" ? "#111827" : "transparent",
+              borderRadius: theme.radius.pill,
+              backgroundColor: feedMode === "following" ? theme.colors.primary : "transparent",
             }}
           >
-            <Text style={{ color: feedMode === "following" ? "#ffffff" : "#111827", fontWeight: "700" }}>
+            <Text
+              style={{
+                color: feedMode === "following" ? theme.colors.background : theme.colors.text,
+                fontWeight: "700",
+              }}
+            >
               Seguiti
             </Text>
           </Pressable>
         </View>
 
-        <View style={{ borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 12, padding: 16, gap: 10 }}>
-          <Text style={{ fontSize: 16, fontWeight: "700" }}>Accesso</Text>
+        <View
+          style={{
+            borderWidth: 1,
+            borderColor: theme.colors.neutral200,
+            borderRadius: theme.radius.md,
+            padding: 16,
+            gap: 10,
+            backgroundColor: theme.colors.background,
+          }}
+        >
+          <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.text }}>Accesso</Text>
 
           {web.loading ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <ActivityIndicator />
-              <Text>Verifico sessione web…</Text>
+              <Text style={{ color: theme.colors.text }}>Verifico sessione web…</Text>
             </View>
           ) : web.error ? (
             <>
-              <Text style={{ color: "#b91c1c" }}>Sessione web non disponibile.</Text>
+              <Text style={{ color: theme.colors.danger }}>Sessione web non disponibile.</Text>
               <Pressable
                 onPress={web.retry}
                 style={{
                   paddingVertical: 10,
                   paddingHorizontal: 14,
                   borderWidth: 1,
-                  borderColor: "#111827",
-                  borderRadius: 10,
+                  borderColor: theme.colors.primary,
+                  borderRadius: theme.radius.sm,
                   alignSelf: "flex-start",
                 }}
               >
-                <Text style={{ color: "#111827", fontWeight: "700" }}>Riprova</Text>
+                <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>Riprova</Text>
               </Pressable>
             </>
           ) : whoami.data?.user ? (
             <>
-              <Text style={{ color: "#111827" }}>
+              <Text style={{ color: theme.colors.text }}>
                 Sei loggato.{" "}
                 {whoami.data?.role ? <Text style={{ fontWeight: "700" }}>{whoami.data.role}</Text> : null}
               </Text>
@@ -462,29 +497,29 @@ export default function FeedScreen() {
                 style={{
                   paddingVertical: 10,
                   paddingHorizontal: 14,
-                  backgroundColor: "#111827",
-                  borderRadius: 10,
+                  backgroundColor: theme.colors.primary,
+                  borderRadius: theme.radius.sm,
                   alignSelf: "flex-start",
                 }}
               >
-                <Text style={{ color: "#ffffff", fontWeight: "700" }}>Logout</Text>
+                <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Logout</Text>
               </Pressable>
             </>
           ) : (
             <>
-              <Text style={{ color: "#111827" }}>Non risulti loggato. Vai al login.</Text>
+              <Text style={{ color: theme.colors.text }}>Non risulti loggato. Vai al login.</Text>
               <Pressable
                 onPress={() => router.replace("/(auth)/login")}
                 style={{
                   paddingVertical: 10,
                   paddingHorizontal: 14,
                   borderWidth: 1,
-                  borderColor: "#111827",
-                  borderRadius: 10,
+                  borderColor: theme.colors.primary,
+                  borderRadius: theme.radius.sm,
                   alignSelf: "flex-start",
                 }}
               >
-                <Text style={{ color: "#111827", fontWeight: "700" }}>Vai al login</Text>
+                <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>Vai al login</Text>
               </Pressable>
             </>
           )}
@@ -492,34 +527,60 @@ export default function FeedScreen() {
 
         <FeedComposer onPosted={refetchFeed} />
 
-        {items.length === 0 && !error ? <Text style={{ color: "#6b7280" }}>{emptyMessage}</Text> : null}
+        {items.length === 0 && !error ? (
+          <Text style={{ color: theme.colors.muted }}>{emptyMessage}</Text>
+        ) : null}
 
         {error ? (
-          <View style={{ borderWidth: 1, borderColor: "#fecaca", backgroundColor: "#fff5f5", borderRadius: 12, padding: 14, gap: 8 }}>
-            <Text style={{ fontWeight: "800", color: "#b91c1c" }}>Errore</Text>
-            <Text style={{ color: "#b91c1c" }}>{error}</Text>
+          <View
+            style={{
+              borderWidth: 1,
+              borderColor: theme.colors.dangerBorder,
+              backgroundColor: theme.colors.dangerBg,
+              borderRadius: theme.radius.md,
+              padding: 14,
+              gap: 8,
+            }}
+          >
+            <Text style={{ fontWeight: "800", color: theme.colors.danger }}>Errore</Text>
+            <Text style={{ color: theme.colors.danger }}>{error}</Text>
             <Pressable onPress={() => load(feedMode)} style={{ alignSelf: "flex-start" }}>
-              <Text style={{ color: "#036f9a", fontWeight: "800" }}>Riprova</Text>
+              <Text style={{ color: theme.colors.primary, fontWeight: "800" }}>Riprova</Text>
             </Pressable>
           </View>
         ) : null}
       </View>
     );
-  }, [error, feedMode, flash, items.length, load, onLogout, refetchFeed, router, showFlash, web.error, web.loading, web.retry, whoami.data?.role, whoami.data?.user]);
+  }, [
+    error,
+    feedMode,
+    flash,
+    items.length,
+    load,
+    onLogout,
+    refetchFeed,
+    router,
+    showFlash,
+    web.error,
+    web.loading,
+    web.retry,
+    whoami.data?.role,
+    whoami.data?.user,
+  ]);
 
   const footer = useMemo(() => {
     if (loadingMore) {
       return (
         <View style={{ paddingVertical: 18, alignItems: "center" }}>
           <ActivityIndicator />
-          <Text style={{ marginTop: 8, color: "#6b7280" }}>Carico altri post…</Text>
+          <Text style={{ marginTop: 8, color: theme.colors.muted }}>Carico altri post…</Text>
         </View>
       );
     }
     if (!nextPage && items.length > 0) {
       return (
         <View style={{ paddingVertical: 18, alignItems: "center" }}>
-          <Text style={{ color: "#6b7280" }}>Hai visto tutto ✅</Text>
+          <Text style={{ color: theme.colors.muted }}>Hai visto tutto ✅</Text>
         </View>
       );
     }
@@ -551,7 +612,7 @@ export default function FeedScreen() {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
         <ActivityIndicator />
-        <Text style={{ color: "#6b7280" }}>Caricamento feed…</Text>
+        <Text style={{ color: theme.colors.muted }}>Caricamento feed…</Text>
       </View>
     );
   }
@@ -572,7 +633,7 @@ export default function FeedScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       onEndReachedThreshold={0.6}
       onEndReached={loadMore}
-      style={{ backgroundColor: "#ffffff" }}
+      style={{ backgroundColor: theme.colors.background }}
     />
   );
 }
