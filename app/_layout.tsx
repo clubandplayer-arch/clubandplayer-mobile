@@ -6,6 +6,7 @@ import type { Session } from "@supabase/supabase-js";
 import { CrashBoundary } from "../src/components/CrashBoundary";
 import { supabase } from "../src/lib/supabase";
 import { getOnboardingSeen, subscribeOnboardingSeen } from "../src/lib/onboarding";
+import { theme } from "../src/theme";
 
 function AuthGate() {
   const router = useRouter();
@@ -115,9 +116,17 @@ export default function RootLayout() {
 }
 
   return (
-    <CrashBoundary>
+      <CrashBoundary>
       <AuthGate />
-      <Stack screenOptions={{ headerShown: false }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          headerTitleStyle: { fontFamily: theme.fonts.brand, color: theme.colors.primary },
+          headerTintColor: theme.colors.primary,
+          headerShadowVisible: false,
+          headerStyle: { backgroundColor: theme.colors.background },
+        }}
+      >
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="(auth)" />
 

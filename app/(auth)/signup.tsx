@@ -70,8 +70,8 @@ export default function SignupScreen() {
           <ActivityIndicator />
         ) : (
           <>
-            <Ionicons name="logo-google" size={18} color={theme.colors.text} />
-            <Text style={{ fontWeight: "700" }}>Registrati con Google</Text>
+            <Ionicons name="logo-google" size={18} color={theme.colors.primary} />
+            <Text style={{ fontWeight: "700", color: theme.colors.primary }}>Registrati con Google</Text>
           </>
         )}
       </Pressable>

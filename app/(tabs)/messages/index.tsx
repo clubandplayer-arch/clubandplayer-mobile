@@ -9,9 +9,11 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { fetchDirectMessageThreads } from "../../../src/lib/api";
 import type { DirectThreadSummary } from "../../../src/types/directMessages";
+import { theme } from "../../../src/theme";
 
 function formatWhen(value?: string | null): string {
   if (!value) return "";
@@ -65,6 +67,7 @@ function Avatar({ url }: { url?: string | null }) {
 
 export default function MessagesInboxScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [threads, setThreads] = useState<DirectThreadSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -157,12 +160,14 @@ export default function MessagesInboxScreen() {
 
   const header = useMemo(
     () => (
-      <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: "#f3f4f6", gap: 6 }}>
-        <Text style={{ fontSize: 28, fontWeight: "800", color: "#111827" }}>Messaggi</Text>
+      <View style={{ padding: 16, paddingTop: insets.top + 16, borderBottomWidth: 1, borderBottomColor: "#f3f4f6", gap: 6 }}>
+        <Text style={{ fontSize: 28, fontWeight: "800", color: theme.colors.primary, fontFamily: theme.fonts.brand }}>
+          Messaggi
+        </Text>
         {error ? <Text style={{ color: "#b91c1c" }}>{error}</Text> : null}
       </View>
     ),
-    [error],
+    [error, insets.top],
   );
 
   if (loading) {
