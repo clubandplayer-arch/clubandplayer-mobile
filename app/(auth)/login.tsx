@@ -137,8 +137,8 @@ export default function LoginScreen() {
           opacity: loading ? 0.8 : 1,
         }}
       >
-        <Ionicons name="logo-google" size={18} color={theme.colors.text} />
-        <Text style={{ fontWeight: "700" }}>Continua con Google</Text>
+        <Ionicons name="logo-google" size={18} color={theme.colors.primary} />
+        <Text style={{ fontWeight: "700", color: theme.colors.primary }}>Continua con Google</Text>
       </Pressable>
 
       <Pressable
