@@ -21,6 +21,7 @@ import { emit } from "../../../src/lib/events/appEvents";
 import { devWarn } from "../../../src/lib/debug/devLog";
 import { setNotificationsBadgeCount } from "../../../src/lib/notificationsBadge";
 import type { NotificationWithActor } from "../../../src/types/notifications";
+import { theme } from "../../../src/theme";
 
 type FilterMode = "all" | "unread";
 
@@ -309,7 +310,7 @@ export default function NotificationsScreen() {
   const header = useMemo(
     () => (
       <View style={{ padding: 16, gap: 12, borderBottomWidth: 1, borderBottomColor: "#f3f4f6" }}>
-        <Text style={{ fontSize: 28, fontWeight: "800", color: "#111827" }}>Notifiche</Text>
+        <Text style={{ fontSize: 28, fontFamily: "Righteous", color: theme.colors.primary }}>Notifiche</Text>
 
         <View style={{ flexDirection: "row", gap: 8 }}>
           <Pressable
