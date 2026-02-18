@@ -103,14 +103,16 @@ function AuthGate() {
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    Righteous: {
-      uri: "https://fonts.gstatic.com/s/righteous/v19/1cXxaUPXBpj2rGoU7C9WhnGF.ttf",
-    },
-  });
+  Righteous: require("../assets/fonts/Righteous-Regular.ttf"),
+});
 
   if (!fontsLoaded) {
-    return null;
-  }
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+      <ActivityIndicator />
+    </View>
+  );
+}
 
   return (
     <CrashBoundary>
