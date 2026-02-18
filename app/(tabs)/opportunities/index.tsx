@@ -337,7 +337,7 @@ export default function OpportunitiesScreen() {
   if (error && items.length === 0) {
     return (
       <View style={{ flex: 1, padding: 20, justifyContent: "center", gap: 12 }}>
-        <Text style={{ fontSize: 22, fontWeight: "800" }}>Opportunità</Text>
+        <Text style={{ fontSize: 22, fontFamily: "Righteous", color: theme.colors.primary }}>Opportunità</Text>
         <Text style={{ color: theme.colors.danger }}>{error}</Text>
         <Pressable onPress={() => void loadPage(1, "replace")} style={{ borderWidth: 1, borderRadius: 12, padding: 12, alignItems: "center" }}>
           <Text style={{ fontWeight: "700" }}>Riprova</Text>
