@@ -151,14 +151,14 @@ function OpportunityCard({
             style={{
               alignSelf: "flex-start",
               borderWidth: 1,
-              borderColor: "#86efac",
-              backgroundColor: "#f0fdf4",
+              borderColor: theme.colors.neutral200,
+              backgroundColor: theme.colors.background,
               borderRadius: 999,
               paddingVertical: 6,
               paddingHorizontal: 10,
             }}
           >
-            <Text style={{ fontWeight: "700", color: "#166534" }}>Candidatura inviata</Text>
+            <Text style={{ fontWeight: "700", color: theme.colors.muted }}>Candidatura inviata</Text>
           </View>
         ) : (
           <View style={{ gap: 8 }}>
@@ -339,8 +339,17 @@ export default function OpportunitiesScreen() {
       <View style={{ flex: 1, padding: 20, justifyContent: "center", gap: 12 }}>
         <Text style={{ fontSize: 22, fontFamily: "Righteous", color: theme.colors.primary }}>Opportunità</Text>
         <Text style={{ color: theme.colors.danger }}>{error}</Text>
-        <Pressable onPress={() => void loadPage(1, "replace")} style={{ borderWidth: 1, borderRadius: 12, padding: 12, alignItems: "center" }}>
-          <Text style={{ fontWeight: "700" }}>Riprova</Text>
+        <Pressable
+          onPress={() => void loadPage(1, "replace")}
+          style={{
+            borderWidth: 1,
+            borderColor: theme.colors.neutral200,
+            borderRadius: 12,
+            padding: 12,
+            alignItems: "center",
+          }}
+        >
+          <Text style={{ fontWeight: "700", color: theme.colors.text }}>Riprova</Text>
         </Pressable>
       </View>
     );
