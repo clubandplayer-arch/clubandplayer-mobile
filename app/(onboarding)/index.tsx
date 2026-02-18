@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
+import { BrandLogo } from "../../components/brand/BrandLogo";
 import { setOnboardingSeen } from "../../src/lib/onboarding";
+import { theme } from "../../src/theme";
 
 export default function OnboardingScreen() {
   const [loading, setLoading] = useState(false);
@@ -17,16 +19,25 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <View style={{ flex: 1, padding: 24, justifyContent: "center", gap: 14 }}>
-      <Text style={{ fontSize: 30, fontWeight: "800" }}>
+    <View
+      style={{
+        flex: 1,
+        padding: 24,
+        justifyContent: "center",
+        gap: 14,
+        backgroundColor: theme.colors.background,
+      }}
+    >
+      <BrandLogo />
+
+      <Text style={{ fontSize: 30, fontWeight: "800", fontFamily: theme.fonts.brand }}>
         Benvenuto su Club & Player
       </Text>
 
-      <Text style={{ fontSize: 16, color: "#374151", lineHeight: 22 }}>
-        Il social sportivo per{" "}
-        <Text style={{ fontWeight: "800" }}>Club</Text> e{" "}
-        <Text style={{ fontWeight: "800" }}>Giocatori</Text>.
-        Segui, pubblica, candidati e resta aggiornato.
+      <Text style={{ fontSize: 16, color: theme.colors.muted, lineHeight: 22 }}>
+        Il social sportivo per <Text style={{ fontWeight: "800" }}>Club</Text> e{" "}
+        <Text style={{ fontWeight: "800" }}>Giocatori</Text>. Segui, pubblica, candidati e
+        resta aggiornato.
       </Text>
 
       <View style={{ height: 12 }} />
@@ -35,7 +46,7 @@ export default function OnboardingScreen() {
         onPress={() => goTo("/(auth)/login")}
         disabled={loading}
         style={{
-          backgroundColor: "#0A66C2",
+          backgroundColor: theme.colors.primary,
           padding: 14,
           borderRadius: 12,
           alignItems: "center",
@@ -43,9 +54,9 @@ export default function OnboardingScreen() {
         }}
       >
         {loading ? (
-          <ActivityIndicator color="white" />
+          <ActivityIndicator color={theme.colors.background} />
         ) : (
-          <Text style={{ color: "white", fontWeight: "800" }}>Accedi</Text>
+          <Text style={{ color: theme.colors.background, fontWeight: "800" }}>Accedi</Text>
         )}
       </Pressable>
 
@@ -54,6 +65,7 @@ export default function OnboardingScreen() {
         disabled={loading}
         style={{
           borderWidth: 1,
+          borderColor: theme.colors.neutral200,
           padding: 14,
           borderRadius: 12,
           alignItems: "center",
@@ -61,7 +73,7 @@ export default function OnboardingScreen() {
         }}
       >
         {loading ? (
-          <ActivityIndicator />
+          <ActivityIndicator color={theme.colors.muted} />
         ) : (
           <Text style={{ fontWeight: "800" }}>Registrati</Text>
         )}
@@ -76,12 +88,10 @@ export default function OnboardingScreen() {
           opacity: loading ? 0.6 : 1,
         }}
       >
-        <Text style={{ color: "#6b7280" }}>
-          Continua più tardi
-        </Text>
+        <Text style={{ color: theme.colors.muted }}>Continua più tardi</Text>
       </Pressable>
 
-      <Text style={{ fontSize: 12, color: "#6b7280", marginTop: 8 }}>
+      <Text style={{ fontSize: 12, color: theme.colors.muted, marginTop: 8 }}>
         Nota: la navigazione “ospite” verrà aggiunta più avanti. Per ora è richiesto l’accesso.
       </Text>
     </View>

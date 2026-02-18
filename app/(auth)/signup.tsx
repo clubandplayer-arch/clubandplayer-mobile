@@ -9,8 +9,10 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as AppleAuthentication from "expo-apple-authentication";
+import { BrandLogo } from "../../components/brand/BrandLogo";
 import { signInWithApple } from "../../src/lib/appleAuth";
 import { signInWithGoogle } from "../../src/lib/auth";
+import { theme } from "../../src/theme";
 
 export default function SignupScreen() {
   const [loading, setLoading] = useState(false);
@@ -39,12 +41,29 @@ export default function SignupScreen() {
   };
 
   return (
-    <View style={{ flex: 1, padding: 24, justifyContent: "center", gap: 12 }}>
-      <Text style={{ fontSize: 28, fontWeight: "700", marginBottom: 12 }}>
+    <View
+      style={{
+        flex: 1,
+        padding: 24,
+        justifyContent: "center",
+        gap: 12,
+        backgroundColor: theme.colors.background,
+      }}
+    >
+      <BrandLogo />
+
+      <Text
+        style={{
+          fontSize: 28,
+          fontWeight: "700",
+          marginBottom: 12,
+          fontFamily: theme.fonts.brand,
+        }}
+      >
         Club & Player
       </Text>
 
-      <Text style={{ fontSize: 18, fontWeight: "600" }}>
+      <Text style={{ fontSize: 18, fontWeight: "600", fontFamily: theme.fonts.brand }}>
         Crea il tuo account
       </Text>
 
@@ -53,6 +72,7 @@ export default function SignupScreen() {
         disabled={loading}
         style={{
           borderWidth: 1,
+          borderColor: theme.colors.neutral200,
           padding: 14,
           borderRadius: 12,
           alignItems: "center",
@@ -83,7 +103,7 @@ export default function SignupScreen() {
       >
         <Text>
           Hai già un account?{" "}
-          <Text style={{ fontWeight: "700", color: "#0A66C2" }}>
+          <Text style={{ fontWeight: "700", color: theme.colors.primary }}>
             Accedi
           </Text>
         </Text>
