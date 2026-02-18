@@ -147,9 +147,9 @@ function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: strin
     <View
       style={{
         borderBottomWidth: 1,
-        borderBottomColor: theme.colors.neutral100,
-        paddingHorizontal: theme.spacing.xl,
-        paddingVertical: 16,
+        borderBottomColor: theme.colors.neutral200,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
         backgroundColor: theme.colors.background,
         gap: 10,
       }}
@@ -240,7 +240,7 @@ function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: strin
         <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>👍 {likeCount}</Text>
         <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>💬 {commentCount}</Text>
         <Pressable onPress={handleShare}>
-          <Text style={{ ...theme.typography.smallStrong, color: theme.colors.text }}>Condividi</Text>
+          <Text style={{ ...theme.typography.smallStrong, color: theme.colors.primary }}>Condividi</Text>
         </Pressable>
       </View>
     </View>
@@ -373,7 +373,7 @@ export default function FeedScreen() {
       : "Nessun contenuto ancora. Qui compariranno i post delle persone e dei club che segui.";
 
     return (
-      <View style={{ padding: theme.spacing.xl, paddingBottom: 12, gap: 16, backgroundColor: theme.colors.background }}>
+      <View style={{ padding: theme.spacing.xl, paddingBottom: 12, gap: 12, backgroundColor: theme.colors.background }}>
         <Text style={{ ...theme.typography.h1, color: theme.colors.primary, fontFamily: theme.fonts.brand }}>
           Feed
         </Text>
