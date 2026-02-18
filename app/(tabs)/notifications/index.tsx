@@ -291,7 +291,7 @@ export default function NotificationsScreen() {
                       height: 9,
                       borderRadius: 5,
                       marginTop: 4,
-                      backgroundColor: "#2563eb",
+                      backgroundColor: theme.colors.primary,
                     }}
                   />
                 ) : null}
@@ -317,28 +317,30 @@ export default function NotificationsScreen() {
             onPress={() => setFilter("all")}
             style={{
               borderWidth: 1,
-              borderColor: "#111827",
+              borderColor: filter === "all" ? theme.colors.primary : theme.colors.neutral200,
               borderRadius: 999,
               paddingVertical: 8,
               paddingHorizontal: 14,
-              backgroundColor: filter === "all" ? "#111827" : "#ffffff",
+              backgroundColor: filter === "all" ? theme.colors.primary : "#ffffff",
             }}
           >
-            <Text style={{ color: filter === "all" ? "#ffffff" : "#111827", fontWeight: "700" }}>Tutte</Text>
+            <Text style={{ color: filter === "all" ? "#ffffff" : theme.colors.text, fontWeight: "700" }}>
+              Tutte
+            </Text>
           </Pressable>
 
           <Pressable
             onPress={() => setFilter("unread")}
             style={{
               borderWidth: 1,
-              borderColor: "#111827",
+              borderColor: filter === "unread" ? theme.colors.primary : theme.colors.neutral200,
               borderRadius: 999,
               paddingVertical: 8,
               paddingHorizontal: 14,
-              backgroundColor: filter === "unread" ? "#111827" : "#ffffff",
+              backgroundColor: filter === "unread" ? theme.colors.primary : "#ffffff",
             }}
           >
-            <Text style={{ color: filter === "unread" ? "#ffffff" : "#111827", fontWeight: "700" }}>
+            <Text style={{ color: filter === "unread" ? "#ffffff" : theme.colors.text, fontWeight: "700" }}>
               Da leggere
             </Text>
           </Pressable>
@@ -348,14 +350,14 @@ export default function NotificationsScreen() {
             disabled={updatingAll}
             style={{
               borderWidth: 1,
-              borderColor: "#111827",
+              borderColor: theme.colors.neutral200,
               borderRadius: 999,
               paddingVertical: 8,
               paddingHorizontal: 14,
               opacity: updatingAll ? 0.5 : 1,
             }}
           >
-            <Text style={{ color: "#111827", fontWeight: "700" }}>Segna tutte come lette</Text>
+            <Text style={{ color: theme.colors.text, fontWeight: "700" }}>Segna tutte come lette</Text>
           </Pressable>
         </View>
 
