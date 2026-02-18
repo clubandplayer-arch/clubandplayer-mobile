@@ -15,6 +15,7 @@ import * as VideoThumbnails from "expo-video-thumbnails";
 
 import { supabase } from "../../src/lib/supabase";
 import { createFeedPost, fetchLinkPreview } from "../../src/lib/api";
+import { theme } from "../../src/theme";
 
 type LinkPreview = {
   url?: string | null;
@@ -249,14 +250,8 @@ export default function FeedComposer({ onPosted }: FeedComposerProps) {
         {
           uri: asset.uri,
           mediaType: "video",
-          width:
-            typeof asset.width === "number"
-              ? asset.width
-              : (poster?.width ?? 0),
-          height:
-            typeof asset.height === "number"
-              ? asset.height
-              : (poster?.height ?? 0),
+          width: typeof asset.width === "number" ? asset.width : (poster?.width ?? 0),
+          height: typeof asset.height === "number" ? asset.height : (poster?.height ?? 0),
           fileName,
           mimeType,
           posterUri: poster?.uri,
@@ -265,10 +260,7 @@ export default function FeedComposer({ onPosted }: FeedComposerProps) {
         },
       ]);
     } catch (error: any) {
-      Alert.alert(
-        "Errore",
-        error?.message ? String(error.message) : "Impossibile selezionare il video",
-      );
+      Alert.alert("Errore", error?.message ? String(error.message) : "Impossibile selezionare il video");
     }
   }, []);
 
@@ -336,12 +328,14 @@ export default function FeedComposer({ onPosted }: FeedComposerProps) {
           }
         }
 
-        const w = typeof item.width === "number" && item.width > 0 ? item.width : (item.posterWidth ?? 0);
-		    const h = typeof item.height === "number" && item.height > 0 ? item.height : (item.posterHeight ?? 0);
+        const w =
+          typeof item.width === "number" && item.width > 0 ? item.width : (item.posterWidth ?? 0);
+        const h =
+          typeof item.height === "number" && item.height > 0 ? item.height : (item.posterHeight ?? 0);
 
-		    if (item.mediaType === "video" && (w <= 0 || h <= 0)) {
-		    throw new Error("Dimensioni video non disponibili");
-		    }
+        if (item.mediaType === "video" && (w <= 0 || h <= 0)) {
+          throw new Error("Dimensioni video non disponibili");
+        }
 
         uploadedMedia.push({
           mediaType: item.mediaType,
@@ -385,8 +379,17 @@ export default function FeedComposer({ onPosted }: FeedComposerProps) {
   }, [content, linkPreview, media, onPosted, publishing]);
 
   return (
-    <View style={{ borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 12, padding: 14, gap: 10 }}>
-      <Text style={{ fontSize: 16, fontWeight: "700", color: "#111827" }}>Post</Text>
+    <View
+      style={{
+        borderWidth: 1,
+        borderColor: theme.colors.neutral200,
+        borderRadius: theme.radius.md,
+        padding: 14,
+        gap: 10,
+        backgroundColor: theme.colors.background,
+      }}
+    >
+      <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.text }}>Post</Text>
 
       <TextInput
         value={content}
@@ -394,33 +397,41 @@ export default function FeedComposer({ onPosted }: FeedComposerProps) {
         multiline
         editable={!publishing}
         placeholder="Scrivi qualcosa…"
+        placeholderTextColor={theme.colors.muted}
         style={{
           minHeight: 92,
           borderWidth: 1,
-          borderColor: "#e5e7eb",
-          borderRadius: 10,
+          borderColor: theme.colors.neutral200,
+          borderRadius: theme.radius.sm,
           padding: 10,
           textAlignVertical: "top",
-          color: "#111827",
+          color: theme.colors.text,
         }}
       />
 
       {media.map((item, index) => (
-        <View key={`${item.uri}-${index}`} style={{ borderRadius: 10, overflow: "hidden", backgroundColor: "#f3f4f6" }}>
+        <View
+          key={`${item.uri}-${index}`}
+          style={{
+            borderRadius: theme.radius.sm,
+            overflow: "hidden",
+            backgroundColor: theme.colors.neutral100,
+          }}
+        >
           <Image
             source={{ uri: item.mediaType === "video" ? item.posterUri || item.uri : item.uri }}
             style={{ width: "100%", height: 160 }}
             resizeMode="cover"
           />
           <View style={{ padding: 8, flexDirection: "row", justifyContent: "space-between" }}>
-            <Text style={{ color: "#6b7280", fontSize: 12 }}>
+            <Text style={{ color: theme.colors.muted, fontSize: 12 }}>
               {item.mediaType === "video" ? "🎬 Video" : "🖼️ Foto"}
             </Text>
             <Pressable
               disabled={publishing}
               onPress={() => setMedia((prev) => prev.filter((_, i) => i !== index))}
             >
-              <Text style={{ color: "#b91c1c", fontWeight: "700" }}>Rimuovi</Text>
+              <Text style={{ color: theme.colors.danger, fontWeight: "700" }}>Rimuovi</Text>
             </Pressable>
           </View>
         </View>
@@ -429,17 +440,19 @@ export default function FeedComposer({ onPosted }: FeedComposerProps) {
       {previewLoading ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <ActivityIndicator size="small" />
-          <Text style={{ color: "#6b7280" }}>Carico anteprima link…</Text>
+          <Text style={{ color: theme.colors.muted }}>Carico anteprima link…</Text>
         </View>
       ) : linkPreview ? (
-        <View style={{ borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 10, overflow: "hidden" }}>
+        <View style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: theme.radius.sm, overflow: "hidden" }}>
           {linkPreview.image ? (
             <Image source={{ uri: linkPreview.image }} style={{ width: "100%", height: 120 }} resizeMode="cover" />
           ) : null}
           <View style={{ padding: 10, gap: 4 }}>
-            {linkPreview.title ? <Text style={{ color: "#111827", fontWeight: "700" }}>{linkPreview.title}</Text> : null}
-            {linkPreview.description ? <Text style={{ color: "#6b7280" }}>{linkPreview.description}</Text> : null}
-            {linkPreview.url ? <Text style={{ color: "#036f9a" }}>{linkPreview.url}</Text> : null}
+            {linkPreview.title ? (
+              <Text style={{ color: theme.colors.text, fontWeight: "700" }}>{linkPreview.title}</Text>
+            ) : null}
+            {linkPreview.description ? <Text style={{ color: theme.colors.muted }}>{linkPreview.description}</Text> : null}
+            {linkPreview.url ? <Text style={{ color: theme.colors.primary }}>{linkPreview.url}</Text> : null}
           </View>
         </View>
       ) : null}
@@ -448,31 +461,45 @@ export default function FeedComposer({ onPosted }: FeedComposerProps) {
         <Pressable
           onPress={onPickImage}
           disabled={publishing}
-          style={{ borderWidth: 1, borderColor: "#111827", borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12 }}
+          style={{
+            borderWidth: 1,
+            borderColor: theme.colors.primary,
+            borderRadius: theme.radius.sm,
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+          }}
         >
-          <Text style={{ color: "#111827", fontWeight: "700" }}>Foto</Text>
+          <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>Foto</Text>
         </Pressable>
 
         <Pressable
           onPress={onPickVideo}
           disabled={publishing}
-          style={{ borderWidth: 1, borderColor: "#111827", borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12 }}
+          style={{
+            borderWidth: 1,
+            borderColor: theme.colors.primary,
+            borderRadius: theme.radius.sm,
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+          }}
         >
-          <Text style={{ color: "#111827", fontWeight: "700" }}>Video</Text>
+          <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>Video</Text>
         </Pressable>
 
         <Pressable
           onPress={onPublish}
           disabled={publishing}
           style={{
-            backgroundColor: "#111827",
-            borderRadius: 10,
+            backgroundColor: theme.colors.primary,
+            borderRadius: theme.radius.sm,
             paddingVertical: 8,
             paddingHorizontal: 12,
             opacity: publishing ? 0.7 : 1,
           }}
         >
-          <Text style={{ color: "#fff", fontWeight: "700" }}>{publishing ? "Pubblico…" : "Pubblica"}</Text>
+          <Text style={{ color: theme.colors.background, fontWeight: "700" }}>
+            {publishing ? "Pubblico…" : "Pubblica"}
+          </Text>
         </Pressable>
       </View>
     </View>

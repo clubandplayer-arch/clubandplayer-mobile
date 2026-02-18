@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { fetchDirectMessagesUnreadCount } from "../../src/lib/api";
 import { on } from "../../src/lib/events/appEvents";
 import { useNotificationsBadgeCount } from "../../src/lib/notificationsBadge";
+import { theme } from "../../src/theme";
 
 export default function TabsLayout() {
   const router = useRouter();
@@ -72,21 +73,14 @@ export default function TabsLayout() {
           },
         })}
       >
-        <Tabs.Screen
-          name="feed/index"
-          options={{ title: "Feed", tabBarLabel: "Feed" }}
-        />
-        <Tabs.Screen
-          name="search/index"
-          options={{ title: "Cerca", tabBarLabel: "Cerca" }}
-        />
+        <Tabs.Screen name="feed/index" options={{ title: "Feed", tabBarLabel: "Feed" }} />
+        <Tabs.Screen name="search/index" options={{ title: "Cerca", tabBarLabel: "Cerca" }} />
         <Tabs.Screen
           name="messages/index"
           options={{
             title: "Messaggi",
             tabBarLabel: "Messaggi",
-            tabBarBadge:
-              messagesUnreadCount > 0 ? messagesUnreadCount : undefined,
+            tabBarBadge: messagesUnreadCount > 0 ? messagesUnreadCount : undefined,
           }}
         />
         <Tabs.Screen
@@ -96,11 +90,8 @@ export default function TabsLayout() {
             tabBarLabel: "Opportunità",
             headerShown: true,
             headerRight: () => (
-              <Pressable
-                onPress={() => router.push("/applications")}
-                hitSlop={8}
-              >
-                <Text style={{ color: "#1d4ed8", fontWeight: "700" }}>
+              <Pressable onPress={() => router.push("/applications")} hitSlop={8}>
+                <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>
                   Candidature
                 </Text>
               </Pressable>
@@ -122,10 +113,7 @@ export default function TabsLayout() {
             tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
           }}
         />
-        <Tabs.Screen
-          name="me/index"
-          options={{ title: "Profilo", tabBarLabel: "Profilo" }}
-        />
+        <Tabs.Screen name="me/index" options={{ title: "Profilo", tabBarLabel: "Profilo" }} />
         <Tabs.Screen name="messages/[profileId]" options={{ href: null }} />
         <Tabs.Screen name="me/debug" options={{ href: null }} />
       </Tabs>
