@@ -239,8 +239,18 @@ export default function SearchScreen() {
           autoCorrect={false}
           style={{ borderWidth: 1, borderRadius: 12, padding: 12 }}
         />
-        <Pressable onPress={onSubmitSearch} style={{ borderWidth: 1, borderRadius: 10, padding: 12, alignItems: "center" }}>
-          <Text style={{ fontWeight: "700" }}>Cerca</Text>
+        <Pressable
+          onPress={onSubmitSearch}
+          style={{
+            borderWidth: 1,
+            borderColor: theme.colors.primary,
+            backgroundColor: theme.colors.primary,
+            borderRadius: 10,
+            padding: 12,
+            alignItems: "center",
+          }}
+        >
+          <Text style={{ fontWeight: "700", color: "#ffffff" }}>Cerca</Text>
         </Pressable>
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
@@ -291,7 +301,7 @@ export default function SearchScreen() {
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                     <Text style={{ fontSize: 16, fontWeight: "700" }}>{sectionType}</Text>
                     <Pressable onPress={() => onChangeType(sectionType)}>
-                      <Text style={{ fontWeight: "700" }}>Vedi tutti</Text>
+                      <Text style={{ fontWeight: "700", color: theme.colors.primary }}>Vedi tutti</Text>
                     </Pressable>
                   </View>
                   <View style={{ gap: 8 }}>{sectionItems.slice(0, 3).map((item) => renderRow(item))}</View>
