@@ -178,7 +178,7 @@ function OpportunityCard({
               }}
             />
 
-            {applyError ? <Text style={{ color: "#b91c1c" }}>{applyError}</Text> : null}
+            {applyError ? <Text style={{ color: theme.colors.danger }}>{applyError}</Text> : null}
 
             <Pressable
               disabled={isApplying}
