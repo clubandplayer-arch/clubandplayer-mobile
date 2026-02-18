@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { Tabs, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, Text } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import {
-  fetchDirectMessagesUnreadCount,
-} from "../../src/lib/api";
+import { fetchDirectMessagesUnreadCount } from "../../src/lib/api";
 import { on } from "../../src/lib/events/appEvents";
 import { useNotificationsBadgeCount } from "../../src/lib/notificationsBadge";
 
 export default function TabsLayout() {
   const router = useRouter();
+  const insets = useSafeAreaInsets(); // teniamolo per eventuali futuri UI pass
   const unreadCount = useNotificationsBadgeCount();
   const [messagesUnreadCount, setMessagesUnreadCount] = useState<number>(0);
 
@@ -38,95 +38,97 @@ export default function TabsLayout() {
   }, [loadMessagesUnreadCount]);
 
   return (
-    <Tabs
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarHideOnKeyboard: true,
+    <View style={{ flex: 1 }}>
+      <Tabs
+        screenOptions={({ route }) => ({
+          headerShown: false,
+          tabBarHideOnKeyboard: true,
 
-        tabBarIcon: ({ focused, size, color }) => {
-          let iconName: keyof typeof Ionicons.glyphMap = "apps";
+          tabBarIcon: ({ focused, size, color }) => {
+            let iconName: keyof typeof Ionicons.glyphMap = "apps";
 
-          switch (route.name) {
-            case "feed/index":
-              iconName = focused ? "home" : "home-outline";
-              break;
-            case "search/index":
-              iconName = focused ? "search" : "search-outline";
-              break;
-            case "messages/index":
-              iconName = focused ? "chatbubble" : "chatbubble-outline";
-              break;
-            case "opportunities/index":
-              iconName = focused ? "briefcase" : "briefcase-outline";
-              break;
-            case "create/index":
-              iconName = focused ? "add-circle" : "add-circle-outline";
-              break;
-            case "notifications/index":
-              iconName = focused ? "notifications" : "notifications-outline";
-              break;
-            case "me/index":
-              iconName = focused ? "person" : "person-outline";
-              break;
-          }
+            switch (route.name) {
+              case "feed/index":
+                iconName = focused ? "home" : "home-outline";
+                break;
+              case "search/index":
+                iconName = focused ? "search" : "search-outline";
+                break;
+              case "messages/index":
+                iconName = focused ? "chatbubble" : "chatbubble-outline";
+                break;
+              case "opportunities/index":
+                iconName = focused ? "briefcase" : "briefcase-outline";
+                break;
+              case "notifications/index":
+                iconName = focused ? "notifications" : "notifications-outline";
+                break;
+              case "me/index":
+                iconName = focused ? "person" : "person-outline";
+                break;
+            }
 
-          return <Ionicons name={iconName} size={size ?? 22} color={color} />;
-        },
-      })}
-    >
-      <Tabs.Screen
-        name="feed/index"
-        options={{ title: "Feed", tabBarLabel: "Feed" }}
-      />
-      <Tabs.Screen
-        name="search/index"
-        options={{ title: "Cerca", tabBarLabel: "Cerca" }}
-      />
-      <Tabs.Screen
-        name="messages/index"
-        options={{
-          title: "Messaggi",
-          tabBarLabel: "Messaggi",
-          tabBarBadge: messagesUnreadCount > 0 ? messagesUnreadCount : undefined,
-        }}
-      />
-      <Tabs.Screen
-        name="opportunities/index"
-        options={{
-          title: "Opportunità",
-          tabBarLabel: "Opportunità",
-          headerShown: true,
-          headerRight: () => (
-            <Pressable onPress={() => router.push("/applications")} hitSlop={8}>
-              <Text style={{ color: "#1d4ed8", fontWeight: "700" }}>Candidature</Text>
-            </Pressable>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="create/index"
-        options={{ title: "Crea", tabBarLabel: "Crea" }}
-      />
-      <Tabs.Screen
-        name="notifications/index"
-        options={{
-          title: "Notifiche",
-          tabBarLabel: "Notifiche",
-          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
-        }}
-      />
-      <Tabs.Screen
-        name="me/index"
-        options={{ title: "Profilo", tabBarLabel: "Profilo" }}
-      />
-      <Tabs.Screen
-        name="messages/[profileId]"
-        options={{ href: null }}
-      />
-      <Tabs.Screen
-        name="me/debug"
-        options={{ href: null }}
-      />
-    </Tabs>
+            return <Ionicons name={iconName} size={size ?? 22} color={color} />;
+          },
+        })}
+      >
+        <Tabs.Screen
+          name="feed/index"
+          options={{ title: "Feed", tabBarLabel: "Feed" }}
+        />
+        <Tabs.Screen
+          name="search/index"
+          options={{ title: "Cerca", tabBarLabel: "Cerca" }}
+        />
+        <Tabs.Screen
+          name="messages/index"
+          options={{
+            title: "Messaggi",
+            tabBarLabel: "Messaggi",
+            tabBarBadge:
+              messagesUnreadCount > 0 ? messagesUnreadCount : undefined,
+          }}
+        />
+        <Tabs.Screen
+          name="opportunities/index"
+          options={{
+            title: "Opportunità",
+            tabBarLabel: "Opportunità",
+            headerShown: true,
+            headerRight: () => (
+              <Pressable
+                onPress={() => router.push("/applications")}
+                hitSlop={8}
+              >
+                <Text style={{ color: "#1d4ed8", fontWeight: "700" }}>
+                  Candidature
+                </Text>
+              </Pressable>
+            ),
+          }}
+        />
+
+        {/* Manteniamo la route create ma NON la mostriamo e NON la usiamo finché non è rifatta bene */}
+        <Tabs.Screen
+          name="create/index"
+          options={{ title: "Crea", tabBarLabel: "Crea", href: null }}
+        />
+
+        <Tabs.Screen
+          name="notifications/index"
+          options={{
+            title: "Notifiche",
+            tabBarLabel: "Notifiche",
+            tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          }}
+        />
+        <Tabs.Screen
+          name="me/index"
+          options={{ title: "Profilo", tabBarLabel: "Profilo" }}
+        />
+        <Tabs.Screen name="messages/[profileId]" options={{ href: null }} />
+        <Tabs.Screen name="me/debug" options={{ href: null }} />
+      </Tabs>
+    </View>
   );
 }
