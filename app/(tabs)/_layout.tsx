@@ -4,15 +4,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import {
-  fetchDirectMessagesUnreadCount,
-} from "../../src/lib/api";
+import { fetchDirectMessagesUnreadCount } from "../../src/lib/api";
 import { on } from "../../src/lib/events/appEvents";
 import { useNotificationsBadgeCount } from "../../src/lib/notificationsBadge";
 
 export default function TabsLayout() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const insets = useSafeAreaInsets(); // teniamolo per eventuali futuri UI pass
   const unreadCount = useNotificationsBadgeCount();
   const [messagesUnreadCount, setMessagesUnreadCount] = useState<number>(0);
 
@@ -62,9 +60,6 @@ export default function TabsLayout() {
               case "opportunities/index":
                 iconName = focused ? "briefcase" : "briefcase-outline";
                 break;
-              case "create/index":
-                iconName = focused ? "add-circle" : "add-circle-outline";
-                break;
               case "notifications/index":
                 iconName = focused ? "notifications" : "notifications-outline";
                 break;
@@ -90,7 +85,8 @@ export default function TabsLayout() {
           options={{
             title: "Messaggi",
             tabBarLabel: "Messaggi",
-            tabBarBadge: messagesUnreadCount > 0 ? messagesUnreadCount : undefined,
+            tabBarBadge:
+              messagesUnreadCount > 0 ? messagesUnreadCount : undefined,
           }}
         />
         <Tabs.Screen
@@ -100,16 +96,24 @@ export default function TabsLayout() {
             tabBarLabel: "Opportunità",
             headerShown: true,
             headerRight: () => (
-              <Pressable onPress={() => router.push("/applications")} hitSlop={8}>
-                <Text style={{ color: "#1d4ed8", fontWeight: "700" }}>Candidature</Text>
+              <Pressable
+                onPress={() => router.push("/applications")}
+                hitSlop={8}
+              >
+                <Text style={{ color: "#1d4ed8", fontWeight: "700" }}>
+                  Candidature
+                </Text>
               </Pressable>
             ),
           }}
         />
+
+        {/* Manteniamo la route create ma NON la mostriamo e NON la usiamo finché non è rifatta bene */}
         <Tabs.Screen
           name="create/index"
           options={{ title: "Crea", tabBarLabel: "Crea", href: null }}
         />
+
         <Tabs.Screen
           name="notifications/index"
           options={{
@@ -122,38 +126,9 @@ export default function TabsLayout() {
           name="me/index"
           options={{ title: "Profilo", tabBarLabel: "Profilo" }}
         />
-        <Tabs.Screen
-          name="messages/[profileId]"
-          options={{ href: null }}
-        />
-        <Tabs.Screen
-          name="me/debug"
-          options={{ href: null }}
-        />
+        <Tabs.Screen name="messages/[profileId]" options={{ href: null }} />
+        <Tabs.Screen name="me/debug" options={{ href: null }} />
       </Tabs>
-
-      <Pressable
-        onPress={() => router.push("/(tabs)/create")}
-        hitSlop={12}
-        style={{
-          position: "absolute",
-          right: 20,
-          bottom: insets.bottom + 74,
-          width: 56,
-          height: 56,
-          borderRadius: 28,
-          backgroundColor: "#2563eb",
-          alignItems: "center",
-          justifyContent: "center",
-          shadowColor: "#000",
-          shadowOpacity: 0.2,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 4 },
-          elevation: 6,
-        }}
-      >
-        <Ionicons name="add" size={28} color="#fff" />
-      </Pressable>
     </View>
   );
 }
