@@ -105,6 +105,7 @@ export default function TabsLayout() {
           options={{ title: "Crea", tabBarLabel: "Crea", href: null }}
         />
 
+        <Tabs.Screen name="club/roster" options={{ title: "Rosa", tabBarLabel: "Rosa" }} />
         <Tabs.Screen
           name="notifications/index"
           options={{
