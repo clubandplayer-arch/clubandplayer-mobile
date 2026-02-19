@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Tabs, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text } from "react-native";
@@ -8,13 +8,17 @@ import { on } from "../../src/lib/events/appEvents";
 import { useNotificationsBadgeCount } from "../../src/lib/notificationsBadge";
 import { theme } from "../../src/theme";
 
+type AppRole = "club" | "athlete" | "guest" | null | undefined;
+
 export default function TabsLayout() {
   const router = useRouter();
   const unreadCount = useNotificationsBadgeCount();
   const [messagesUnreadCount, setMessagesUnreadCount] = useState<number>(0);
-  const [role, setRole] = useState<string | null | undefined>(undefined);
+  const [role, setRole] = useState<AppRole>(undefined);
 
   const isClub = role === "club";
+
+  const roleResolvedRef = useRef(false);
 
   const loadMessagesUnreadCount = useCallback(async () => {
     const response = await fetchDirectMessagesUnreadCount();
@@ -41,44 +45,58 @@ export default function TabsLayout() {
 
   useEffect(() => {
     let cancelled = false;
-    let tries = 0;
 
-    const loadRole = async () => {
+    const loadRoleOnce = async () => {
       const response = await fetchWhoami();
       if (cancelled) return;
 
-      const nextRole = response.ok ? (response.data?.role ?? null) : null;
+      const nextRole = response.ok ? ((response.data?.role as AppRole) ?? null) : null;
 
-      // DEBUG utile finché non chiudiamo B2:
+      // DEBUG: questa riga è quella che ci interessa vedere in Metro
       console.log("[tabs] whoami.role =", nextRole);
 
       setRole(nextRole);
 
-      // Dopo login, a volte whoami torna null per un attimo: micro-poll breve (max ~6s)
-      if ((nextRole === null || nextRole === undefined) && tries < 12) {
-        tries += 1;
-        setTimeout(loadRole, 500);
+      if (nextRole === "club" || nextRole === "athlete") {
+        roleResolvedRef.current = true;
       }
     };
 
-    void loadRole();
+    // 1) prima lettura subito
+    void loadRoleOnce();
+
+    // 2) hardening: dopo login, a volte chiami whoami “troppo presto”.
+    //    facciamo polling breve finché role non è risolto (max ~20s).
+    let tries = 0;
+    const poll = setInterval(() => {
+      if (cancelled) return;
+      if (roleResolvedRef.current) return;
+      tries += 1;
+      void loadRoleOnce();
+
+      if (tries >= 20) {
+        clearInterval(poll);
+      }
+    }, 1000);
 
     return () => {
       cancelled = true;
+      clearInterval(poll);
     };
   }, []);
 
   const rosterOptions = useMemo(() => {
     // ✅ Screen sempre presente (no change-shape)
-    // ✅ Player/unknown: tab nascosta
+    // ✅ Non-club: tab nascosta
     if (!isClub) {
       return {
         title: "Rosa",
         tabBarLabel: "Rosa",
-        href: null as any, // (Expo Router accetta null; cast per evitare typing rognosi)
+        href: null,
       };
     }
 
+    // Club: visibile
     return {
       title: "Rosa",
       tabBarLabel: "Rosa",
@@ -87,7 +105,7 @@ export default function TabsLayout() {
 
   return (
     <Tabs
-      // ✅ Remount Tabs quando cambia ruolo -> “Rosa” appare quando diventi club
+      // ✅ Remount Tabs quando cambia ruolo (da unknown/null → club)
       key={role === "club" ? "club" : role === "athlete" ? "athlete" : "unknown"}
       screenOptions={({ route }) => ({
         headerShown: false,
@@ -151,9 +169,10 @@ export default function TabsLayout() {
         }}
       />
 
+      {/* ✅ sempre presente; nascosta per non-club via href:null */}
       <Tabs.Screen name="roster/index" options={rosterOptions} />
 
-      <Tabs.Screen name="create/index" options={{ title: "Crea", tabBarLabel: "Crea", href: null as any }} />
+      <Tabs.Screen name="create/index" options={{ title: "Crea", tabBarLabel: "Crea", href: null }} />
 
       <Tabs.Screen
         name="notifications/index"
@@ -165,8 +184,8 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen name="me/index" options={{ title: "Profilo", tabBarLabel: "Profilo" }} />
-      <Tabs.Screen name="messages/[profileId]" options={{ href: null as any }} />
-      <Tabs.Screen name="me/debug" options={{ href: null as any }} />
+      <Tabs.Screen name="messages/[profileId]" options={{ href: null }} />
+      <Tabs.Screen name="me/debug" options={{ href: null }} />
     </Tabs>
   );
 }
