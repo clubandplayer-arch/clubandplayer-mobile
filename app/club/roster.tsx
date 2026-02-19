@@ -16,39 +16,37 @@ export default function ClubRosterScreen() {
   const [error, setError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
 
-  const roleRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const clearRoleRetry = useCallback(() => {
-    if (roleRetryTimerRef.current) {
-      clearTimeout(roleRetryTimerRef.current);
-      roleRetryTimerRef.current = null;
+  const clearRetry = useCallback(() => {
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
     }
   }, []);
 
   const loadRoster = useCallback(async () => {
-    clearRoleRetry();
+    clearRetry();
     setError(null);
     setLoading(true);
 
     const whoami = await fetchWhoami();
-
-    // 🔎 Debug utile finché chiudiamo B2
-    console.log("[club/roster] whoami.role =", whoami.ok ? whoami.data?.role : "ERR");
-
-    // ✅ Regola robusta:
-    // - athlete => fuori (non ha accesso)
-    // - guest/null => può essere transitorio dopo login/refresh: aspetta e riprova
-    // - club => ok, procedi
     const role = whoami.ok ? whoami.data?.role : null;
 
+    // Debug utile finché chiudiamo B2
+    console.log("[club/roster] whoami.role =", role);
+
+    // ✅ Regola robusta:
+    // - athlete => fuori subito (non deve accedere)
+    // - guest/null/undefined => può essere transitorio: aspetta e riprova
+    // - club => ok
     if (role === "athlete") {
       router.replace("/(tabs)/feed");
       return;
     }
 
     if (role !== "club") {
-      // Transitorio: riprovo tra poco (max UX: loader)
-      roleRetryTimerRef.current = setTimeout(() => {
+      retryTimerRef.current = setTimeout(() => {
         void loadRoster();
       }, 600);
       return;
@@ -64,7 +62,7 @@ export default function ClubRosterScreen() {
 
     setItems(response.data);
     setLoading(false);
-  }, [clearRoleRetry, router]);
+  }, [clearRetry, router]);
 
   useFocusEffect(
     useCallback(() => {
@@ -72,9 +70,9 @@ export default function ClubRosterScreen() {
 
       return () => {
         // evita retry/setState mentre esci dalla pagina
-        clearRoleRetry();
+        clearRetry();
       };
-    }, [clearRoleRetry, loadRoster]),
+    }, [clearRetry, loadRoster]),
   );
 
   const onToggle = useCallback(
