@@ -41,11 +41,20 @@ export default function TabsLayout() {
 
   useEffect(() => {
     let cancelled = false;
+    let tries = 0;
 
     const loadRole = async () => {
       const response = await fetchWhoami();
       if (cancelled) return;
-      setRole(response.ok ? response.data?.role ?? null : null);
+
+      const nextRole = response.ok ? (response.data?.role ?? null) : null;
+      setRole(nextRole);
+
+      // Dopo login, a volte whoami torna null per un attimo: micro-poll breve.
+      if ((nextRole === null || nextRole === undefined) && tries < 12) {
+        tries += 1;
+        setTimeout(loadRole, 500);
+      }
     };
 
     void loadRole();
@@ -59,12 +68,11 @@ export default function TabsLayout() {
     // ✅ NON cambiamo la "shape" del navigator: lo Screen esiste sempre.
     // Per non-club lo nascondiamo dalla tabbar e disabilitiamo il link.
     if (!isClub) {
-	  return {
-		title: "Rosa",
-		tabBarLabel: "Rosa",
-		href: null,
-		tabBarButton: () => null,
-	  };
+      return {
+        title: "Rosa",
+        tabBarLabel: "Rosa",
+        href: null,
+      };
     }
 
     return {
@@ -75,6 +83,8 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      // ✅ Forza remount quando cambia ruolo: evita "tab non ricompare" dopo login.
+      key={role === "club" ? "club" : role === "athlete" ? "athlete" : "unknown"}
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarHideOnKeyboard: true,
@@ -138,7 +148,7 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* ✅ sempre presente, ma per athlete è nascosto (href:null + tabBarButton null) */}
+      {/* ✅ sempre presente; per athlete è nascosto via href:null */}
       <Tabs.Screen name="roster/index" options={rosterOptions} />
 
       {/* Manteniamo la route create ma NON la mostriamo e NON la usiamo finché non è rifatta bene */}
