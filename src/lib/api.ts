@@ -272,6 +272,7 @@ export type ReceivedApplicationItem = {
   player_headline?: string | null;
   athlete?: {
     id?: string | null;
+    user_id?: string | null;
     full_name?: string | null;
     display_name?: string | null;
     avatar_url?: string | null;
@@ -296,6 +297,7 @@ export type OpportunityApplicationItem = {
   updated_at?: string | null;
   athlete?: {
     id?: string | null;
+    user_id?: string | null;
     full_name?: string | null;
     display_name?: string | null;
     avatar_url?: string | null;
@@ -546,7 +548,8 @@ export async function fetchClubRosterMe(): Promise<ApiResponse<ClubRosterItem[]>
 export async function postClubRosterToggle(profileId: string): Promise<ApiResponse<unknown>> {
   return apiFetch<unknown>("/api/clubs/me/roster", {
     method: "POST",
-    body: JSON.stringify({ profileId }),
+    // compat: backend può aspettarsi profile_id o profileId
+    body: JSON.stringify({ profile_id: profileId, profileId }),
   });
 }
 
@@ -684,8 +687,16 @@ export async function fetchSearch(params: {
 
   if (!response.ok) {
     const fallbackMessage = status === 429 ? "Too Many Requests" : `HTTP ${status}`;
-    const errorCode = typeof json?.code === "string" ? json.code : response.status === 429 ? "RATE_LIMITED" : "ERROR";
-    const errorMessage = typeof json?.message === "string" && json.message.trim() ? json.message : fallbackMessage;
+    const errorCode =
+      typeof json?.code === "string"
+        ? json.code
+        : response.status === 429
+          ? "RATE_LIMITED"
+          : "ERROR";
+    const errorMessage =
+      typeof json?.message === "string" && json.message.trim()
+        ? json.message
+        : fallbackMessage;
     return {
       ok: false,
       status,
@@ -697,7 +708,6 @@ export async function fetchSearch(params: {
   const payload = (json ?? {}) as SearchApiPayload;
   return { ok: true, status, data: payload };
 }
-
 
 export async function fetchOpportunities(params?: FetchOpportunitiesParams): Promise<ApiResponse<FetchOpportunitiesResult>> {
   const sp = new URLSearchParams();
@@ -847,7 +857,6 @@ export async function fetchMyApplications(params?: {
 
   return { ok: true, status: response.status, data: normalized };
 }
-
 
 export async function applyToOpportunity(opportunityId: string, note?: string | null): Promise<ApiResponse<ApplyToOpportunityResult>> {
   const cleanId = String(opportunityId ?? "").trim();

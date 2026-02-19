@@ -44,18 +44,26 @@ export default function ClubRosterScreen() {
     }, [loadRoster]),
   );
 
-  const onToggle = useCallback(async (profileId: string) => {
-    setActingId(profileId);
-    const response = await postClubRosterToggle(profileId);
-    if (!response.ok) {
-      setError(response.errorText || "Aggiornamento rosa non riuscito");
-      setActingId(null);
-      return;
-    }
+  const onToggle = useCallback(
+    async (profileId: string) => {
+      try {
+        setError(null);
+        setActingId(profileId);
 
-    setItems((prev) => prev.map((item) => (item.id === profileId ? { ...item, inRoster: !item.inRoster } : item)));
-    setActingId(null);
-  }, []);
+        const response = await postClubRosterToggle(profileId);
+        if (!response.ok) {
+          setError(response.errorText || "Aggiornamento rosa non riuscito");
+          return;
+        }
+
+        // server-truth: dopo toggle ricarico la rosa
+        await loadRoster();
+      } finally {
+        setActingId(null);
+      }
+    },
+    [loadRoster],
+  );
 
   if (loading) {
     return (
@@ -97,7 +105,15 @@ export default function ClubRosterScreen() {
               }}
             >
               {item.avatar_url ? (
-                <Image source={{ uri: item.avatar_url }} style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: theme.colors.neutral200 }} />
+                <Image
+                  source={{ uri: item.avatar_url }}
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 21,
+                    backgroundColor: theme.colors.neutral200,
+                  }}
+                />
               ) : (
                 <View
                   style={{
@@ -109,7 +125,9 @@ export default function ClubRosterScreen() {
                     justifyContent: "center",
                   }}
                 >
-                  <Text style={{ color: theme.colors.muted, fontWeight: "700" }}>{playerName(item).slice(0, 1).toUpperCase()}</Text>
+                  <Text style={{ color: theme.colors.muted, fontWeight: "700" }}>
+                    {playerName(item).slice(0, 1).toUpperCase()}
+                  </Text>
                 </View>
               )}
 
@@ -123,6 +141,7 @@ export default function ClubRosterScreen() {
                   borderRadius: 999,
                   paddingVertical: 7,
                   paddingHorizontal: 12,
+                  opacity: busy ? 0.6 : 1,
                 }}
               >
                 <Text style={{ color: inRoster ? "white" : theme.colors.text, fontWeight: "700" }}>
