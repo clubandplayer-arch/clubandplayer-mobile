@@ -48,9 +48,13 @@ export default function TabsLayout() {
       if (cancelled) return;
 
       const nextRole = response.ok ? (response.data?.role ?? null) : null;
+
+      // DEBUG utile finché non chiudiamo B2:
+      console.log("[tabs] whoami.role =", nextRole);
+
       setRole(nextRole);
 
-      // Dopo login, a volte whoami torna null per un attimo: micro-poll breve.
+      // Dopo login, a volte whoami torna null per un attimo: micro-poll breve (max ~6s)
       if ((nextRole === null || nextRole === undefined) && tries < 12) {
         tries += 1;
         setTimeout(loadRole, 500);
@@ -65,13 +69,13 @@ export default function TabsLayout() {
   }, []);
 
   const rosterOptions = useMemo(() => {
-    // ✅ NON cambiamo la "shape" del navigator: lo Screen esiste sempre.
-    // Per non-club lo nascondiamo dalla tabbar e disabilitiamo il link.
+    // ✅ Screen sempre presente (no change-shape)
+    // ✅ Player/unknown: tab nascosta
     if (!isClub) {
       return {
         title: "Rosa",
         tabBarLabel: "Rosa",
-        href: null,
+        href: null as any, // (Expo Router accetta null; cast per evitare typing rognosi)
       };
     }
 
@@ -83,12 +87,11 @@ export default function TabsLayout() {
 
   return (
     <Tabs
-      // ✅ Forza remount quando cambia ruolo: evita "tab non ricompare" dopo login.
+      // ✅ Remount Tabs quando cambia ruolo -> “Rosa” appare quando diventi club
       key={role === "club" ? "club" : role === "athlete" ? "athlete" : "unknown"}
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarHideOnKeyboard: true,
-
         tabBarIcon: ({ focused, size, color }) => {
           let iconName: keyof typeof Ionicons.glyphMap = "apps";
 
@@ -148,11 +151,9 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* ✅ sempre presente; per athlete è nascosto via href:null */}
       <Tabs.Screen name="roster/index" options={rosterOptions} />
 
-      {/* Manteniamo la route create ma NON la mostriamo e NON la usiamo finché non è rifatta bene */}
-      <Tabs.Screen name="create/index" options={{ title: "Crea", tabBarLabel: "Crea", href: null }} />
+      <Tabs.Screen name="create/index" options={{ title: "Crea", tabBarLabel: "Crea", href: null as any }} />
 
       <Tabs.Screen
         name="notifications/index"
@@ -164,8 +165,8 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen name="me/index" options={{ title: "Profilo", tabBarLabel: "Profilo" }} />
-      <Tabs.Screen name="messages/[profileId]" options={{ href: null }} />
-      <Tabs.Screen name="me/debug" options={{ href: null }} />
+      <Tabs.Screen name="messages/[profileId]" options={{ href: null as any }} />
+      <Tabs.Screen name="me/debug" options={{ href: null as any }} />
     </Tabs>
   );
 }
