@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 
@@ -16,13 +16,41 @@ export default function ClubRosterScreen() {
   const [error, setError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
 
+  const roleRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearRoleRetry = useCallback(() => {
+    if (roleRetryTimerRef.current) {
+      clearTimeout(roleRetryTimerRef.current);
+      roleRetryTimerRef.current = null;
+    }
+  }, []);
+
   const loadRoster = useCallback(async () => {
+    clearRoleRetry();
     setError(null);
     setLoading(true);
 
     const whoami = await fetchWhoami();
-    if (!whoami.ok || whoami.data?.role !== "club") {
+
+    // 🔎 Debug utile finché chiudiamo B2
+    console.log("[club/roster] whoami.role =", whoami.ok ? whoami.data?.role : "ERR");
+
+    // ✅ Regola robusta:
+    // - athlete => fuori (non ha accesso)
+    // - guest/null => può essere transitorio dopo login/refresh: aspetta e riprova
+    // - club => ok, procedi
+    const role = whoami.ok ? whoami.data?.role : null;
+
+    if (role === "athlete") {
       router.replace("/(tabs)/feed");
+      return;
+    }
+
+    if (role !== "club") {
+      // Transitorio: riprovo tra poco (max UX: loader)
+      roleRetryTimerRef.current = setTimeout(() => {
+        void loadRoster();
+      }, 600);
       return;
     }
 
@@ -36,12 +64,17 @@ export default function ClubRosterScreen() {
 
     setItems(response.data);
     setLoading(false);
-  }, [router]);
+  }, [clearRoleRetry, router]);
 
   useFocusEffect(
     useCallback(() => {
       void loadRoster();
-    }, [loadRoster]),
+
+      return () => {
+        // evita retry/setState mentre esci dalla pagina
+        clearRoleRetry();
+      };
+    }, [clearRoleRetry, loadRoster]),
   );
 
   const onToggle = useCallback(

@@ -1,24 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Tabs, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, Text } from "react-native";
+import { Pressable, Text, View, ActivityIndicator } from "react-native";
 
 import { fetchDirectMessagesUnreadCount, fetchWhoami } from "../../src/lib/api";
 import { on } from "../../src/lib/events/appEvents";
 import { useNotificationsBadgeCount } from "../../src/lib/notificationsBadge";
 import { theme } from "../../src/theme";
 
-type AppRole = "club" | "athlete" | "guest" | null | undefined;
+type StableRole = "club" | "athlete";
+type AppRole = StableRole | "guest" | null | undefined;
 
 export default function TabsLayout() {
   const router = useRouter();
   const unreadCount = useNotificationsBadgeCount();
   const [messagesUnreadCount, setMessagesUnreadCount] = useState<number>(0);
+
   const [role, setRole] = useState<AppRole>(undefined);
+  const resolvedRef = useRef(false);
 
   const isClub = role === "club";
-
-  const roleResolvedRef = useRef(false);
+  const isStableRole: boolean = role === "club" || role === "athlete";
 
   const loadMessagesUnreadCount = useCallback(async () => {
     const response = await fetchDirectMessagesUnreadCount();
@@ -52,25 +54,28 @@ export default function TabsLayout() {
 
       const nextRole = response.ok ? ((response.data?.role as AppRole) ?? null) : null;
 
-      // DEBUG: questa riga è quella che ci interessa vedere in Metro
+      // Debug temporaneo: utile finché chiudiamo B2
       console.log("[tabs] whoami.role =", nextRole);
 
       setRole(nextRole);
 
       if (nextRole === "club" || nextRole === "athlete") {
-        roleResolvedRef.current = true;
+        resolvedRef.current = true;
       }
     };
 
-    // 1) prima lettura subito
+    // Prima lettura subito
     void loadRoleOnce();
 
-    // 2) hardening: dopo login, a volte chiami whoami “troppo presto”.
-    //    facciamo polling breve finché role non è risolto (max ~20s).
+    // Poll breve finché non arriva club/athlete (max 20s)
     let tries = 0;
     const poll = setInterval(() => {
       if (cancelled) return;
-      if (roleResolvedRef.current) return;
+      if (resolvedRef.current) {
+        clearInterval(poll);
+        return;
+      }
+
       tries += 1;
       void loadRoleOnce();
 
@@ -86,8 +91,8 @@ export default function TabsLayout() {
   }, []);
 
   const rosterOptions = useMemo(() => {
-    // ✅ Screen sempre presente (no change-shape)
-    // ✅ Non-club: tab nascosta
+    // Screen sempre presente (no change-shape).
+    // Non-club: tab nascosta.
     if (!isClub) {
       return {
         title: "Rosa",
@@ -96,17 +101,23 @@ export default function TabsLayout() {
       };
     }
 
-    // Club: visibile
     return {
       title: "Rosa",
       tabBarLabel: "Rosa",
     };
   }, [isClub]);
 
+  // ✅ KEY FIX: non montare Tabs finché non hai un ruolo stabile
+  if (!isStableRole) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
   return (
     <Tabs
-      // ✅ Remount Tabs quando cambia ruolo (da unknown/null → club)
-      key={role === "club" ? "club" : role === "athlete" ? "athlete" : "unknown"}
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarHideOnKeyboard: true,
@@ -169,7 +180,6 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* ✅ sempre presente; nascosta per non-club via href:null */}
       <Tabs.Screen name="roster/index" options={rosterOptions} />
 
       <Tabs.Screen name="create/index" options={{ title: "Crea", tabBarLabel: "Crea", href: null }} />
