@@ -54,7 +54,6 @@ function AuthGate() {
 
   useEffect(() => {
     if (!ready || onboardingSeen === null) return;
-    if (pathname === "/") return;
 
     const group = segments[0]; // "(tabs)" | "(auth)" | "(onboarding)"
     const inTabs = group === "(tabs)";
