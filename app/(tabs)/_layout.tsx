@@ -61,6 +61,9 @@ export default function TabsLayout() {
               case "opportunities/index":
                 iconName = focused ? "briefcase" : "briefcase-outline";
                 break;
+              case "club/roster":
+                iconName = focused ? "people" : "people-outline";
+                break;
               case "notifications/index":
                 iconName = focused ? "notifications" : "notifications-outline";
                 break;
@@ -98,6 +101,7 @@ export default function TabsLayout() {
             ),
           }}
         />
+        <Tabs.Screen name="club/roster" options={{ title: "Rosa", tabBarLabel: "Rosa" }} />
 
         {/* Manteniamo la route create ma NON la mostriamo e NON la usiamo finché non è rifatta bene */}
         <Tabs.Screen
