@@ -8,8 +8,14 @@ type CrashBoundaryProps = {
 type CrashBoundaryState = {
   hasError: boolean;
   error?: Error;
+  componentStack?: string;
   boundaryKey: number;
 };
+
+function trimLines(value: string | undefined, maxLines: number) {
+  if (!value) return "";
+  return value.split("\n").slice(0, maxLines).join("\n");
+}
 
 export class CrashBoundary extends React.Component<
   CrashBoundaryProps,
@@ -18,6 +24,7 @@ export class CrashBoundary extends React.Component<
   state: CrashBoundaryState = {
     hasError: false,
     error: undefined,
+    componentStack: undefined,
     boundaryKey: 0,
   };
 
@@ -28,10 +35,12 @@ export class CrashBoundary extends React.Component<
     };
   }
 
-  componentDidCatch(error: Error) {
-    if (__DEV__) {
-      console.error("CrashBoundary caught an error", error);
-    }
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("CrashBoundary caught an error", error, errorInfo);
+
+    this.setState({
+      componentStack: errorInfo.componentStack,
+    });
     // TODO: integrate remote crash reporting (e.g. Sentry) in production.
   }
 
@@ -39,17 +48,21 @@ export class CrashBoundary extends React.Component<
     this.setState((prev) => ({
       hasError: false,
       error: undefined,
+      componentStack: undefined,
       boundaryKey: prev.boundaryKey + 1,
     }));
   };
 
   render() {
-    const { hasError, error, boundaryKey } = this.state;
+    const { hasError, error, componentStack, boundaryKey } = this.state;
 
     if (hasError) {
+      const stackPreview = trimLines(error?.stack, 30);
+      const componentStackPreview = trimLines(componentStack, 30);
+
       return (
         <ScrollView
-          style={{ flex: 1 }}
+          style={{ flex: 1, backgroundColor: "#ffffff" }}
           contentContainerStyle={{
             flexGrow: 1,
             justifyContent: "center",
@@ -57,27 +70,24 @@ export class CrashBoundary extends React.Component<
             gap: 12,
           }}
         >
-          <Text style={{ fontSize: 24, fontWeight: "800" }}>
-            Si è verificato un errore
+          <Text style={{ fontSize: 24, fontWeight: "800", color: "#b91c1c" }}>
+            CRASHBOUNDARY
           </Text>
-          {!!error?.message && <Text style={{ color: "#374151" }}>{error.message}</Text>}
 
-          {__DEV__ && !!error && (
-            <View style={{ gap: 8 }}>
-              <Text style={{ fontWeight: "700" }}>Dettagli (DEV)</Text>
-              <Text style={{ color: "#111827" }} selectable>
-                {JSON.stringify(
-                  {
-                    name: error.name,
-                    message: error.message,
-                    stack: error.stack,
-                  },
-                  null,
-                  2,
-                )}
-              </Text>
-            </View>
-          )}
+          <Text style={{ color: "#111827", fontWeight: "700" }}>Errore</Text>
+          <Text style={{ color: "#111827" }} selectable>
+            {error?.message || "Errore sconosciuto"}
+          </Text>
+
+          <Text style={{ color: "#111827", fontWeight: "700" }}>Stack (prime righe)</Text>
+          <Text style={{ color: "#111827" }} selectable>
+            {stackPreview || "Stack non disponibile"}
+          </Text>
+
+          <Text style={{ color: "#111827", fontWeight: "700" }}>Component stack</Text>
+          <Text style={{ color: "#111827" }} selectable>
+            {componentStackPreview || "Component stack non disponibile"}
+          </Text>
 
           <Pressable
             onPress={this.handleRetry}
