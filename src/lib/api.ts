@@ -35,6 +35,14 @@ export type WhoamiResponse = {
   admin?: boolean;
 };
 
+export type ClubRosterItem = {
+  id: string;
+  full_name?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  inRoster?: boolean;
+};
+
 export type ProfileMe = {
   id?: string;
   user_id?: string | null;
@@ -486,6 +494,60 @@ export async function clearSession(): Promise<ApiResponse<{ ok: boolean; cleared
 
 export async function fetchWhoami(): Promise<ApiResponse<WhoamiResponse>> {
   return apiFetch<WhoamiResponse>("/api/auth/whoami", { method: "GET" });
+}
+
+export async function fetchClubRosterMe(): Promise<ApiResponse<ClubRosterItem[]>> {
+  const response = await apiFetch<any>("/api/clubs/me/roster", { method: "GET" });
+
+  if (!response.ok) {
+    return { ok: false, status: response.status, errorText: response.errorText };
+  }
+
+  const payload = response.data;
+  const rows = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload?.items)
+        ? payload.items
+        : [];
+
+  const data: ClubRosterItem[] = rows
+    .map((row: any) => {
+      const id =
+        (typeof row?.profile_id === "string" && row.profile_id) ||
+        (typeof row?.athlete_profile_id === "string" && row.athlete_profile_id) ||
+        (typeof row?.id === "string" && row.id) ||
+        (typeof row?.athlete_id === "string" && row.athlete_id) ||
+        "";
+
+      if (!id) return null;
+
+      return {
+        id,
+        full_name: row?.full_name ?? row?.name ?? null,
+        display_name: row?.display_name ?? null,
+        avatar_url: row?.avatar_url ?? row?.avatar ?? null,
+        inRoster:
+          typeof row?.inRoster === "boolean"
+            ? row.inRoster
+            : typeof row?.in_roster === "boolean"
+              ? row.in_roster
+              : typeof row?.is_in_roster === "boolean"
+                ? row.is_in_roster
+                : true,
+      } as ClubRosterItem;
+    })
+    .filter(Boolean);
+
+  return { ok: true, status: response.status, data };
+}
+
+export async function postClubRosterToggle(profileId: string): Promise<ApiResponse<unknown>> {
+  return apiFetch<unknown>("/api/clubs/me/roster", {
+    method: "POST",
+    body: JSON.stringify({ profileId }),
+  });
 }
 
 export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {

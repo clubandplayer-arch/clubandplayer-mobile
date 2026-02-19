@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { fetchDirectMessagesUnreadCount } from "../../src/lib/api";
+import { fetchDirectMessagesUnreadCount, fetchWhoami } from "../../src/lib/api";
 import { on } from "../../src/lib/events/appEvents";
 import { useNotificationsBadgeCount } from "../../src/lib/notificationsBadge";
 import { theme } from "../../src/theme";
@@ -14,6 +14,7 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets(); // teniamolo per eventuali futuri UI pass
   const unreadCount = useNotificationsBadgeCount();
   const [messagesUnreadCount, setMessagesUnreadCount] = useState<number>(0);
+  const [role, setRole] = useState<string | null | undefined>(undefined);
 
   const loadMessagesUnreadCount = useCallback(async () => {
     const response = await fetchDirectMessagesUnreadCount();
@@ -38,6 +39,22 @@ export default function TabsLayout() {
     };
   }, [loadMessagesUnreadCount]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadRole = async () => {
+      const response = await fetchWhoami();
+      if (cancelled) return;
+      setRole(response.ok ? response.data?.role ?? null : null);
+    };
+
+    void loadRole();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <View style={{ flex: 1 }}>
       <Tabs
@@ -60,6 +77,9 @@ export default function TabsLayout() {
                 break;
               case "opportunities/index":
                 iconName = focused ? "briefcase" : "briefcase-outline";
+                break;
+              case "roster/index":
+                iconName = focused ? "people" : "people-outline";
                 break;
               case "notifications/index":
                 iconName = focused ? "notifications" : "notifications-outline";
@@ -98,6 +118,10 @@ export default function TabsLayout() {
             ),
           }}
         />
+
+        {role === "club" ? (
+          <Tabs.Screen name="roster/index" options={{ title: "Rosa", tabBarLabel: "Rosa" }} />
+        ) : null}
 
         {/* Manteniamo la route create ma NON la mostriamo e NON la usiamo finché non è rifatta bene */}
         <Tabs.Screen
