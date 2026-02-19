@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 
@@ -43,10 +43,6 @@ export default function ClubRosterScreen() {
       void loadRoster();
     }, [loadRoster]),
   );
-
-  useEffect(() => {
-    void loadRoster();
-  }, [loadRoster]);
 
   const onToggle = useCallback(async (profileId: string) => {
     setActingId(profileId);
