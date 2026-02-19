@@ -49,11 +49,13 @@ export async function fetchClubRoster(): Promise<ApiResponse<ClubRosterResponse>
   const payload =
     json && typeof json === "object" && "data" in (json as any) ? (json as any).data : json;
 
-  const rawItems = Array.isArray(payload)
-    ? payload
-    : Array.isArray((payload as { items?: unknown[] })?.items)
-      ? (payload as { items?: unknown[] }).items ?? []
-      : [];
+  const rawItems = Array.isArray((payload as { roster?: unknown[] })?.roster)
+    ? (payload as { roster?: unknown[] }).roster ?? []
+    : Array.isArray(payload)
+      ? payload
+      : Array.isArray((payload as { items?: unknown[] })?.items)
+        ? (payload as { items?: unknown[] }).items ?? []
+        : [];
 
   const items: ClubRosterPlayer[] = rawItems.map((item, index) => {
     const row = (item ?? {}) as Record<string, unknown>;

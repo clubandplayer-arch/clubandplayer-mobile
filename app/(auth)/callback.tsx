@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import * as Linking from "expo-linking";
 import { supabase } from "../../src/lib/supabase";
+import { emit } from "../../src/lib/events/appEvents";
 
 export default function AuthCallback() {
   const [error, setError] = useState<string | null>(null);
@@ -17,12 +18,18 @@ export default function AuthCallback() {
     // move on even if no URL is delivered to this screen.
     supabase.auth.getSession().then(({ data }) => {
       if (!isMounted) return;
-      if (data.session) router.replace("/(tabs)/feed");
+      if (data.session) {
+        emit("app:auth-session-updated");
+        router.replace("/(tabs)/feed");
+      }
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isMounted) return;
-      if (session) router.replace("/(tabs)/feed");
+      if (session) {
+        emit("app:auth-session-updated");
+        router.replace("/(tabs)/feed");
+      }
     });
 
     const timeoutId = setTimeout(() => {
@@ -56,7 +63,10 @@ export default function AuthCallback() {
         return;
       }
 
-      if (isMounted) router.replace("/(tabs)/feed");
+      if (isMounted) {
+        emit("app:auth-session-updated");
+        router.replace("/(tabs)/feed");
+      }
     };
 
     Linking.getInitialURL().then((url) => {

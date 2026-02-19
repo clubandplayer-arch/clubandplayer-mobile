@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Constants from "expo-constants";
 import { supabase } from "./supabase";
+import { emit } from "./events/appEvents";
 import { resolveItalianLocationLabels } from "./geo/location";
 import type { NotificationWithActor } from "../types/notifications";
 import type {
@@ -471,17 +472,29 @@ export async function syncSession(): Promise<ApiResponse<{ ok: boolean; cleared?
     ? { access_token: session.access_token, refresh_token: session.refresh_token }
     : { access_token: null, refresh_token: null };
 
-  return apiFetch<{ ok: boolean; cleared?: boolean }>("/api/auth/session", {
+  const response = await apiFetch<{ ok: boolean; cleared?: boolean }>("/api/auth/session", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+
+  if (response.ok) {
+    emit("app:auth-session-updated");
+  }
+
+  return response;
 }
 
 export async function clearSession(): Promise<ApiResponse<{ ok: boolean; cleared?: boolean }>> {
-  return apiFetch<{ ok: boolean; cleared?: boolean }>("/api/auth/session", {
+  const response = await apiFetch<{ ok: boolean; cleared?: boolean }>("/api/auth/session", {
     method: "POST",
     body: JSON.stringify({ access_token: null, refresh_token: null }),
   });
+
+  if (response.ok) {
+    emit("app:auth-session-updated");
+  }
+
+  return response;
 }
 
 export async function fetchWhoami(): Promise<ApiResponse<WhoamiResponse>> {

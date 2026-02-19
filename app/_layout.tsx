@@ -76,7 +76,7 @@ function AuthGate() {
       if (!inTabs && !allowAuthedOutsideTabs) target = "/(tabs)/feed";
     } else {
       if (inCallback) target = null;
-      else if (!onboardingSeen) target = "/(onboarding)";
+      else if (!onboardingSeen) target = "/(onboarding)/index";
       else target = "/(auth)/login";
     }
 
