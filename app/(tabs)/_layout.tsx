@@ -8,12 +8,14 @@ import { fetchDirectMessagesUnreadCount } from "../../src/lib/api";
 import { on } from "../../src/lib/events/appEvents";
 import { useNotificationsBadgeCount } from "../../src/lib/notificationsBadge";
 import { theme } from "../../src/theme";
+import { useIsClub } from "../../src/hooks/useIsClub";
 
 export default function TabsLayout() {
   const router = useRouter();
   const insets = useSafeAreaInsets(); // teniamolo per eventuali futuri UI pass
   const unreadCount = useNotificationsBadgeCount();
   const [messagesUnreadCount, setMessagesUnreadCount] = useState<number>(0);
+  const { isClub } = useIsClub();
 
   const loadMessagesUnreadCount = useCallback(async () => {
     const response = await fetchDirectMessagesUnreadCount();
@@ -64,6 +66,9 @@ export default function TabsLayout() {
               case "notifications/index":
                 iconName = focused ? "notifications" : "notifications-outline";
                 break;
+              case "roster":
+                iconName = focused ? "people" : "people-outline";
+                break;
               case "me/index":
                 iconName = focused ? "person" : "person-outline";
                 break;
@@ -103,6 +108,16 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="create/index"
           options={{ title: "Crea", tabBarLabel: "Crea", href: null }}
+        />
+
+
+        <Tabs.Screen
+          name="roster"
+          options={{
+            title: "Rosa",
+            tabBarLabel: "Rosa",
+            href: isClub ? "/club/roster" : null,
+          }}
         />
 
         <Tabs.Screen
