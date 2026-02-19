@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Tabs, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, Text, View, ActivityIndicator } from "react-native";
+import { Pressable, Text } from "react-native";
 
 import { fetchDirectMessagesUnreadCount, fetchWhoami } from "../../src/lib/api";
 import { on } from "../../src/lib/events/appEvents";
@@ -20,7 +20,6 @@ export default function TabsLayout() {
   const resolvedRef = useRef(false);
 
   const isClub = role === "club";
-  const isStableRole: boolean = role === "club" || role === "athlete";
 
   const loadMessagesUnreadCount = useCallback(async () => {
     const response = await fetchDirectMessagesUnreadCount();
@@ -106,15 +105,6 @@ export default function TabsLayout() {
       tabBarLabel: "Rosa",
     };
   }, [isClub]);
-
-  // ✅ KEY FIX: non montare Tabs finché non hai un ruolo stabile
-  if (!isStableRole) {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator />
-      </View>
-    );
-  }
 
   return (
     <Tabs
