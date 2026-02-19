@@ -57,7 +57,7 @@ function AuthGate() {
 
     const group = segments[0]; // "(tabs)" | "(auth)" | "(onboarding)"
     const inTabs = group === "(tabs)";
-    const inCallback = pathname === "/callback";
+    const inCallback = pathname === "/(auth)/callback";
 
     // utenti loggati possono stare fuori dai tabs su queste route.
     const allowAuthedOutsideTabs =
