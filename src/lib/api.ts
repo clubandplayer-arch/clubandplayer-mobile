@@ -35,6 +35,14 @@ export type WhoamiResponse = {
   admin?: boolean;
 };
 
+export type ClubRosterItem = {
+  id: string;
+  full_name?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  inRoster?: boolean;
+};
+
 export type ProfileMe = {
   id?: string;
   user_id?: string | null;
@@ -264,6 +272,7 @@ export type ReceivedApplicationItem = {
   player_headline?: string | null;
   athlete?: {
     id?: string | null;
+    user_id?: string | null;
     full_name?: string | null;
     display_name?: string | null;
     avatar_url?: string | null;
@@ -288,6 +297,7 @@ export type OpportunityApplicationItem = {
   updated_at?: string | null;
   athlete?: {
     id?: string | null;
+    user_id?: string | null;
     full_name?: string | null;
     display_name?: string | null;
     avatar_url?: string | null;
@@ -488,6 +498,61 @@ export async function fetchWhoami(): Promise<ApiResponse<WhoamiResponse>> {
   return apiFetch<WhoamiResponse>("/api/auth/whoami", { method: "GET" });
 }
 
+export async function fetchClubRosterMe(): Promise<ApiResponse<ClubRosterItem[]>> {
+  const response = await apiFetch<any>("/api/clubs/me/roster", { method: "GET" });
+
+  if (!response.ok) {
+    return { ok: false, status: response.status, errorText: response.errorText };
+  }
+
+  const payload = response.data;
+  const rows = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload?.items)
+        ? payload.items
+        : [];
+
+  const data: ClubRosterItem[] = rows
+    .map((row: any) => {
+      const id =
+        (typeof row?.profile_id === "string" && row.profile_id) ||
+        (typeof row?.athlete_profile_id === "string" && row.athlete_profile_id) ||
+        (typeof row?.id === "string" && row.id) ||
+        (typeof row?.athlete_id === "string" && row.athlete_id) ||
+        "";
+
+      if (!id) return null;
+
+      return {
+        id,
+        full_name: row?.full_name ?? row?.name ?? null,
+        display_name: row?.display_name ?? null,
+        avatar_url: row?.avatar_url ?? row?.avatar ?? null,
+        inRoster:
+          typeof row?.inRoster === "boolean"
+            ? row.inRoster
+            : typeof row?.in_roster === "boolean"
+              ? row.in_roster
+              : typeof row?.is_in_roster === "boolean"
+                ? row.is_in_roster
+                : true,
+      } as ClubRosterItem;
+    })
+    .filter(Boolean);
+
+  return { ok: true, status: response.status, data };
+}
+
+export async function postClubRosterToggle(profileId: string): Promise<ApiResponse<unknown>> {
+  return apiFetch<unknown>("/api/clubs/me/roster", {
+    method: "POST",
+    // compat: backend può aspettarsi profile_id o profileId
+    body: JSON.stringify({ profile_id: profileId, profileId }),
+  });
+}
+
 export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
   const url = buildUrl("/api/profiles/me");
   const response = await fetch(url, {
@@ -622,8 +687,16 @@ export async function fetchSearch(params: {
 
   if (!response.ok) {
     const fallbackMessage = status === 429 ? "Too Many Requests" : `HTTP ${status}`;
-    const errorCode = typeof json?.code === "string" ? json.code : response.status === 429 ? "RATE_LIMITED" : "ERROR";
-    const errorMessage = typeof json?.message === "string" && json.message.trim() ? json.message : fallbackMessage;
+    const errorCode =
+      typeof json?.code === "string"
+        ? json.code
+        : response.status === 429
+          ? "RATE_LIMITED"
+          : "ERROR";
+    const errorMessage =
+      typeof json?.message === "string" && json.message.trim()
+        ? json.message
+        : fallbackMessage;
     return {
       ok: false,
       status,
@@ -635,7 +708,6 @@ export async function fetchSearch(params: {
   const payload = (json ?? {}) as SearchApiPayload;
   return { ok: true, status, data: payload };
 }
-
 
 export async function fetchOpportunities(params?: FetchOpportunitiesParams): Promise<ApiResponse<FetchOpportunitiesResult>> {
   const sp = new URLSearchParams();
@@ -785,7 +857,6 @@ export async function fetchMyApplications(params?: {
 
   return { ok: true, status: response.status, data: normalized };
 }
-
 
 export async function applyToOpportunity(opportunityId: string, note?: string | null): Promise<ApiResponse<ApplyToOpportunityResult>> {
   const cleanId = String(opportunityId ?? "").trim();
