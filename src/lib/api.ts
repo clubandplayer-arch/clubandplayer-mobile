@@ -250,6 +250,23 @@ export type NotificationsUnreadCountResponse = {
   count: number;
 };
 
+export type ClubRosterItem = {
+  playerProfileId?: string;
+  id?: string;
+  profileId?: string;
+  full_name?: string | null;
+  display_name?: string | null;
+  role?: string | null;
+  position?: string | null;
+  [key: string]: unknown;
+};
+
+export type ClubRosterResponse = {
+  data?: ClubRosterItem[];
+  items?: ClubRosterItem[];
+  roster?: ClubRosterItem[];
+};
+
 export type ApplicationStatus = "submitted" | "seen" | "accepted" | "rejected";
 
 export type ReceivedApplicationItem = {
@@ -722,6 +739,45 @@ export async function fetchClubApplicationsReceived(params?: {
       : [];
 
   return { ok: true, status: response.status, data: normalized };
+}
+
+
+export async function fetchClubRoster(): Promise<ApiResponse<ClubRosterItem[]>> {
+  const response = await apiFetch<ClubRosterResponse | ClubRosterItem[]>("/api/clubs/me/roster", { method: "GET" });
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      status: response.status,
+      errorText: response.errorText || "Errore nel caricamento rosa",
+    };
+  }
+
+  const payload = response.data;
+  const normalized = Array.isArray(payload)
+    ? payload
+    : Array.isArray((payload as ClubRosterResponse | undefined)?.data)
+      ? ((payload as ClubRosterResponse).data ?? [])
+      : Array.isArray((payload as ClubRosterResponse | undefined)?.items)
+        ? ((payload as ClubRosterResponse).items ?? [])
+        : Array.isArray((payload as ClubRosterResponse | undefined)?.roster)
+          ? ((payload as ClubRosterResponse).roster ?? [])
+          : [];
+
+  return { ok: true, status: response.status, data: normalized };
+}
+
+export async function postClubRosterToggle(params: {
+  playerProfileId: string;
+  inRoster: boolean;
+}): Promise<ApiResponse<{ ok?: boolean }>> {
+  return apiFetch<{ ok?: boolean }>("/api/clubs/me/roster", {
+    method: "POST",
+    body: JSON.stringify({
+      playerProfileId: params.playerProfileId,
+      inRoster: params.inRoster,
+    }),
+  });
 }
 
 export async function fetchOpportunityApplications(opportunityId: string): Promise<ApiResponse<OpportunityApplicationItem[]>> {
