@@ -128,7 +128,6 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
 
         <Stack.Screen name="posts/[id]" options={{ headerShown: true, title: "Post" }} />
         <Stack.Screen name="opportunities/[id]" options={{ headerShown: false }} />
