@@ -1,5 +1,6 @@
 import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
+import { theme } from "../theme";
 
 type CrashBoundaryProps = {
   children: React.ReactNode;
@@ -60,12 +61,12 @@ export class CrashBoundary extends React.Component<
           <Text style={{ fontSize: 24, fontWeight: "800" }}>
             Si è verificato un errore
           </Text>
-          {!!error?.message && <Text style={{ color: "#374151" }}>{error.message}</Text>}
+          {!!error?.message && <Text style={{ color: theme.colors.text }}>{error.message}</Text>}
 
           {__DEV__ && !!error && (
             <View style={{ gap: 8 }}>
               <Text style={{ fontWeight: "700" }}>Dettagli (DEV)</Text>
-              <Text style={{ color: "#111827" }} selectable>
+              <Text style={{ color: theme.colors.text }} selectable>
                 {JSON.stringify(
                   {
                     name: error.name,
@@ -86,11 +87,11 @@ export class CrashBoundary extends React.Component<
               paddingVertical: 10,
               paddingHorizontal: 14,
               borderRadius: 8,
-              backgroundColor: "#111827",
+              backgroundColor: theme.colors.text,
               alignSelf: "flex-start",
             }}
           >
-            <Text style={{ color: "#ffffff", fontWeight: "700" }}>Riprova</Text>
+            <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Riprova</Text>
           </Pressable>
         </ScrollView>
       );

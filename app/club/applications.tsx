@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { theme } from "../../src/theme";
 
 import {
   fetchClubApplicationsReceived,
@@ -159,10 +160,10 @@ export default function ClubApplicationsScreen() {
                 borderRadius: 999,
                 paddingVertical: 6,
                 paddingHorizontal: 12,
-                backgroundColor: active ? "#111827" : "#fff",
+                backgroundColor: active ? theme.colors.text : theme.colors.background,
               }}
             >
-              <Text style={{ color: active ? "#fff" : "#111827", fontWeight: "600" }}>{labelForFilter(filter)}</Text>
+              <Text style={{ color: active ? theme.colors.background : theme.colors.text, fontWeight: "600" }}>{labelForFilter(filter)}</Text>
             </Pressable>
           );
         })}
@@ -170,7 +171,7 @@ export default function ClubApplicationsScreen() {
 
       {error ? (
         <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
-          <Text style={{ color: "#b91c1c" }}>{error}</Text>
+          <Text style={{ color: theme.colors.danger }}>{error}</Text>
         </View>
       ) : null}
 
@@ -188,14 +189,14 @@ export default function ClubApplicationsScreen() {
           return (
             <View style={{ borderBottomWidth: 1, padding: 14 }}>
               <Pressable disabled={!profileId} onPress={() => profileId && router.push(`/players/${profileId}` as any)}>
-                <Text style={{ fontSize: 16, fontWeight: "700", color: "#1d4ed8" }}>{athleteName(item)}</Text>
+                <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.primary }}>{athleteName(item)}</Text>
               </Pressable>
 
               {item.player_headline ? <Text style={{ marginTop: 4, opacity: 0.85 }}>{item.player_headline}</Text> : null}
               {item.player_location ? <Text style={{ marginTop: 2, opacity: 0.65 }}>{item.player_location}</Text> : null}
 
               <Pressable disabled={!oppId} onPress={() => oppId && router.push(`/opportunities/${oppId}` as any)} style={{ marginTop: 10 }}>
-                <Text style={{ color: "#374151" }}>{opportunityLabel(item)}</Text>
+                <Text style={{ color: theme.colors.text }}>{opportunityLabel(item)}</Text>
               </Pressable>
 
               <Text style={{ marginTop: 8, opacity: 0.75 }}>Stato: {labelForStatus(item.status)}</Text>

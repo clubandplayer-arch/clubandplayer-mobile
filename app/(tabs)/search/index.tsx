@@ -41,7 +41,7 @@ function Avatar({ url, label }: { url: string | null; label: string }) {
           width: 42,
           height: 42,
           borderRadius: 999,
-          backgroundColor: "#e5e7eb",
+          backgroundColor: theme.colors.neutral200,
         }}
       />
     );
@@ -54,12 +54,12 @@ function Avatar({ url, label }: { url: string | null; label: string }) {
         width: 42,
         height: 42,
         borderRadius: 999,
-        backgroundColor: "#e5e7eb",
+        backgroundColor: theme.colors.neutral200,
         alignItems: "center",
         justifyContent: "center",
       }}
     >
-      <Text style={{ fontWeight: "800", color: "#111827" }}>{letter}</Text>
+      <Text style={{ fontWeight: "800", color: theme.colors.text }}>{letter}</Text>
     </View>
   );
 }
@@ -216,8 +216,8 @@ export default function SearchScreen() {
         </Pressable>
       </View>
 
-      {item.subtitle ? <Text style={{ color: "#374151" }}>{item.subtitle}</Text> : null}
-      <Text style={{ color: "#6b7280", fontSize: 12 }}>{item.kind}</Text>
+      {item.subtitle ? <Text style={{ color: theme.colors.text }}>{item.subtitle}</Text> : null}
+      <Text style={{ color: theme.colors.muted, fontSize: 12 }}>{item.kind}</Text>
     </View>
   );
 
@@ -250,7 +250,7 @@ export default function SearchScreen() {
             alignItems: "center",
           }}
         >
-          <Text style={{ fontWeight: "700", color: "#ffffff" }}>Cerca</Text>
+          <Text style={{ fontWeight: "700", color: theme.colors.background }}>Cerca</Text>
         </Pressable>
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
@@ -263,14 +263,14 @@ export default function SearchScreen() {
                 onPress={() => onChangeType(searchType)}
                 style={{
                   borderWidth: 1,
-                  borderColor: active ? "#111827" : "#e5e7eb",
+                  borderColor: active ? theme.colors.text : theme.colors.neutral200,
                   borderRadius: 999,
                   paddingVertical: 8,
                   paddingHorizontal: 12,
-                  backgroundColor: active ? "#111827" : "#ffffff",
+                  backgroundColor: active ? theme.colors.text : theme.colors.background,
                 }}
               >
-                <Text style={{ fontWeight: "700", color: active ? "#ffffff" : "#111827" }}>
+                <Text style={{ fontWeight: "700", color: active ? theme.colors.background : theme.colors.text }}>
                   {searchType}
                   {typeof count === "number" ? ` (${count})` : ""}
                 </Text>
@@ -282,14 +282,14 @@ export default function SearchScreen() {
 
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 10 }}>
         {query.length < 2 ? (
-          <Text style={{ color: "#374151" }}>Inserisci almeno 2 caratteri</Text>
+          <Text style={{ color: theme.colors.text }}>Inserisci almeno 2 caratteri</Text>
         ) : loading ? (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <ActivityIndicator size="small" />
-            <Text style={{ color: "#374151" }}>Ricerca in corso…</Text>
+            <Text style={{ color: theme.colors.text }}>Ricerca in corso…</Text>
           </View>
         ) : error ? (
-          <Text style={{ color: "#b91c1c" }}>{error}</Text>
+          <Text style={{ color: theme.colors.danger }}>{error}</Text>
         ) : type === "all" ? (
           <View style={{ gap: 14 }}>
             {SEARCH_TYPES.filter((searchType) => searchType !== "all").map((sectionType) => {
@@ -310,7 +310,7 @@ export default function SearchScreen() {
             })}
           </View>
         ) : listItems.length === 0 ? (
-          <Text style={{ color: "#374151" }}>Nessun risultato per “{query}”.</Text>
+          <Text style={{ color: theme.colors.text }}>Nessun risultato per “{query}”.</Text>
         ) : (
           <View style={{ gap: 10 }}>
             {listItems.map((item) => renderRow(item))}
