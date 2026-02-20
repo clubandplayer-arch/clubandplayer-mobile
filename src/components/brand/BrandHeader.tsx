@@ -15,7 +15,7 @@ type BrandHeaderProps = {
   rightAction?: BrandHeaderAction;
 };
 
-const ACTION_MIN_WIDTH = 100;
+const ACTION_MIN_WIDTH = 44;
 
 function HeaderAction({ action, align }: { action?: BrandHeaderAction; align: "left" | "right" }) {
   if (!action) return <View style={{ minWidth: ACTION_MIN_WIDTH }} />;
@@ -60,7 +60,7 @@ export default function BrandHeader({ subtitle, leftAction, rightAction }: Brand
             textAlign: "center",
             flex: 1,
           }}
-          numberOfLines={1}
+          numberOfLines={2}
         >
           Club & Player
         </Text>
