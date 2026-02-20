@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { theme } from "../../src/theme";
 import {
   ActivityIndicator,
   Alert,
@@ -200,44 +201,44 @@ export default function ClubProfileScreen() {
   return (
     <ScrollView contentContainerStyle={{ padding: 24, gap: 12, paddingBottom: 48 }}>
       <Text style={{ fontSize: 28, fontWeight: "800" }}>Profilo Club</Text>
-      {web.error ? <Text style={{ color: "#b91c1c" }}>{web.error}</Text> : null}
-      {error ? <Text style={{ color: "#b91c1c" }}>{error}</Text> : null}
+      {web.error ? <Text style={{ color: theme.colors.danger }}>{web.error}</Text> : null}
+      {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
 
       <AvatarUploader value={avatarUrl} onChange={setAvatarUrl} />
 
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
-        <TextInput placeholder="Nome completo" value={fullName} onChangeText={setFullName} style={{ borderWidth: 1, borderColor: "#d1d5db", borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Country" value={country} onChangeText={setCountry} style={{ borderWidth: 1, borderColor: "#d1d5db", borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Motto" value={clubMotto} onChangeText={setClubMotto} style={{ borderWidth: 1, borderColor: "#d1d5db", borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Sport" value={sport} onChangeText={setSport} style={{ borderWidth: 1, borderColor: "#d1d5db", borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="League category" value={clubLeagueCategory} onChangeText={setClubLeagueCategory} style={{ borderWidth: 1, borderColor: "#d1d5db", borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Foundation year" value={clubFoundationYear} onChangeText={setClubFoundationYear} keyboardType="numeric" style={{ borderWidth: 1, borderColor: "#d1d5db", borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Stadium" value={clubStadium} onChangeText={setClubStadium} style={{ borderWidth: 1, borderColor: "#d1d5db", borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Stadium address" value={clubStadiumAddress} onChangeText={setClubStadiumAddress} style={{ borderWidth: 1, borderColor: "#d1d5db", borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Stadium lat" value={clubStadiumLat} onChangeText={setClubStadiumLat} keyboardType="numeric" style={{ borderWidth: 1, borderColor: "#d1d5db", borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Stadium lng" value={clubStadiumLng} onChangeText={setClubStadiumLng} keyboardType="numeric" style={{ borderWidth: 1, borderColor: "#d1d5db", borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Bio" value={bio} onChangeText={setBio} multiline style={{ borderWidth: 1, borderColor: "#d1d5db", borderRadius: 8, padding: 10, minHeight: 80 }} />
+        <TextInput placeholder="Nome completo" value={fullName} onChangeText={setFullName} style={{ borderWidth: 1, borderColor: theme.colors.borderSubtle, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Country" value={country} onChangeText={setCountry} style={{ borderWidth: 1, borderColor: theme.colors.borderSubtle, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Motto" value={clubMotto} onChangeText={setClubMotto} style={{ borderWidth: 1, borderColor: theme.colors.borderSubtle, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Sport" value={sport} onChangeText={setSport} style={{ borderWidth: 1, borderColor: theme.colors.borderSubtle, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="League category" value={clubLeagueCategory} onChangeText={setClubLeagueCategory} style={{ borderWidth: 1, borderColor: theme.colors.borderSubtle, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Foundation year" value={clubFoundationYear} onChangeText={setClubFoundationYear} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.borderSubtle, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Stadium" value={clubStadium} onChangeText={setClubStadium} style={{ borderWidth: 1, borderColor: theme.colors.borderSubtle, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Stadium address" value={clubStadiumAddress} onChangeText={setClubStadiumAddress} style={{ borderWidth: 1, borderColor: theme.colors.borderSubtle, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Stadium lat" value={clubStadiumLat} onChangeText={setClubStadiumLat} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.borderSubtle, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Stadium lng" value={clubStadiumLng} onChangeText={setClubStadiumLng} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.borderSubtle, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Bio" value={bio} onChangeText={setBio} multiline style={{ borderWidth: 1, borderColor: theme.colors.borderSubtle, borderRadius: 8, padding: 10, minHeight: 80 }} />
       </View>
 
       <LocationFields mode="club" title="Location" values={residence} onChange={setResidence} />
 
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
         <Text style={{ fontWeight: "700" }}>Interest country</Text>
-        <TextInput placeholder="Interest country" value={interestCountry} onChangeText={setInterestCountry} style={{ borderWidth: 1, borderColor: "#d1d5db", borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Interest country" value={interestCountry} onChangeText={setInterestCountry} style={{ borderWidth: 1, borderColor: theme.colors.borderSubtle, borderRadius: 8, padding: 10 }} />
       </View>
 
       <LocationFields mode="club" title="Interest location" values={interest} onChange={setInterest} />
 
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
-        <TextInput placeholder='Links JSON (es: [{"label":"Sito","url":"https://..."}])' value={links} onChangeText={setLinks} multiline style={{ borderWidth: 1, borderColor: "#d1d5db", borderRadius: 8, padding: 10, minHeight: 80 }} />
+        <TextInput placeholder='Links JSON (es: [{"label":"Sito","url":"https://..."}])' value={links} onChangeText={setLinks} multiline style={{ borderWidth: 1, borderColor: theme.colors.borderSubtle, borderRadius: 8, padding: 10, minHeight: 80 }} />
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <Text>Notifica email nuovi messaggi</Text>
           <Switch value={notifyEmail} onValueChange={setNotifyEmail} />
         </View>
       </View>
 
-      <Pressable disabled={disabled} onPress={() => void onSave()} style={{ backgroundColor: disabled ? "#9ca3af" : "#111827", borderRadius: 10, paddingVertical: 12, alignItems: "center" }}>
-        <Text style={{ color: "#fff", fontWeight: "700" }}>{saving ? "Salvo..." : "Salva"}</Text>
+      <Pressable disabled={disabled} onPress={() => void onSave()} style={{ backgroundColor: disabled ? theme.colors.mutedSoft : theme.colors.text, borderRadius: 10, paddingVertical: 12, alignItems: "center" }}>
+        <Text style={{ color: theme.colors.background, fontWeight: "700" }}>{saving ? "Salvo..." : "Salva"}</Text>
       </Pressable>
     </ScrollView>
   );

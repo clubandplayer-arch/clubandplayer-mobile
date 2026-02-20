@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { theme } from "../../../src/theme";
 import {
   ActivityIndicator,
   FlatList,
@@ -113,7 +114,7 @@ function Avatar({ url }: { url?: string | null }) {
           width: 42,
           height: 42,
           borderRadius: 21,
-          backgroundColor: "#e5e7eb",
+          backgroundColor: theme.colors.neutral200,
         }}
       />
     );
@@ -126,7 +127,7 @@ function Avatar({ url }: { url?: string | null }) {
         width: 42,
         height: 42,
         borderRadius: 21,
-        backgroundColor: "#e5e7eb",
+        backgroundColor: theme.colors.neutral200,
       }}
     />
   );
@@ -268,10 +269,10 @@ export default function NotificationsScreen() {
           }}
           style={{
             borderBottomWidth: 1,
-            borderBottomColor: "#f3f4f6",
+            borderBottomColor: theme.colors.neutral100,
             paddingHorizontal: 16,
             paddingVertical: 12,
-            backgroundColor: "#ffffff",
+            backgroundColor: theme.colors.background,
             gap: 4,
           }}
         >
@@ -280,7 +281,7 @@ export default function NotificationsScreen() {
 
             <View style={{ flex: 1, gap: 4 }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
-                <Text style={{ fontSize: 14, fontWeight: "700", color: "#111827", flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: "700", color: theme.colors.text, flex: 1 }}>
                   {buildNotificationText(item)}
                 </Text>
                 {isUnread ? (
@@ -290,14 +291,14 @@ export default function NotificationsScreen() {
                       height: 9,
                       borderRadius: 5,
                       marginTop: 4,
-                      backgroundColor: "#2563eb",
+                      backgroundColor: theme.colors.info,
                     }}
                   />
                 ) : null}
               </View>
 
-              {preview ? <Text style={{ color: "#4b5563" }}>{preview}</Text> : null}
-              <Text style={{ fontSize: 12, color: "#6b7280" }}>{formatWhen(item.created_at)}</Text>
+              {preview ? <Text style={{ color: theme.colors.textMutedStrong }}>{preview}</Text> : null}
+              <Text style={{ fontSize: 12, color: theme.colors.muted }}>{formatWhen(item.created_at)}</Text>
             </View>
           </View>
         </Pressable>
@@ -308,36 +309,36 @@ export default function NotificationsScreen() {
 
   const header = useMemo(
     () => (
-      <View style={{ padding: 16, gap: 12, borderBottomWidth: 1, borderBottomColor: "#f3f4f6" }}>
-        <Text style={{ fontSize: 28, fontWeight: "800", color: "#111827" }}>Notifiche</Text>
+      <View style={{ padding: 16, gap: 12, borderBottomWidth: 1, borderBottomColor: theme.colors.neutral100 }}>
+        <Text style={{ fontSize: 28, fontWeight: "800", color: theme.colors.text }}>Notifiche</Text>
 
         <View style={{ flexDirection: "row", gap: 8 }}>
           <Pressable
             onPress={() => setFilter("all")}
             style={{
               borderWidth: 1,
-              borderColor: "#111827",
+              borderColor: theme.colors.text,
               borderRadius: 999,
               paddingVertical: 8,
               paddingHorizontal: 14,
-              backgroundColor: filter === "all" ? "#111827" : "#ffffff",
+              backgroundColor: filter === "all" ? theme.colors.text : theme.colors.background,
             }}
           >
-            <Text style={{ color: filter === "all" ? "#ffffff" : "#111827", fontWeight: "700" }}>Tutte</Text>
+            <Text style={{ color: filter === "all" ? theme.colors.background : theme.colors.text, fontWeight: "700" }}>Tutte</Text>
           </Pressable>
 
           <Pressable
             onPress={() => setFilter("unread")}
             style={{
               borderWidth: 1,
-              borderColor: "#111827",
+              borderColor: theme.colors.text,
               borderRadius: 999,
               paddingVertical: 8,
               paddingHorizontal: 14,
-              backgroundColor: filter === "unread" ? "#111827" : "#ffffff",
+              backgroundColor: filter === "unread" ? theme.colors.text : theme.colors.background,
             }}
           >
-            <Text style={{ color: filter === "unread" ? "#ffffff" : "#111827", fontWeight: "700" }}>
+            <Text style={{ color: filter === "unread" ? theme.colors.background : theme.colors.text, fontWeight: "700" }}>
               Da leggere
             </Text>
           </Pressable>
@@ -347,18 +348,18 @@ export default function NotificationsScreen() {
             disabled={updatingAll}
             style={{
               borderWidth: 1,
-              borderColor: "#111827",
+              borderColor: theme.colors.text,
               borderRadius: 999,
               paddingVertical: 8,
               paddingHorizontal: 14,
               opacity: updatingAll ? 0.5 : 1,
             }}
           >
-            <Text style={{ color: "#111827", fontWeight: "700" }}>Segna tutte come lette</Text>
+            <Text style={{ color: theme.colors.text, fontWeight: "700" }}>Segna tutte come lette</Text>
           </Pressable>
         </View>
 
-        {error ? <Text style={{ color: "#b91c1c" }}>{error}</Text> : null}
+        {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
       </View>
     ),
     [error, filter, onMarkAllRead, updatingAll],
@@ -381,7 +382,7 @@ export default function NotificationsScreen() {
       ListHeaderComponent={header}
       ListEmptyComponent={
         <View style={{ padding: 20 }}>
-          <Text style={{ color: "#6b7280" }}>Nessuna notifica disponibile.</Text>
+          <Text style={{ color: theme.colors.muted }}>Nessuna notifica disponibile.</Text>
         </View>
       }
     />

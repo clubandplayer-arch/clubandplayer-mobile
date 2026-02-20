@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { theme } from "../../../src/theme";
 import {
   View,
   Text,
@@ -205,8 +206,8 @@ export default function CreateScreen() {
         <View
           style={{
             borderWidth: 1,
-            borderColor: publishError ? "#fecaca" : "#bfdbfe",
-            backgroundColor: publishError ? "#fef2f2" : "#eff6ff",
+            borderColor: publishError ? theme.colors.dangerBorder : theme.colors.infoBorder,
+            backgroundColor: publishError ? theme.colors.dangerTint : theme.colors.infoBg,
             borderRadius: 12,
             padding: 12,
             gap: 8,
@@ -214,14 +215,14 @@ export default function CreateScreen() {
         >
           {isPublishing ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <ActivityIndicator size="small" color="#111827" />
-              <Text style={{ fontWeight: "700", color: "#111827" }}>Pubblicazione in corso…</Text>
+              <ActivityIndicator size="small" color={theme.colors.text} />
+              <Text style={{ fontWeight: "700", color: theme.colors.text }}>Pubblicazione in corso…</Text>
             </View>
           ) : null}
 
-          {publishStep ? <Text style={{ color: "#1f2937" }}>Step: {publishStep}</Text> : null}
+          {publishStep ? <Text style={{ color: theme.colors.textStrong }}>Step: {publishStep}</Text> : null}
 
-          {publishError ? <Text style={{ color: "#b91c1c", fontWeight: "700" }}>{publishError}</Text> : null}
+          {publishError ? <Text style={{ color: theme.colors.danger, fontWeight: "700" }}>{publishError}</Text> : null}
 
           {publishError ? (
             <Pressable
@@ -231,13 +232,13 @@ export default function CreateScreen() {
                 paddingVertical: 8,
                 paddingHorizontal: 12,
                 borderWidth: 1,
-                borderColor: "#b91c1c",
+                borderColor: theme.colors.danger,
                 borderRadius: 10,
                 alignSelf: "flex-start",
                 opacity: isPublishing ? 0.6 : 1,
               }}
             >
-              <Text style={{ color: "#b91c1c", fontWeight: "700" }}>Riprova</Text>
+              <Text style={{ color: theme.colors.danger, fontWeight: "700" }}>Riprova</Text>
             </Pressable>
           ) : null}
         </View>
@@ -245,7 +246,7 @@ export default function CreateScreen() {
 
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 10 }}>
         <Text style={{ fontSize: 16, fontWeight: "700" }}>Nuovo post</Text>
-        <Text style={{ color: "#374151" }}>
+        <Text style={{ color: theme.colors.textSoft }}>
           Stai pubblicando come: <Text style={{ fontWeight: "700" }}>{email ?? "utente anonimo"}</Text>
         </Text>
 
@@ -266,7 +267,7 @@ export default function CreateScreen() {
 
         <View style={{ gap: 8 }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <Text style={{ fontWeight: "700", color: "#111827" }}>Media ({media.length}/{MAX_MEDIA})</Text>
+            <Text style={{ fontWeight: "700", color: theme.colors.text }}>Media ({media.length}/{MAX_MEDIA})</Text>
             <Pressable
               onPress={onAddMedia}
               disabled={isPublishing || media.length >= MAX_MEDIA}
@@ -274,12 +275,12 @@ export default function CreateScreen() {
                 paddingVertical: 8,
                 paddingHorizontal: 12,
                 borderWidth: 1,
-                borderColor: "#111827",
+                borderColor: theme.colors.text,
                 borderRadius: 10,
                 opacity: isPublishing || media.length >= MAX_MEDIA ? 0.6 : 1,
               }}
             >
-              <Text style={{ color: "#111827", fontWeight: "700" }}>Aggiungi media</Text>
+              <Text style={{ color: theme.colors.text, fontWeight: "700" }}>Aggiungi media</Text>
             </Pressable>
           </View>
 
@@ -290,17 +291,17 @@ export default function CreateScreen() {
                   key={`${item.uri}-${index}`}
                   style={{
                     borderWidth: 1,
-                    borderColor: "#e5e7eb",
+                    borderColor: theme.colors.neutral200,
                     borderRadius: 12,
                     overflow: "hidden",
-                    backgroundColor: "#f9fafb",
+                    backgroundColor: theme.colors.neutral50,
                   }}
                 >
                   {item.mediaType === "image" ? (
                     <Image source={{ uri: item.uri }} style={{ width: "100%", height: 180 }} resizeMode="cover" />
                   ) : (
                     <View style={{ height: 100, alignItems: "center", justifyContent: "center" }}>
-                      <Text style={{ color: "#374151", fontWeight: "700" }}>🎬 Video selezionato</Text>
+                      <Text style={{ color: theme.colors.textSoft, fontWeight: "700" }}>🎬 Video selezionato</Text>
                     </View>
                   )}
                   <View
@@ -311,18 +312,18 @@ export default function CreateScreen() {
                       justifyContent: "space-between",
                     }}
                   >
-                    <Text style={{ color: "#6b7280", fontSize: 12 }}>
+                    <Text style={{ color: theme.colors.muted, fontSize: 12 }}>
                       {item.mediaType === "video" ? "Video" : "Immagine"} #{index + 1}
                     </Text>
                     <Pressable onPress={() => onRemoveMedia(index)} disabled={isPublishing}>
-                      <Text style={{ color: "#b91c1c", fontWeight: "700" }}>Rimuovi</Text>
+                      <Text style={{ color: theme.colors.danger, fontWeight: "700" }}>Rimuovi</Text>
                     </Pressable>
                   </View>
                 </View>
               ))}
             </View>
           ) : (
-            <Text style={{ color: "#6b7280" }}>Nessun media selezionato.</Text>
+            <Text style={{ color: theme.colors.muted }}>Nessun media selezionato.</Text>
           )}
         </View>
 
@@ -334,12 +335,12 @@ export default function CreateScreen() {
               paddingVertical: 10,
               paddingHorizontal: 14,
               borderWidth: 1,
-              borderColor: "#111827",
+              borderColor: theme.colors.text,
               borderRadius: 10,
               opacity: isPublishing ? 0.6 : 1,
             }}
           >
-            <Text style={{ color: "#111827", fontWeight: "700" }}>Annulla</Text>
+            <Text style={{ color: theme.colors.text, fontWeight: "700" }}>Annulla</Text>
           </Pressable>
 
           <Pressable
@@ -348,7 +349,7 @@ export default function CreateScreen() {
             style={{
               paddingVertical: 10,
               paddingHorizontal: 14,
-              backgroundColor: "#111827",
+              backgroundColor: theme.colors.text,
               borderRadius: 10,
               opacity: canPublish ? 1 : 0.5,
               flexDirection: "row",
@@ -356,8 +357,8 @@ export default function CreateScreen() {
               gap: 8,
             }}
           >
-            {isPublishing ? <ActivityIndicator size="small" color="#fff" /> : null}
-            <Text style={{ color: "#ffffff", fontWeight: "700" }}>Pubblica</Text>
+            {isPublishing ? <ActivityIndicator size="small" color={theme.colors.background} /> : null}
+            <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Pubblica</Text>
           </Pressable>
         </View>
       </View>

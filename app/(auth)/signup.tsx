@@ -1,15 +1,13 @@
 import { useState } from "react";
+import { theme } from "../../src/theme";
 import {
   ActivityIndicator,
   Alert,
-  Platform,
   Pressable,
   Text,
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import * as AppleAuthentication from "expo-apple-authentication";
-import { signInWithApple } from "../../src/lib/appleAuth";
 import { signInWithGoogle } from "../../src/lib/auth";
 
 export default function SignupScreen() {
@@ -22,17 +20,6 @@ export default function SignupScreen() {
       await signInWithGoogle();
     } catch (e: any) {
       Alert.alert("Google login fallito", e?.message ?? "Errore");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const onApple = async () => {
-    try {
-      setLoading(true);
-      await signInWithApple();
-    } catch (e: any) {
-      Alert.alert("Apple login fallito", e?.message ?? "Errore");
     } finally {
       setLoading(false);
     }
@@ -66,16 +53,6 @@ export default function SignupScreen() {
         )}
       </Pressable>
 
-      {Platform.OS === "ios" && (
-        <AppleAuthentication.AppleAuthenticationButton
-          buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
-          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-          cornerRadius={12}
-          style={{ height: 44 }}
-          onPress={onApple}
-        />
-      )}
-
       <Pressable
         onPress={() => router.replace("/(auth)/login")}
         disabled={loading}
@@ -83,7 +60,7 @@ export default function SignupScreen() {
       >
         <Text>
           Hai già un account?{" "}
-          <Text style={{ fontWeight: "700", color: "#0A66C2" }}>
+          <Text style={{ fontWeight: "700", color: theme.colors.primary }}>
             Accedi
           </Text>
         </Text>

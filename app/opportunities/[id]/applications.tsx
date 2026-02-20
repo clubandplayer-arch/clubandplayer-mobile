@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
+import { theme } from "../../../src/theme";
 import {
   ActivityIndicator,
   Alert,
@@ -138,7 +139,7 @@ export default function OpportunityApplicationsScreen() {
     <View style={{ flex: 1 }}>
       {error ? (
         <View style={{ padding: 16 }}>
-          <Text style={{ color: "#b91c1c" }}>{error}</Text>
+          <Text style={{ color: theme.colors.danger }}>{error}</Text>
         </View>
       ) : null}
 
@@ -154,7 +155,7 @@ export default function OpportunityApplicationsScreen() {
           return (
             <View style={{ paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1 }}>
               <Pressable disabled={!profileId} onPress={() => profileId && router.push(`/players/${profileId}` as any)}>
-                <Text style={{ fontSize: 16, fontWeight: "700", color: "#1d4ed8" }}>{athleteLabel(item)}</Text>
+                <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.info }}>{athleteLabel(item)}</Text>
               </Pressable>
 
               <Text style={{ marginTop: 6, opacity: 0.8 }}>Stato: {statusLabel(item.status)}</Text>
