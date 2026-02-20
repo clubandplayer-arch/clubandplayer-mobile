@@ -18,6 +18,7 @@ import {
 } from "../../../src/lib/api";
 import { emit } from "../../../src/lib/events/appEvents";
 import type { DirectMessage, DirectThreadResponse } from "../../../src/types/directMessages";
+import { theme } from "../../../src/theme";
 
 function resolveProfileId(raw: string | string[] | undefined): string {
   if (Array.isArray(raw)) return raw[0] ?? "";
@@ -146,12 +147,12 @@ export default function DirectMessageThreadScreen() {
               borderRadius: 12,
               paddingVertical: 8,
               paddingHorizontal: 12,
-              backgroundColor: mine ? "#2563eb" : "#e5e7eb",
+              backgroundColor: mine ? theme.colors.primary : theme.colors.neutral200,
             }}
           >
-            <Text style={{ color: mine ? "#ffffff" : "#111827" }}>{item.content}</Text>
+            <Text style={{ color: mine ? theme.colors.background : theme.colors.text }}>{item.content}</Text>
           </View>
-          <Text style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>{formatWhen(item.created_at)}</Text>
+          <Text style={{ fontSize: 11, color: theme.colors.muted, marginTop: 2 }}>{formatWhen(item.created_at)}</Text>
         </View>
       );
     },
@@ -168,12 +169,12 @@ export default function DirectMessageThreadScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: "#fff" }}
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
       behavior={Platform.select({ ios: "padding", default: undefined })}
     >
-      <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: "#f3f4f6" }}>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: "#111827" }}>{peerName}</Text>
-        {error ? <Text style={{ color: "#b91c1c", marginTop: 4 }}>{error}</Text> : null}
+      <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: theme.colors.neutral100 }}>
+        <Text style={{ fontSize: 20, fontWeight: "700", color: theme.colors.text }}>{peerName}</Text>
+        {error ? <Text style={{ color: theme.colors.danger, marginTop: 4 }}>{error}</Text> : null}
       </View>
 
       <FlatList
@@ -187,7 +188,7 @@ export default function DirectMessageThreadScreen() {
       <View
         style={{
           borderTopWidth: 1,
-          borderTopColor: "#f3f4f6",
+          borderTopColor: theme.colors.neutral100,
           padding: 12,
           flexDirection: "row",
           gap: 8,
@@ -204,25 +205,25 @@ export default function DirectMessageThreadScreen() {
             minHeight: 40,
             maxHeight: 120,
             borderWidth: 1,
-            borderColor: "#d1d5db",
+            borderColor: theme.colors.neutral200,
             borderRadius: 12,
             paddingHorizontal: 12,
             paddingVertical: 10,
-            backgroundColor: "#fff",
+            backgroundColor: theme.colors.background,
           }}
         />
         <Pressable
           onPress={sendMessage}
           disabled={sending || !input.trim()}
           style={{
-            backgroundColor: "#2563eb",
+            backgroundColor: theme.colors.primary,
             borderRadius: 10,
             paddingHorizontal: 14,
             paddingVertical: 10,
             opacity: sending || !input.trim() ? 0.6 : 1,
           }}
         >
-          <Text style={{ color: "#fff", fontWeight: "700" }}>Invia</Text>
+          <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Invia</Text>
         </Pressable>
       </View>
     </KeyboardAvoidingView>

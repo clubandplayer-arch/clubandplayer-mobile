@@ -21,6 +21,7 @@ import { createPostComment } from "../../src/lib/posts/createPostComment";
 import { togglePostLike } from "../../src/lib/posts/togglePostLike";
 import { isCertifiedClub } from "../../src/lib/profiles/certification";
 import { fetchClubVerificationMap } from "../../src/lib/profiles/verification";
+import { theme } from "../../src/theme";
 
 type PostRow = {
   id: string;
@@ -46,7 +47,7 @@ function Avatar({ url, size = 44 }: { url?: string | null; size?: number }) {
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: "#e5e7eb",
+          backgroundColor: theme.colors.neutral200,
         }}
       />
     );
@@ -58,7 +59,7 @@ function Avatar({ url, size = 44 }: { url?: string | null; size?: number }) {
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: "#e5e7eb",
+        backgroundColor: theme.colors.neutral200,
       }}
     />
   );
@@ -356,7 +357,7 @@ export default function PostDetailScreen() {
             paddingVertical: 10,
             paddingHorizontal: 12,
             borderWidth: 1,
-            borderColor: "#e5e7eb",
+            borderColor: theme.colors.neutral200,
             borderRadius: 10,
           }}
         >
@@ -372,15 +373,15 @@ export default function PostDetailScreen() {
         <View
           style={{
             borderWidth: 1,
-            borderColor: "#fecaca",
-            backgroundColor: "#fff5f5",
+            borderColor: theme.colors.dangerBorder,
+            backgroundColor: theme.colors.dangerBg,
             borderRadius: 12,
             padding: 14,
             gap: 8,
           }}
         >
-          <Text style={{ fontWeight: "900", color: "#b91c1c" }}>Errore</Text>
-          <Text style={{ color: "#b91c1c" }}>{error}</Text>
+          <Text style={{ fontWeight: "900", color: theme.colors.danger }}>Errore</Text>
+          <Text style={{ color: theme.colors.danger }}>{error}</Text>
           <Pressable
             onPress={() => {
               setLoading(true);
@@ -388,13 +389,13 @@ export default function PostDetailScreen() {
             }}
             style={{ alignSelf: "flex-start" }}
           >
-            <Text style={{ color: "#036f9a", fontWeight: "900" }}>Riprova</Text>
+            <Text style={{ color: theme.colors.primary, fontWeight: "900" }}>Riprova</Text>
           </Pressable>
         </View>
       ) : null}
 
       {!error && post ? (
-        <View style={{ borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 12, padding: 16, gap: 12 }}>
+        <View style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, padding: 16, gap: 12 }}>
           {/* Author */}
           <Pressable
             onPress={() => {
@@ -409,16 +410,16 @@ export default function PostDetailScreen() {
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                 <Text style={{ fontSize: 16, fontWeight: "900" }}>{authorName}</Text>
                 {author && isCertifiedClub(author) ? (
-                  <Text style={{ fontSize: 12, fontWeight: "900", color: "#111827" }}>C</Text>
+                  <Text style={{ fontSize: 12, fontWeight: "900", color: theme.colors.text }}>C</Text>
                 ) : null}
               </View>
-              <Text style={{ fontSize: 12, color: "#6b7280" }}>{when}</Text>
+              <Text style={{ fontSize: 12, color: theme.colors.muted }}>{when}</Text>
             </View>
           </Pressable>
 
           {/* Text */}
           {text ? (
-            <Text style={{ fontSize: 14, lineHeight: 19, color: "#111827" }}>{text}</Text>
+            <Text style={{ fontSize: 14, lineHeight: 19, color: theme.colors.text }}>{text}</Text>
           ) : null}
 
           {/* Media gallery */}
@@ -435,7 +436,7 @@ export default function PostDetailScreen() {
                   style={{
                     width: mediaW,
                     height: mediaH,
-                    backgroundColor: "#f3f4f6",
+                    backgroundColor: theme.colors.neutral100,
                     marginRight: 12,
                     borderRadius: 12,
                     overflow: "hidden",
@@ -453,11 +454,11 @@ export default function PostDetailScreen() {
                       bottom: 10,
                       paddingVertical: 6,
                       paddingHorizontal: 10,
-                      backgroundColor: "rgba(0,0,0,0.45)",
+                      backgroundColor: theme.colors.muted,
                       borderRadius: 999,
                     }}
                   >
-                    <Text style={{ color: "#fff", fontWeight: "800", fontSize: 12 }}>
+                    <Text style={{ color: theme.colors.background, fontWeight: "800", fontSize: 12 }}>
                       {m.media_type === "video" ? "🎬 Video" : "🖼️ Foto"}
                     </Text>
                   </View>
@@ -468,18 +469,18 @@ export default function PostDetailScreen() {
 
           <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
             <Pressable onPress={onToggleLike} disabled={isLiking} hitSlop={8}>
-              <Text style={{ fontSize: 12, color: liked ? "#0369a1" : "#6b7280", fontWeight: liked ? "800" : "500" }}>
+              <Text style={{ fontSize: 12, color: liked ? theme.colors.primary : theme.colors.muted, fontWeight: liked ? "800" : "500" }}>
                 👍 {likeCount}{liked ? " · Mi piace" : ""}
               </Text>
             </Pressable>
-            {isLiking ? <ActivityIndicator size="small" color="#6b7280" /> : null}
-            <Text style={{ fontSize: 12, color: "#6b7280" }}>💬 {commentCount}</Text>
+            {isLiking ? <ActivityIndicator size="small" color={theme.colors.muted} /> : null}
+            <Text style={{ fontSize: 12, color: theme.colors.muted }}>💬 {commentCount}</Text>
           </View>
         </View>
       ) : null}
 
       {!error && post ? (
-        <View style={{ borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 12, padding: 16, gap: 12 }}>
+        <View style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, padding: 16, gap: 12 }}>
           <Text style={{ fontSize: 16, fontWeight: "800" }}>Commenti</Text>
 
           <View style={{ gap: 10 }}>
@@ -494,16 +495,16 @@ export default function PostDetailScreen() {
               style={{
                 minHeight: 88,
                 borderWidth: 1,
-                borderColor: "#d1d5db",
+                borderColor: theme.colors.neutral200,
                 borderRadius: 10,
                 paddingHorizontal: 12,
                 paddingVertical: 10,
-                color: "#111827",
-                backgroundColor: isSubmittingComment ? "#f9fafb" : "#ffffff",
+                color: theme.colors.text,
+                backgroundColor: isSubmittingComment ? theme.colors.neutral50 : theme.colors.background,
               }}
             />
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-              <Text style={{ fontSize: 12, color: "#6b7280" }}>{commentDraft.trim().length}/2000</Text>
+              <Text style={{ fontSize: 12, color: theme.colors.muted }}>{commentDraft.trim().length}/2000</Text>
               <Pressable
                 onPress={onSubmitComment}
                 disabled={isCommentSubmitDisabled}
@@ -511,10 +512,10 @@ export default function PostDetailScreen() {
                   paddingVertical: 8,
                   paddingHorizontal: 14,
                   borderRadius: 8,
-                  backgroundColor: isCommentSubmitDisabled ? "#d1d5db" : "#0284c7",
+                  backgroundColor: isCommentSubmitDisabled ? theme.colors.neutral200 : theme.colors.primary,
                 }}
               >
-                <Text style={{ color: "#fff", fontWeight: "800" }}>
+                <Text style={{ color: theme.colors.background, fontWeight: "800" }}>
                   {isSubmittingComment ? "Pubblicazione..." : "Pubblica"}
                 </Text>
               </Pressable>
@@ -537,12 +538,12 @@ export default function PostDetailScreen() {
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                           <Text style={{ fontSize: 14, fontWeight: "700" }}>{commentAuthorName}</Text>
                           {comment.author && isCertifiedClub(comment.author) ? (
-                            <Text style={{ fontSize: 11, fontWeight: "900", color: "#111827" }}>C</Text>
+                            <Text style={{ fontSize: 11, fontWeight: "900", color: theme.colors.text }}>C</Text>
                           ) : null}
                         </View>
-                        <Text style={{ fontSize: 11, color: "#6b7280" }}>{commentWhen}</Text>
+                        <Text style={{ fontSize: 11, color: theme.colors.muted }}>{commentWhen}</Text>
                       </View>
-                      <Text style={{ fontSize: 13, lineHeight: 18, color: "#111827" }}>
+                      <Text style={{ fontSize: 13, lineHeight: 18, color: theme.colors.text }}>
                         {comment.content}
                       </Text>
                     </View>
@@ -551,7 +552,7 @@ export default function PostDetailScreen() {
               })}
             </View>
           ) : (
-            <Text style={{ color: "#6b7280" }}>Nessun commento ancora.</Text>
+            <Text style={{ color: theme.colors.muted }}>Nessun commento ancora.</Text>
           )}
         </View>
       ) : null}
