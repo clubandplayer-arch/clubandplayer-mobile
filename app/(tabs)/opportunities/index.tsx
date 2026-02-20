@@ -195,7 +195,7 @@ function OpportunityCard({
                 opacity: isApplying ? 0.6 : 1,
               }}
             >
-              <Text style={{ color: "#ffffff", fontWeight: "700" }}>{isApplying ? "Invio..." : "Candidati"}</Text>
+              <Text style={{ color: theme.colors.background, fontWeight: "700" }}>{isApplying ? "Invio..." : "Candidati"}</Text>
             </Pressable>
           </View>
         )

@@ -14,6 +14,7 @@ import { supabase } from "../../src/lib/supabase";
 import { resolveProfileByAuthorId, type Profile } from "../../src/lib/profiles/resolveProfile";
 import { getFollowSocialForProfile, type FollowSocial } from "../../src/lib/social/getFollowSocial";
 import { isCertifiedClub } from "../../src/lib/profiles/certification";
+import { theme } from "../../src/theme";
 
 function buildDisplayName(p: Profile | null) {
   const a = (p?.full_name ?? "").trim();
@@ -115,7 +116,7 @@ export default function ProfileByIdScreen() {
             width: 72,
             height: 72,
             borderRadius: 999,
-            backgroundColor: "#e5e7eb",
+            backgroundColor: theme.colors.neutral200,
           }}
         />
       );
@@ -127,7 +128,7 @@ export default function ProfileByIdScreen() {
           width: 72,
           height: 72,
           borderRadius: 999,
-          backgroundColor: "#e5e7eb",
+          backgroundColor: theme.colors.neutral200,
           alignItems: "center",
           justifyContent: "center",
         }}
@@ -160,7 +161,7 @@ export default function ProfileByIdScreen() {
             paddingVertical: 10,
             paddingHorizontal: 12,
             borderWidth: 1,
-            borderColor: "#e5e7eb",
+            borderColor: theme.colors.neutral200,
             borderRadius: 10,
           }}
         >
@@ -176,15 +177,15 @@ export default function ProfileByIdScreen() {
         <View
           style={{
             borderWidth: 1,
-            borderColor: "#fecaca",
-            backgroundColor: "#fff5f5",
+            borderColor: theme.colors.dangerBorder,
+            backgroundColor: theme.colors.dangerBg,
             borderRadius: 12,
             padding: 14,
             gap: 8,
           }}
         >
-          <Text style={{ fontWeight: "900", color: "#b91c1c" }}>Errore</Text>
-          <Text style={{ color: "#b91c1c" }}>{error}</Text>
+          <Text style={{ fontWeight: "900", color: theme.colors.danger }}>Errore</Text>
+          <Text style={{ color: theme.colors.danger }}>{error}</Text>
           <Pressable
             onPress={() => {
               setLoading(true);
@@ -192,13 +193,13 @@ export default function ProfileByIdScreen() {
             }}
             style={{ alignSelf: "flex-start" }}
           >
-            <Text style={{ color: "#036f9a", fontWeight: "900" }}>Riprova</Text>
+            <Text style={{ color: theme.colors.primary, fontWeight: "900" }}>Riprova</Text>
           </Pressable>
         </View>
       ) : null}
 
       {!error && profile ? (
-        <View style={{ borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 12, padding: 16, gap: 12 }}>
+        <View style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, padding: 16, gap: 12 }}>
           <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
             <Avatar />
             <View style={{ flex: 1, gap: 2 }}>
@@ -211,23 +212,23 @@ export default function ProfileByIdScreen() {
                   verified_until: profile.verified_until,
                   certified: profile.certified,
                   certification_status: profile.certification_status,
-                }) ? <Text style={{ fontSize: 12, fontWeight: "900", color: "#111827" }}>C</Text> : null}
+                }) ? <Text style={{ fontSize: 12, fontWeight: "900", color: theme.colors.text }}>C</Text> : null}
               </View>
-              <Text style={{ color: "#374151" }}>{buildTagline(profile)}</Text>
-              <Text style={{ color: "#6b7280", fontSize: 12 }}>
+              <Text style={{ color: theme.colors.text }}>{buildTagline(profile)}</Text>
+              <Text style={{ color: theme.colors.muted, fontSize: 12 }}>
                 {buildLocation(profile)}
               </Text>
             </View>
           </View>
 
           {followSocial?.discoveryStatus === "discovery_failed" ? (
-            <Text style={{ color: "#6b7280" }}>Statistiche non disponibili</Text>
+            <Text style={{ color: theme.colors.muted }}>Statistiche non disponibili</Text>
           ) : (
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <Text style={{ color: "#111827", fontWeight: "700" }}>
+              <Text style={{ color: theme.colors.text, fontWeight: "700" }}>
                 Follower: {followSocial?.followerCount ?? 0}
               </Text>
-              <Text style={{ color: "#111827", fontWeight: "700" }}>
+              <Text style={{ color: theme.colors.text, fontWeight: "700" }}>
                 Seguiti: {followSocial?.followingCount ?? 0}
               </Text>
             </View>
@@ -250,14 +251,14 @@ export default function ProfileByIdScreen() {
                 paddingHorizontal: 16,
                 borderRadius: 999,
                 borderWidth: 1,
-                borderColor: followSocial?.isFollowing ? "#0A66C2" : "#111827",
-                backgroundColor: followSocial?.isFollowing ? "#0A66C2" : "transparent",
+                borderColor: followSocial?.isFollowing ? theme.colors.primary : theme.colors.text,
+                backgroundColor: followSocial?.isFollowing ? theme.colors.primary : "transparent",
               }}
             >
               <Text
                 style={{
                   fontWeight: "800",
-                  color: followSocial?.isFollowing ? "#ffffff" : "#111827",
+                  color: followSocial?.isFollowing ? theme.colors.background : theme.colors.text,
                 }}
               >
                 {followSocial?.isFollowing ? "Seguito" : "Segui"}
@@ -267,14 +268,14 @@ export default function ProfileByIdScreen() {
 
           <View style={{ gap: 6 }}>
             <Text style={{ fontWeight: "800" }}>Bio</Text>
-            <Text style={{ color: "#374151" }}>
+            <Text style={{ color: theme.colors.text }}>
               {profile.bio && profile.bio.trim().length > 0
                 ? profile.bio
                 : "Nessuna bio disponibile."}
             </Text>
           </View>
 
-          <Text style={{ color: "#6b7280", fontSize: 12 }}>
+          <Text style={{ color: theme.colors.muted, fontSize: 12 }}>
             type: {(profile.account_type ?? profile.type ?? "—").toString()}
           </Text>
         </View>

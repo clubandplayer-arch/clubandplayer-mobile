@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
 import { createComment, deleteComment, editComment, fetchComments, type FeedComment } from "../lib/api";
+import { theme } from "../theme";
 
 type CommentsSectionProps = {
   postId: string;
@@ -171,17 +172,17 @@ export function CommentsSection({
     <View
       style={{
         borderWidth: 1,
-        borderColor: "#e5e7eb",
+        borderColor: theme.colors.neutral200,
         borderRadius: 14,
         padding: 16,
         gap: 12,
-        backgroundColor: "#ffffff",
+        backgroundColor: theme.colors.background,
       }}
     >
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827" }}>Commenti ({count})</Text>
+        <Text style={{ fontSize: 16, fontWeight: "800", color: theme.colors.text }}>Commenti ({count})</Text>
         <Pressable onPress={toggleExpanded}>
-          <Text style={{ fontWeight: "700", color: "#111827" }}>
+          <Text style={{ fontWeight: "700", color: theme.colors.text }}>
             {expanded ? "Nascondi commenti" : "Mostra commenti"}
           </Text>
         </Pressable>
@@ -191,8 +192,8 @@ export function CommentsSection({
         <View style={{ gap: 10 }}>
           {previewComments.map((comment) => (
             <View key={comment.id} style={{ gap: 4 }}>
-              <Text style={{ fontSize: 13, fontWeight: "700", color: "#111827" }}>{getDisplayName(comment)}</Text>
-              <Text style={{ color: "#374151" }}>{comment.body}</Text>
+              <Text style={{ fontSize: 13, fontWeight: "700", color: theme.colors.text }}>{getDisplayName(comment)}</Text>
+              <Text style={{ color: theme.colors.text }}>{comment.body}</Text>
             </View>
           ))}
         </View>
@@ -203,10 +204,10 @@ export function CommentsSection({
           {loading ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <ActivityIndicator size="small" />
-              <Text style={{ color: "#6b7280" }}>Caricamento commenti…</Text>
+              <Text style={{ color: theme.colors.muted }}>Caricamento commenti…</Text>
             </View>
           ) : comments.length === 0 ? (
-            <Text style={{ color: "#6b7280" }}>Nessun commento.</Text>
+            <Text style={{ color: theme.colors.muted }}>Nessun commento.</Text>
           ) : (
             <View style={{ gap: 12 }}>
               {comments.map((comment) => {
@@ -216,8 +217,8 @@ export function CommentsSection({
                 const canDelete = canDeleteComment(comment, currentUserId);
 
                 return (
-                  <View key={comment.id} style={{ gap: 6, borderBottomWidth: 1, borderBottomColor: "#f3f4f6", paddingBottom: 10 }}>
-                    <Text style={{ fontSize: 13, fontWeight: "700", color: "#111827" }}>{getDisplayName(comment)}</Text>
+                  <View key={comment.id} style={{ gap: 6, borderBottomWidth: 1, borderBottomColor: theme.colors.neutral100, paddingBottom: 10 }}>
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: theme.colors.text }}>{getDisplayName(comment)}</Text>
 
                     {isEditing ? (
                       <View style={{ gap: 8 }}>
@@ -228,36 +229,36 @@ export function CommentsSection({
                           placeholder="Modifica commento"
                           style={{
                             borderWidth: 1,
-                            borderColor: "#d1d5db",
+                            borderColor: theme.colors.neutral200,
                             borderRadius: 10,
                             padding: 10,
                             minHeight: 44,
-                            color: "#111827",
+                            color: theme.colors.text,
                           }}
                         />
                         <View style={{ flexDirection: "row", gap: 12 }}>
                           <Pressable onPress={onSaveEdit} disabled={isBusy || !editDraft.trim()}>
-                            <Text style={{ color: isBusy ? "#9ca3af" : "#111827", fontWeight: "700" }}>Salva</Text>
+                            <Text style={{ color: isBusy ? theme.colors.muted : theme.colors.text, fontWeight: "700" }}>Salva</Text>
                           </Pressable>
                           <Pressable onPress={onCancelEdit} disabled={isBusy}>
-                            <Text style={{ color: "#6b7280", fontWeight: "700" }}>Annulla</Text>
+                            <Text style={{ color: theme.colors.muted, fontWeight: "700" }}>Annulla</Text>
                           </Pressable>
                         </View>
                       </View>
                     ) : (
-                      <Text style={{ color: "#374151" }}>{comment.body}</Text>
+                      <Text style={{ color: theme.colors.text }}>{comment.body}</Text>
                     )}
 
                     {!isEditing && (canEdit || canDelete) ? (
                       <View style={{ flexDirection: "row", gap: 14 }}>
                         {canEdit ? (
                           <Pressable onPress={() => onStartEdit(comment)} disabled={isBusy}>
-                            <Text style={{ color: isBusy ? "#9ca3af" : "#111827", fontWeight: "700" }}>Modifica</Text>
+                            <Text style={{ color: isBusy ? theme.colors.muted : theme.colors.text, fontWeight: "700" }}>Modifica</Text>
                           </Pressable>
                         ) : null}
                         {canDelete ? (
                           <Pressable onPress={() => onDelete(comment.id)} disabled={isBusy}>
-                            <Text style={{ color: isBusy ? "#9ca3af" : "#b91c1c", fontWeight: "700" }}>Elimina</Text>
+                            <Text style={{ color: isBusy ? theme.colors.muted : theme.colors.danger, fontWeight: "700" }}>Elimina</Text>
                           </Pressable>
                         ) : null}
                       </View>
@@ -276,11 +277,11 @@ export function CommentsSection({
               multiline
               style={{
                 borderWidth: 1,
-                borderColor: "#d1d5db",
+                borderColor: theme.colors.neutral200,
                 borderRadius: 10,
                 padding: 10,
                 minHeight: 44,
-                color: "#111827",
+                color: theme.colors.text,
               }}
             />
             <Pressable
@@ -290,11 +291,11 @@ export function CommentsSection({
                 paddingVertical: 10,
                 paddingHorizontal: 14,
                 borderRadius: 10,
-                backgroundColor: submitting || !draft.trim() ? "#d1d5db" : "#111827",
+                backgroundColor: submitting || !draft.trim() ? theme.colors.neutral200 : theme.colors.text,
                 alignSelf: "flex-start",
               }}
             >
-              <Text style={{ color: "#ffffff", fontWeight: "700" }}>
+              <Text style={{ color: theme.colors.background, fontWeight: "700" }}>
                 {submitting ? "Invio…" : "Commenta"}
               </Text>
             </Pressable>
@@ -302,7 +303,7 @@ export function CommentsSection({
         </>
       ) : null}
 
-      {error ? <Text style={{ color: "#b91c1c" }}>{error}</Text> : null}
+      {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
     </View>
   );
 }

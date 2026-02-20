@@ -27,6 +27,7 @@ import {
 import { emit } from "../../src/lib/events/appEvents";
 import { sharePostById } from "../../src/lib/sharePost";
 import { devWarn } from "../../src/lib/debug/devLog";
+import { theme } from "../../src/theme";
 
 const POST_FIELDS =
   "id, content, created_at, author_id, media_url, media_type, media_aspect, kind, event_payload, quoted_post_id";
@@ -85,7 +86,7 @@ function Avatar({ url, size = 44 }: { url?: string | null; size?: number }) {
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: "#e5e7eb",
+          backgroundColor: theme.colors.neutral200,
         }}
       />
     );
@@ -97,7 +98,7 @@ function Avatar({ url, size = 44 }: { url?: string | null; size?: number }) {
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: "#e5e7eb",
+        backgroundColor: theme.colors.neutral200,
       }}
     />
   );
@@ -164,7 +165,7 @@ function PostVideo({ uri }: { uri: string }) {
   });
 
   return (
-    <View style={{ width: "100%", height: 240, backgroundColor: "#111827" }}>
+    <View style={{ width: "100%", height: 240, backgroundColor: theme.colors.text }}>
       <VideoView
         player={player}
         style={{ width: "100%", height: "100%" }}
@@ -188,15 +189,15 @@ function PostCard({ post, title }: { post: PostDetail; title?: string }) {
     <View
       style={{
         borderWidth: 1,
-        borderColor: "#e5e7eb",
+        borderColor: theme.colors.neutral200,
         borderRadius: 16,
         padding: 16,
         gap: 12,
-        backgroundColor: "#ffffff",
+        backgroundColor: theme.colors.background,
       }}
     >
       {title ? (
-        <Text style={{ fontSize: 12, fontWeight: "700", color: "#6b7280" }}>
+        <Text style={{ fontSize: 12, fontWeight: "700", color: theme.colors.muted }}>
           {title}
         </Text>
       ) : null}
@@ -204,21 +205,21 @@ function PostCard({ post, title }: { post: PostDetail; title?: string }) {
       <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
         <Avatar url={post.author?.avatar_url ?? null} size={44} />
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827" }}>
+          <Text style={{ fontSize: 16, fontWeight: "800", color: theme.colors.text }}>
             {authorName}
           </Text>
-          <Text style={{ fontSize: 12, color: "#6b7280" }}>{when}</Text>
+          <Text style={{ fontSize: 12, color: theme.colors.muted }}>{when}</Text>
         </View>
       </View>
 
       {text ? (
-        <Text style={{ fontSize: 15, lineHeight: 20, color: "#111827" }}>
+        <Text style={{ fontSize: 15, lineHeight: 20, color: theme.colors.text }}>
           {text}
         </Text>
       ) : null}
 
       {mediaUrl ? (
-        <View style={{ borderRadius: 14, overflow: "hidden", backgroundColor: "#f3f4f6" }}>
+        <View style={{ borderRadius: 14, overflow: "hidden", backgroundColor: theme.colors.neutral100 }}>
           {mediaType === "video" ? (
             <PostVideo uri={mediaUrl} />
           ) : (
@@ -229,7 +230,7 @@ function PostCard({ post, title }: { post: PostDetail; title?: string }) {
             />
           )}
           <View style={{ padding: 10 }}>
-            <Text style={{ fontSize: 12, color: "#6b7280" }}>
+            <Text style={{ fontSize: 12, color: theme.colors.muted }}>
               {mediaType === "video" ? "Video" : "Media"}
             </Text>
           </View>
@@ -406,7 +407,7 @@ export default function PostDetailScreen() {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10, padding: 24 }}>
         <ActivityIndicator />
-        <Text style={{ color: "#6b7280" }}>Caricamento dettaglio…</Text>
+        <Text style={{ color: theme.colors.muted }}>Caricamento dettaglio…</Text>
       </View>
     );
   }
@@ -415,7 +416,7 @@ export default function PostDetailScreen() {
     return (
       <View style={{ flex: 1, padding: 24, gap: 12, justifyContent: "center" }}>
         <Text style={{ fontSize: 18, fontWeight: "800" }}>Sessione web</Text>
-        <Text style={{ color: "#b91c1c" }}>Sessione web non disponibile.</Text>
+        <Text style={{ color: theme.colors.danger }}>Sessione web non disponibile.</Text>
         <Pressable
           onPress={handleRetry}
           style={{
@@ -423,11 +424,11 @@ export default function PostDetailScreen() {
             paddingHorizontal: 16,
             borderRadius: 10,
             borderWidth: 1,
-            borderColor: "#111827",
+            borderColor: theme.colors.text,
             alignSelf: "flex-start",
           }}
         >
-          <Text style={{ fontWeight: "700", color: "#111827" }}>Riprova</Text>
+          <Text style={{ fontWeight: "700", color: theme.colors.text }}>Riprova</Text>
         </Pressable>
       </View>
     );
@@ -437,7 +438,7 @@ export default function PostDetailScreen() {
     return (
       <View style={{ flex: 1, padding: 24, gap: 16, justifyContent: "center" }}>
         <Text style={{ fontSize: 20, fontWeight: "800" }}>Login richiesto</Text>
-        <Text style={{ color: "#374151" }}>
+        <Text style={{ color: theme.colors.text }}>
           Per vedere il dettaglio del post devi effettuare l'accesso.
         </Text>
         <Pressable
@@ -446,11 +447,11 @@ export default function PostDetailScreen() {
             paddingVertical: 12,
             paddingHorizontal: 16,
             borderRadius: 10,
-            backgroundColor: "#111827",
+            backgroundColor: theme.colors.text,
             alignSelf: "flex-start",
           }}
         >
-          <Text style={{ color: "#ffffff", fontWeight: "700" }}>Vai al login</Text>
+          <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Vai al login</Text>
         </Pressable>
       </View>
     );
@@ -460,7 +461,7 @@ export default function PostDetailScreen() {
     return (
       <View style={{ flex: 1, padding: 24, gap: 12, justifyContent: "center" }}>
         <Text style={{ fontSize: 18, fontWeight: "800" }}>Errore</Text>
-        <Text style={{ color: "#b91c1c" }}>{error}</Text>
+        <Text style={{ color: theme.colors.danger }}>{error}</Text>
         <Pressable
           onPress={handleRetry}
           style={{
@@ -468,11 +469,11 @@ export default function PostDetailScreen() {
             paddingHorizontal: 16,
             borderRadius: 10,
             borderWidth: 1,
-            borderColor: "#111827",
+            borderColor: theme.colors.text,
             alignSelf: "flex-start",
           }}
         >
-          <Text style={{ fontWeight: "700", color: "#111827" }}>Riprova</Text>
+          <Text style={{ fontWeight: "700", color: theme.colors.text }}>Riprova</Text>
         </Pressable>
       </View>
     );
@@ -482,7 +483,7 @@ export default function PostDetailScreen() {
     return (
       <View style={{ flex: 1, padding: 24, gap: 12, justifyContent: "center" }}>
         <Text style={{ fontSize: 18, fontWeight: "800" }}>Post non disponibile</Text>
-        <Text style={{ color: "#6b7280" }}>
+        <Text style={{ color: theme.colors.muted }}>
           Questo post non esiste o non è accessibile.
         </Text>
         <Pressable
@@ -492,11 +493,11 @@ export default function PostDetailScreen() {
             paddingHorizontal: 16,
             borderRadius: 10,
             borderWidth: 1,
-            borderColor: "#111827",
+            borderColor: theme.colors.text,
             alignSelf: "flex-start",
           }}
         >
-          <Text style={{ fontWeight: "700", color: "#111827" }}>Indietro</Text>
+          <Text style={{ fontWeight: "700", color: theme.colors.text }}>Indietro</Text>
         </Pressable>
       </View>
     );
@@ -504,30 +505,30 @@ export default function PostDetailScreen() {
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: "#ffffff" }}
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
       contentContainerStyle={{ padding: 24, paddingBottom: 32, gap: 18 }}
     >
       <Pressable onPress={() => router.back()} style={{ alignSelf: "flex-start" }}>
-        <Text style={{ fontWeight: "700", color: "#111827" }}>← Indietro</Text>
+        <Text style={{ fontWeight: "700", color: theme.colors.text }}>← Indietro</Text>
       </Pressable>
 
       <PostCard post={post} />
       {quotedPost ? <PostCard post={quotedPost} title="Post citato" /> : null}
 
       {flash ? (
-        <View style={{ borderWidth: 1, borderColor: "#e5e7eb", backgroundColor: "#f9fafb", borderRadius: 12, padding: 12 }}>
-          <Text style={{ fontWeight: "700", color: "#111827" }}>{flash}</Text>
+        <View style={{ borderWidth: 1, borderColor: theme.colors.neutral200, backgroundColor: theme.colors.neutral50, borderRadius: 12, padding: 12 }}>
+          <Text style={{ fontWeight: "700", color: theme.colors.text }}>{flash}</Text>
         </View>
       ) : null}
 
       <View
         style={{
           borderWidth: 1,
-          borderColor: "#e5e7eb",
+          borderColor: theme.colors.neutral200,
           borderRadius: 14,
           padding: 16,
           gap: 12,
-          backgroundColor: "#f9fafb",
+          backgroundColor: theme.colors.neutral50,
         }}
       >
         <Text style={{ fontSize: 16, fontWeight: "800" }}>Reazioni</Text>
@@ -535,16 +536,16 @@ export default function PostDetailScreen() {
         {social.loading ? (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <ActivityIndicator size="small" />
-            <Text style={{ color: "#6b7280" }}>Caricamento reazioni…</Text>
+            <Text style={{ color: theme.colors.muted }}>Caricamento reazioni…</Text>
           </View>
         ) : (
           <View style={{ gap: 10 }}>
-            <Text style={{ color: "#374151" }}>👍 {social.likeCount}</Text>
-            <Text style={{ color: "#374151" }}>💬 {social.commentCount}</Text>
+            <Text style={{ color: theme.colors.text }}>👍 {social.likeCount}</Text>
+            <Text style={{ color: theme.colors.text }}>💬 {social.commentCount}</Text>
           </View>
         )}
 
-        {social.error ? <Text style={{ color: "#b91c1c" }}>{social.error}</Text> : null}
+        {social.error ? <Text style={{ color: theme.colors.danger }}>{social.error}</Text> : null}
 
         <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
           <Pressable
@@ -554,13 +555,13 @@ export default function PostDetailScreen() {
               paddingHorizontal: 14,
               borderRadius: 10,
               borderWidth: 1,
-              borderColor: social.viewerHasLiked ? "#111827" : "#d1d5db",
-              backgroundColor: social.viewerHasLiked ? "#111827" : "transparent",
+              borderColor: social.viewerHasLiked ? theme.colors.text : theme.colors.neutral200,
+              backgroundColor: social.viewerHasLiked ? theme.colors.text : "transparent",
               alignSelf: "flex-start",
               opacity: isToggling ? 0.6 : 1,
             }}
           >
-            <Text style={{ color: social.viewerHasLiked ? "#ffffff" : "#111827", fontWeight: "700" }}>
+            <Text style={{ color: social.viewerHasLiked ? theme.colors.background : theme.colors.text, fontWeight: "700" }}>
               {social.viewerHasLiked ? "Hai messo 👍" : "Metti 👍"}
             </Text>
           </Pressable>
@@ -572,11 +573,11 @@ export default function PostDetailScreen() {
               paddingHorizontal: 14,
               borderRadius: 10,
               borderWidth: 1,
-              borderColor: "#d1d5db",
+              borderColor: theme.colors.neutral200,
               alignSelf: "flex-start",
             }}
           >
-            <Text style={{ color: "#111827", fontWeight: "700" }}>Condividi</Text>
+            <Text style={{ color: theme.colors.text, fontWeight: "700" }}>Condividi</Text>
           </Pressable>
         </View>
       </View>
