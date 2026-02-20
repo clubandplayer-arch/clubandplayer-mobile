@@ -1,17 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { Tabs, useRouter } from "expo-router";
+import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { View } from "react-native";
 
 import { fetchDirectMessagesUnreadCount } from "../../src/lib/api";
 import { on } from "../../src/lib/events/appEvents";
 import { useNotificationsBadgeCount } from "../../src/lib/notificationsBadge";
-import { theme } from "../../src/theme";
 
 export default function TabsLayout() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets(); // teniamolo per eventuali futuri UI pass
   const unreadCount = useNotificationsBadgeCount();
   const [messagesUnreadCount, setMessagesUnreadCount] = useState<number>(0);
 
@@ -89,14 +85,6 @@ export default function TabsLayout() {
             title: "Opportunità",
             tabBarLabel: "Opportunità",
             tabBarLabelStyle: { fontSize: 10 },
-            headerShown: true,
-            headerRight: () => (
-              <Pressable onPress={() => router.push("/applications")} hitSlop={8}>
-                <Text style={{ color: theme.colors.primary, fontWeight: "700", marginRight: 12 }}>
-                  Candidature
-                </Text>
-              </Pressable>
-            ),
           }}
         />
 

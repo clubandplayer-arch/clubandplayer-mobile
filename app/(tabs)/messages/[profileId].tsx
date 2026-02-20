@@ -9,8 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useLocalSearchParams } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
 import BrandHeader from "../../../src/components/brand/BrandHeader";
 import {
@@ -39,7 +38,7 @@ function formatWhen(iso?: string | null): string {
 export default function DirectMessageThreadScreen() {
   const params = useLocalSearchParams<{ profileId?: string | string[] }>();
   const profileId = resolveProfileId(params.profileId).trim();
-  const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   const [thread, setThread] = useState<DirectThreadResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -178,7 +177,6 @@ export default function DirectMessageThreadScreen() {
       <View
         style={{
           paddingHorizontal: 16,
-          paddingTop: insets.top + 12,
           paddingBottom: 12,
           borderBottomWidth: 1,
           borderBottomColor: theme.colors.neutral100,
@@ -186,7 +184,10 @@ export default function DirectMessageThreadScreen() {
           gap: 8,
         }}
       >
-        <BrandHeader subtitle="Messaggi" />
+        <BrandHeader
+          subtitle="Messaggi"
+          leftAction={{ label: "←", onPress: () => router.back(), color: theme.colors.text }}
+        />
         <Text style={{ fontSize: 20, fontWeight: "700", color: theme.colors.text }}>{peerName}</Text>
         {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
       </View>

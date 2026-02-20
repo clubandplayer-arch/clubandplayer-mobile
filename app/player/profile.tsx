@@ -12,6 +12,7 @@ import {
 import { AvatarUploader } from "../../components/profiles/AvatarUploader";
 import { LocationFields } from "../../components/profiles/LocationFields";
 import { fetchProfileMe, patchProfileMe, type ProfileMe, useWebSession } from "../../src/lib/api";
+import BrandHeader from "../../src/components/brand/BrandHeader";
 import { theme } from "../../src/theme";
 
 function asText(v: unknown) {
@@ -161,8 +162,8 @@ export default function PlayerProfileScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 24, gap: 12, paddingBottom: 48 }}>
-      <Text style={{ fontSize: 28, fontWeight: "800" }}>Profilo Player</Text>
+    <ScrollView contentContainerStyle={{ paddingHorizontal: 24, gap: 12, paddingBottom: 48 }} style={{ backgroundColor: theme.colors.background }}>
+      <BrandHeader subtitle="Profilo Player" />
       {web.error ? <Text style={{ color: theme.colors.danger }}>{web.error}</Text> : null}
       {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
 

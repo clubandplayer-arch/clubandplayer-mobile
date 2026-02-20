@@ -206,6 +206,7 @@ function OpportunityCard({
 }
 
 export default function OpportunitiesScreen() {
+  const router = useRouter();
   const web = useWebSession();
   const whoami = useWhoami(web.ready);
 
@@ -361,7 +362,14 @@ export default function OpportunitiesScreen() {
       data={items}
       ListHeaderComponent={
         <View style={{ marginBottom: 12 }}>
-          <BrandHeader subtitle="Opportunità" />
+          <BrandHeader
+            subtitle="Opportunità"
+            rightAction={{
+              label: "Candidature",
+              onPress: () => router.push("/applications"),
+              color: theme.colors.primary,
+            }}
+          />
         </View>
       }
       keyExtractor={(item) => String(item.id)}

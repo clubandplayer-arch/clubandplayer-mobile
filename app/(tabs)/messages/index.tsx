@@ -9,7 +9,6 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import BrandHeader from "../../../src/components/brand/BrandHeader";
 import { fetchDirectMessageThreads } from "../../../src/lib/api";
@@ -68,7 +67,6 @@ function Avatar({ url }: { url?: string | null }) {
 
 export default function MessagesInboxScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const [threads, setThreads] = useState<DirectThreadSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -164,7 +162,6 @@ export default function MessagesInboxScreen() {
       <View
         style={{
           paddingHorizontal: 16,
-          paddingTop: insets.top + 12,
           paddingBottom: 12,
           borderBottomWidth: 1,
           borderBottomColor: theme.colors.neutral100,
@@ -176,7 +173,7 @@ export default function MessagesInboxScreen() {
         {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
       </View>
     ),
-    [error, insets.top],
+    [error],
   );
 
   if (loading) {

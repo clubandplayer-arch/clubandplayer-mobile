@@ -67,7 +67,12 @@ function Avatar({ url, label }: { url: string | null; label: string }) {
 
 export default function SearchScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ q?: string | string[]; type?: string | string[]; page?: string | string[]; limit?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    q?: string | string[];
+    type?: string | string[];
+    page?: string | string[];
+    limit?: string | string[];
+  }>();
 
   const q = asSingleString(params.q);
   const type = normalizeKind(asSingleString(params.type));
@@ -90,7 +95,10 @@ export default function SearchScreen() {
   const query = useMemo(() => q.trim(), [q]);
 
   const updateUrl = useCallback(
-    (next: Partial<{ q: string; type: SearchKind; page: number; limit: number }>, mode: "push" | "replace" = "replace") => {
+    (
+      next: Partial<{ q: string; type: SearchKind; page: number; limit: number }>,
+      mode: "push" | "replace" = "replace",
+    ) => {
       const nextQ = (next.q ?? q).trim();
       const nextType = next.type ?? type;
       const nextPage = next.page ?? page;
@@ -206,7 +214,16 @@ export default function SearchScreen() {
   const canLoadMore = totalForType !== null && listItems.length < totalForType;
 
   const renderRow = (item: SearchItem) => (
-    <View key={`${item.kind}:${item.id}`} style={{ borderWidth: 1, borderRadius: 12, padding: 14, gap: 6 }}>
+    <View
+      key={`${item.kind}:${item.id}`}
+      style={{
+        borderWidth: 1,
+        borderColor: theme.colors.neutral200,
+        borderRadius: 12,
+        padding: 14,
+        gap: 6,
+      }}
+    >
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
         <Pressable onPress={() => void onOpenResult(item)}>
           <Avatar url={item.image_url ?? null} label={item.title} />
@@ -225,12 +242,20 @@ export default function SearchScreen() {
   return (
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ padding: 24, paddingBottom: 32, gap: 16 }}
+      contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 32, gap: 16 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <BrandHeader subtitle="Cerca" />
 
-      <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 10 }}>
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          padding: 16,
+          gap: 10,
+        }}
+      >
         <TextInput
           placeholder="Cerca..."
           value={input}
@@ -238,7 +263,12 @@ export default function SearchScreen() {
           onSubmitEditing={onSubmitSearch}
           autoCapitalize="none"
           autoCorrect={false}
-          style={{ borderWidth: 1, borderRadius: 12, padding: 12 }}
+          style={{
+            borderWidth: 1,
+            borderColor: theme.colors.neutral200,
+            borderRadius: 12,
+            padding: 12,
+          }}
         />
         <Pressable
           onPress={onSubmitSearch}
@@ -281,7 +311,15 @@ export default function SearchScreen() {
         </View>
       </View>
 
-      <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 10 }}>
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          padding: 16,
+          gap: 10,
+        }}
+      >
         {query.length < 2 ? (
           <Text style={{ color: theme.colors.text }}>Inserisci almeno 2 caratteri</Text>
         ) : loading ? (
@@ -294,7 +332,9 @@ export default function SearchScreen() {
         ) : type === "all" ? (
           <View style={{ gap: 14 }}>
             {SEARCH_TYPES.filter((searchType) => searchType !== "all").map((sectionType) => {
-              const sectionItems = Array.isArray(payload?.results?.[sectionType]) ? payload?.results?.[sectionType] ?? [] : [];
+              const sectionItems = Array.isArray(payload?.results?.[sectionType])
+                ? payload?.results?.[sectionType] ?? []
+                : [];
               if (sectionItems.length === 0) return null;
 
               return (
@@ -318,9 +358,19 @@ export default function SearchScreen() {
             {canLoadMore ? (
               <Pressable
                 onPress={() => updateUrl({ page: page + 1 }, "push")}
-                style={{ borderWidth: 1, borderRadius: 10, padding: 12, alignItems: "center" }}
+                style={{
+                  borderWidth: 1,
+                  borderColor: theme.colors.neutral200,
+                  borderRadius: 10,
+                  padding: 12,
+                  alignItems: "center",
+                }}
               >
-                {loadingMore ? <ActivityIndicator size="small" /> : <Text style={{ fontWeight: "700" }}>Carica altri</Text>}
+                {loadingMore ? (
+                  <ActivityIndicator size="small" />
+                ) : (
+                  <Text style={{ fontWeight: "700" }}>Carica altri</Text>
+                )}
               </Pressable>
             ) : null}
           </View>
