@@ -16,6 +16,7 @@ import * as ImagePicker from "expo-image-picker";
 import { supabase } from "../../../src/lib/supabase";
 import { emit } from "../../../src/lib/events/appEvents";
 import { createPost } from "../../../src/lib/posts/createPost";
+import BrandHeader from "../../../src/components/brand/BrandHeader";
 import { theme } from "../../../src/theme";
 
 type DraftMedia = {
@@ -200,7 +201,7 @@ export default function CreateScreen() {
       style={{ flex: 1 }}
       contentContainerStyle={{ padding: 24, paddingBottom: 32, gap: 16 }}
     >
-      <Text style={{ fontSize: 28, fontWeight: "800" }}>Crea</Text>
+      <BrandHeader subtitle="Crea" />
 
       {(isPublishing || publishError) && (
         <View
