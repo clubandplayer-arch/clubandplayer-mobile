@@ -88,6 +88,7 @@ export default function TabsLayout() {
           options={{
             title: "Opportunità",
             tabBarLabel: "Opportunità",
+            tabBarLabelStyle: { fontSize: 10 },
             headerShown: true,
             headerRight: () => (
               <Pressable onPress={() => router.push("/applications")} hitSlop={8}>
