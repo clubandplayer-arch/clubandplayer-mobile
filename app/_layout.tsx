@@ -120,6 +120,7 @@ export default function RootLayout() {
       <AuthGate />
       <Stack
         screenOptions={{
+          headerShown: false,
           headerTitleStyle: { fontFamily: theme.fonts.brand, color: theme.colors.primary },
           headerTintColor: theme.colors.primary,
           headerShadowVisible: false,
