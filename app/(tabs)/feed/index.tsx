@@ -23,6 +23,7 @@ import { clearSession, useWebSession, useWhoami } from "../../../src/lib/api";
 import FeedComposer from "../../../components/feed/FeedComposer";
 import FeedVideoPreview from "../../../components/feed/FeedVideoPreview";
 import LightboxModal from "../../../components/media/LightboxModal";
+import BrandHeader from "../../../src/components/brand/BrandHeader";
 import { sharePostById } from "../../../src/lib/sharePost";
 import { devWarn } from "../../../src/lib/debug/devLog";
 import AdSlot from "../../../components/ads/AdSlot";
@@ -374,9 +375,7 @@ export default function FeedScreen() {
 
     return (
       <View style={{ padding: theme.spacing.xl, paddingBottom: 12, gap: 12, backgroundColor: theme.colors.background }}>
-        <Text style={{ ...theme.typography.h1, color: theme.colors.primary, fontFamily: theme.fonts.brand }}>
-          Feed
-        </Text>
+        <BrandHeader subtitle="Feed" />
 
         {flash ? (
           <View
