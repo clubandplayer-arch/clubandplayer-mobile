@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { theme } from "../../src/theme";
 import {
   ActivityIndicator,
   Alert,
@@ -83,7 +84,7 @@ export default function SignupScreen() {
       >
         <Text>
           Hai già un account?{" "}
-          <Text style={{ fontWeight: "700", color: "#0A66C2" }}>
+          <Text style={{ fontWeight: "700", color: theme.colors.primary }}>
             Accedi
           </Text>
         </Text>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { theme } from "../../src/theme";
 import {
   View,
   Text,
@@ -100,7 +101,7 @@ export default function LoginScreen() {
         onPress={onLogin}
         disabled={loading}
         style={{
-          backgroundColor: "#0A66C2",
+          backgroundColor: theme.colors.primary,
           padding: 14,
           borderRadius: 12,
           alignItems: "center",
@@ -146,7 +147,7 @@ export default function LoginScreen() {
       >
         <Text>
           Non hai un account?{" "}
-          <Text style={{ fontWeight: "700", color: "#0A66C2" }}>
+          <Text style={{ fontWeight: "700", color: theme.colors.primary }}>
             Registrati
           </Text>
         </Text>

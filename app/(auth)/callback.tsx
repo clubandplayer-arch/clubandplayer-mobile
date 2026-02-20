@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import * as Linking from "expo-linking";
 import { supabase } from "../../src/lib/supabase";
 
+import { theme } from "../../src/theme";
 export default function AuthCallback() {
   const [error, setError] = useState<string | null>(null);
   const [lastUrl, setLastUrl] = useState<string | null>(null);
@@ -101,11 +102,11 @@ export default function AuthCallback() {
             style={{
               paddingVertical: 10,
               paddingHorizontal: 16,
-              backgroundColor: "#111827",
+              backgroundColor: theme.colors.text,
               borderRadius: 8,
             }}
           >
-            <Text style={{ color: "#ffffff", fontWeight: "600" }}>Riprova</Text>
+            <Text style={{ color: theme.colors.background, fontWeight: "600" }}>Riprova</Text>
           </Pressable>
 
           <Pressable
@@ -115,10 +116,10 @@ export default function AuthCallback() {
               paddingHorizontal: 16,
               borderRadius: 8,
               borderWidth: 1,
-              borderColor: "#9ca3af",
+              borderColor: theme.colors.mutedSoft,
             }}
           >
-            <Text style={{ color: "#111827", fontWeight: "600" }}>
+            <Text style={{ color: theme.colors.text, fontWeight: "600" }}>
               Torna al login
             </Text>
           </Pressable>

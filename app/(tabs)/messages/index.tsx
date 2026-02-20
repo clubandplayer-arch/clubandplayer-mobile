@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { theme } from "../../../src/theme";
 import {
   ActivityIndicator,
   FlatList,
@@ -44,7 +45,7 @@ function Avatar({ url }: { url?: string | null }) {
           width: 44,
           height: 44,
           borderRadius: 22,
-          backgroundColor: "#e5e7eb",
+          backgroundColor: theme.colors.neutral200,
         }}
       />
     );
@@ -57,7 +58,7 @@ function Avatar({ url }: { url?: string | null }) {
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: "#e5e7eb",
+        backgroundColor: theme.colors.neutral200,
       }}
     />
   );
@@ -119,21 +120,21 @@ export default function MessagesInboxScreen() {
             paddingHorizontal: 16,
             paddingVertical: 12,
             borderBottomWidth: 1,
-            borderBottomColor: "#f3f4f6",
-            backgroundColor: "#fff",
+            borderBottomColor: theme.colors.neutral100,
+            backgroundColor: theme.colors.background,
           }}
         >
           <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
             <Avatar url={item.otherAvatarUrl} />
             <View style={{ flex: 1, gap: 3 }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
-                <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "700", color: "#111827", flex: 1 }}>
+                <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "700", color: theme.colors.text, flex: 1 }}>
                   {displayName}
                 </Text>
-                <Text style={{ fontSize: 12, color: "#6b7280" }}>{formatWhen(item.lastMessageAt)}</Text>
+                <Text style={{ fontSize: 12, color: theme.colors.muted }}>{formatWhen(item.lastMessageAt)}</Text>
               </View>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <Text numberOfLines={1} style={{ color: "#4b5563", flex: 1 }}>
+                <Text numberOfLines={1} style={{ color: theme.colors.textMutedStrong, flex: 1 }}>
                   {item.lastMessage || ""}
                 </Text>
                 {item.hasUnread ? (
@@ -142,7 +143,7 @@ export default function MessagesInboxScreen() {
                       width: 8,
                       height: 8,
                       borderRadius: 4,
-                      backgroundColor: "#2563eb",
+                      backgroundColor: theme.colors.info,
                     }}
                   />
                 ) : null}
@@ -157,9 +158,9 @@ export default function MessagesInboxScreen() {
 
   const header = useMemo(
     () => (
-      <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: "#f3f4f6", gap: 6 }}>
-        <Text style={{ fontSize: 28, fontWeight: "800", color: "#111827" }}>Messaggi</Text>
-        {error ? <Text style={{ color: "#b91c1c" }}>{error}</Text> : null}
+      <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: theme.colors.neutral100, gap: 6 }}>
+        <Text style={{ fontSize: 28, fontWeight: "800", color: theme.colors.text }}>Messaggi</Text>
+        {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
       </View>
     ),
     [error],
@@ -182,7 +183,7 @@ export default function MessagesInboxScreen() {
       ListHeaderComponent={header}
       ListEmptyComponent={
         <View style={{ padding: 20 }}>
-          <Text style={{ color: "#6b7280" }}>Nessun thread disponibile.</Text>
+          <Text style={{ color: theme.colors.muted }}>Nessun thread disponibile.</Text>
         </View>
       }
     />

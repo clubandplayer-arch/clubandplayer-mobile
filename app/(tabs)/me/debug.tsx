@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { theme } from "../../../src/theme";
 import {
   ActivityIndicator,
   Pressable,
@@ -190,9 +191,9 @@ export default function DebugScreen() {
                 {check.label}: {check.status.toUpperCase()}
               </Text>
               {check.message ? (
-                <Text style={{ color: "#b91c1c" }}>Errore: {check.message}</Text>
+                <Text style={{ color: theme.colors.danger }}>Errore: {check.message}</Text>
               ) : (
-                <Text style={{ color: "#6b7280" }}>Nessun errore</Text>
+                <Text style={{ color: theme.colors.muted }}>Nessun errore</Text>
               )}
             </View>
           ))
@@ -213,10 +214,10 @@ export default function DebugScreen() {
               paddingVertical: 10,
               paddingHorizontal: 14,
               borderRadius: 8,
-              backgroundColor: isSyncing ? "#9ca3af" : "#111827",
+              backgroundColor: isSyncing ? theme.colors.mutedSoft : theme.colors.text,
             }}
           >
-            <Text style={{ color: "#ffffff", fontWeight: "600" }}>
+            <Text style={{ color: theme.colors.background, fontWeight: "600" }}>
               {isSyncing ? "Syncing…" : "Sync WEB session"}
             </Text>
           </Pressable>
@@ -228,10 +229,10 @@ export default function DebugScreen() {
               paddingVertical: 10,
               paddingHorizontal: 14,
               borderRadius: 8,
-              backgroundColor: isLoadingWhoami ? "#9ca3af" : "#1f2937",
+              backgroundColor: isLoadingWhoami ? theme.colors.mutedSoft : theme.colors.textStrong,
             }}
           >
-            <Text style={{ color: "#ffffff", fontWeight: "600" }}>
+            <Text style={{ color: theme.colors.background, fontWeight: "600" }}>
               {isLoadingWhoami ? "Loading…" : "WEB whoami"}
             </Text>
           </Pressable>
@@ -240,13 +241,13 @@ export default function DebugScreen() {
         <View style={{ gap: 10 }}>
           <View>
             <Text style={{ fontWeight: "700" }}>Sync output</Text>
-            <Text style={{ fontFamily: "Courier", color: "#111827" }}>
+            <Text style={{ fontFamily: "Courier", color: theme.colors.text }}>
               {syncResult || "—"}
             </Text>
           </View>
           <View>
             <Text style={{ fontWeight: "700" }}>Whoami output</Text>
-            <Text style={{ fontFamily: "Courier", color: "#111827" }}>
+            <Text style={{ fontFamily: "Courier", color: theme.colors.text }}>
               {whoamiResult || "—"}
             </Text>
           </View>

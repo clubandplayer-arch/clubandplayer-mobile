@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { theme } from "../../../src/theme";
 import {
   ActivityIndicator,
   Alert,
@@ -42,13 +43,13 @@ function Chip({ label }: { label: string }) {
     <View
       style={{
         borderWidth: 1,
-        borderColor: "#d1d5db",
+        borderColor: theme.colors.borderSubtle,
         borderRadius: 999,
         paddingVertical: 4,
         paddingHorizontal: 10,
       }}
     >
-      <Text style={{ fontSize: 12, color: "#374151" }}>{label}</Text>
+      <Text style={{ fontSize: 12, color: theme.colors.textSoft }}>{label}</Text>
     </View>
   );
 }
@@ -102,14 +103,14 @@ function OpportunityCard({
       onPress={onOpenOpportunity}
       style={{
         borderWidth: 1,
-        borderColor: "#e5e7eb",
+        borderColor: theme.colors.neutral200,
         borderRadius: 14,
         padding: 14,
         gap: 10,
-        backgroundColor: "#fff",
+        backgroundColor: theme.colors.background,
       }}
     >
-      <Text style={{ fontSize: 18, fontWeight: "800", color: "#111827" }}>{item.title || "Opportunità"}</Text>
+      <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>{item.title || "Opportunità"}</Text>
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 4 }}>
         {clubProfileId ? (
@@ -119,12 +120,12 @@ function OpportunityCard({
               onOpenClub();
             }}
           >
-            <Text style={{ color: "#1d4ed8", fontWeight: "700" }}>{item.club_name || "Club"}</Text>
+            <Text style={{ color: theme.colors.info, fontWeight: "700" }}>{item.club_name || "Club"}</Text>
           </Pressable>
         ) : (
-          <Text style={{ color: "#374151", fontWeight: "700" }}>{item.club_name || "Club"}</Text>
+          <Text style={{ color: theme.colors.textSoft, fontWeight: "700" }}>{item.club_name || "Club"}</Text>
         )}
-        {location ? <Text style={{ color: "#6b7280" }}>· {location}</Text> : null}
+        {location ? <Text style={{ color: theme.colors.muted }}>· {location}</Text> : null}
       </View>
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
@@ -134,14 +135,14 @@ function OpportunityCard({
       </View>
 
       {!!item.description ? (
-        <Text style={{ color: "#374151" }} numberOfLines={3}>
+        <Text style={{ color: theme.colors.textSoft }} numberOfLines={3}>
           {item.description}
         </Text>
       ) : null}
 
       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-        <Text style={{ color: "#6b7280", textTransform: "capitalize" }}>{item.status || "-"}</Text>
-        <Text style={{ color: "#6b7280" }}>{formatDate(item.created_at)}</Text>
+        <Text style={{ color: theme.colors.muted, textTransform: "capitalize" }}>{item.status || "-"}</Text>
+        <Text style={{ color: theme.colors.muted }}>{formatDate(item.created_at)}</Text>
       </View>
 
       {showApplyActions ? (
@@ -150,14 +151,14 @@ function OpportunityCard({
             style={{
               alignSelf: "flex-start",
               borderWidth: 1,
-              borderColor: "#86efac",
-              backgroundColor: "#f0fdf4",
+              borderColor: theme.colors.successBorder,
+              backgroundColor: theme.colors.successBg,
               borderRadius: 999,
               paddingVertical: 6,
               paddingHorizontal: 10,
             }}
           >
-            <Text style={{ fontWeight: "700", color: "#166534" }}>Candidatura inviata</Text>
+            <Text style={{ fontWeight: "700", color: theme.colors.successText }}>Candidatura inviata</Text>
           </View>
         ) : (
           <View style={{ gap: 8 }}>
@@ -168,16 +169,16 @@ function OpportunityCard({
               onPressIn={(event) => event.stopPropagation()}
               style={{
                 borderWidth: 1,
-                borderColor: "#d1d5db",
+                borderColor: theme.colors.borderSubtle,
                 borderRadius: 10,
                 paddingHorizontal: 10,
                 paddingVertical: 8,
                 minWidth: 220,
-                color: "#111827",
+                color: theme.colors.text,
               }}
             />
 
-            {applyError ? <Text style={{ color: "#b91c1c" }}>{applyError}</Text> : null}
+            {applyError ? <Text style={{ color: theme.colors.danger }}>{applyError}</Text> : null}
 
             <Pressable
               disabled={isApplying}
@@ -188,13 +189,13 @@ function OpportunityCard({
               style={{
                 alignSelf: "flex-start",
                 borderRadius: 10,
-                backgroundColor: "#111827",
+                backgroundColor: theme.colors.text,
                 paddingVertical: 8,
                 paddingHorizontal: 12,
                 opacity: isApplying ? 0.6 : 1,
               }}
             >
-              <Text style={{ color: "#ffffff", fontWeight: "700" }}>{isApplying ? "Invio..." : "Candidati"}</Text>
+              <Text style={{ color: theme.colors.background, fontWeight: "700" }}>{isApplying ? "Invio..." : "Candidati"}</Text>
             </Pressable>
           </View>
         )
@@ -337,7 +338,7 @@ export default function OpportunitiesScreen() {
     return (
       <View style={{ flex: 1, padding: 20, justifyContent: "center", gap: 12 }}>
         <Text style={{ fontSize: 22, fontWeight: "800" }}>Opportunità</Text>
-        <Text style={{ color: "#b91c1c" }}>{error}</Text>
+        <Text style={{ color: theme.colors.danger }}>{error}</Text>
         <Pressable onPress={() => void loadPage(1, "replace")} style={{ borderWidth: 1, borderRadius: 12, padding: 12, alignItems: "center" }}>
           <Text style={{ fontWeight: "700" }}>Riprova</Text>
         </Pressable>
@@ -370,7 +371,7 @@ export default function OpportunitiesScreen() {
         );
       }}
       contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }}
-      ListEmptyComponent={<Text style={{ color: "#6b7280" }}>Nessuna opportunità disponibile.</Text>}
+      ListEmptyComponent={<Text style={{ color: theme.colors.muted }}>Nessuna opportunità disponibile.</Text>}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       onEndReachedThreshold={0.35}
       onEndReached={onEndReached}

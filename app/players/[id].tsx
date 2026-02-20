@@ -5,6 +5,7 @@ import { supabase } from "../../src/lib/supabase";
 import FollowButton from "../../src/components/follow/FollowButton";
 import { isUuid, useWebSession, useWhoami } from "../../src/lib/api";
 
+import { theme } from "../../src/theme";
 type ProfileRow = {
   id: string;
   full_name: string | null;
@@ -67,7 +68,7 @@ export default function PlayerProfileScreen() {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10, padding: 24 }}>
         <ActivityIndicator />
-        <Text style={{ color: "#6b7280" }}>Caricamento…</Text>
+        <Text style={{ color: theme.colors.muted }}>Caricamento…</Text>
       </View>
     );
   }
@@ -76,7 +77,7 @@ export default function PlayerProfileScreen() {
     return (
       <View style={{ flex: 1, padding: 24, gap: 12, justifyContent: "center" }}>
         <Text style={{ fontSize: 18, fontWeight: "800" }}>Profilo non valido</Text>
-        <Text style={{ color: "#6b7280" }}>Questo percorso richiede un UUID valido.</Text>
+        <Text style={{ color: theme.colors.muted }}>Questo percorso richiede un UUID valido.</Text>
         <Pressable
           onPress={() => router.back()}
           style={{
@@ -84,30 +85,30 @@ export default function PlayerProfileScreen() {
             paddingHorizontal: 16,
             borderRadius: 10,
             borderWidth: 1,
-            borderColor: "#111827",
+            borderColor: theme.colors.text,
             alignSelf: "flex-start",
           }}
         >
-          <Text style={{ fontWeight: "700", color: "#111827" }}>Indietro</Text>
+          <Text style={{ fontWeight: "700", color: theme.colors.text }}>Indietro</Text>
         </Pressable>
       </View>
     );
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: "#ffffff" }} contentContainerStyle={{ padding: 24, gap: 16 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: theme.colors.background }} contentContainerStyle={{ padding: 24, gap: 16 }}>
       <Pressable onPress={() => router.back()} style={{ alignSelf: "flex-start" }}>
-        <Text style={{ fontWeight: "700", color: "#111827" }}>← Indietro</Text>
+        <Text style={{ fontWeight: "700", color: theme.colors.text }}>← Indietro</Text>
       </Pressable>
 
       <View style={{ gap: 8 }}>
         <Text style={{ fontSize: 22, fontWeight: "900" }}>
           {profile?.full_name || profile?.display_name || "Giocatore"}
         </Text>
-        <Text style={{ color: "#6b7280" }}>
+        <Text style={{ color: theme.colors.muted }}>
           {profile?.sport || ""}{profile?.role ? ` • ${profile.role}` : ""}{profile?.city ? ` • ${profile.city}` : ""}
         </Text>
-        <Text style={{ color: "#9ca3af", fontSize: 12 }}>{id}</Text>
+        <Text style={{ color: theme.colors.mutedSoft, fontSize: 12 }}>{id}</Text>
       </View>
 
       <FollowButton targetProfileId={id} />
@@ -115,7 +116,7 @@ export default function PlayerProfileScreen() {
       {loading ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <ActivityIndicator size="small" />
-          <Text style={{ color: "#6b7280" }}>Carico profilo…</Text>
+          <Text style={{ color: theme.colors.muted }}>Carico profilo…</Text>
         </View>
       ) : null}
     </ScrollView>
