@@ -17,6 +17,7 @@ import {
   useWebSession,
   useWhoami,
 } from "../../../src/lib/api";
+import BrandHeader from "../../../src/components/brand/BrandHeader";
 import { emit } from "../../../src/lib/events/appEvents";
 import { devWarn } from "../../../src/lib/debug/devLog";
 import { setNotificationsBadgeCount } from "../../../src/lib/notificationsBadge";
@@ -310,7 +311,7 @@ export default function NotificationsScreen() {
   const header = useMemo(
     () => (
       <View style={{ padding: 16, gap: 12, borderBottomWidth: 1, borderBottomColor: theme.colors.neutral100 }}>
-        <Text style={{ fontSize: 28, fontFamily: "Righteous", color: theme.colors.primary }}>Notifiche</Text>
+        <BrandHeader subtitle="Notifiche" />
 
         <View style={{ flexDirection: "row", gap: 8 }}>
           <Pressable

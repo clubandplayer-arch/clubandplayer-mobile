@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import BrandHeader from "../../../src/components/brand/BrandHeader";
 import { fetchSearch, type SearchApiPayload, type SearchItem, type SearchKind } from "../../../src/lib/api";
 import { theme } from "../../../src/theme";
 
@@ -227,7 +228,7 @@ export default function SearchScreen() {
       contentContainerStyle={{ padding: 24, paddingBottom: 32, gap: 16 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      <Text style={{ fontSize: 28, fontFamily: "Righteous", color: theme.colors.primary }}>Cerca</Text>
+      <BrandHeader subtitle="Cerca" />
 
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 10 }}>
         <TextInput

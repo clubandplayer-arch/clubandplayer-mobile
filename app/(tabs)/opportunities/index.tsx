@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 
+import BrandHeader from "../../../src/components/brand/BrandHeader";
 import { devWarn } from "../../../src/lib/debug/devLog";
 import { applyToOpportunity, fetchMyApplications, fetchOpportunities, useWebSession, useWhoami } from "../../../src/lib/api";
 import type { Opportunity } from "../../../src/types/opportunity";
@@ -337,7 +338,7 @@ export default function OpportunitiesScreen() {
   if (error && items.length === 0) {
     return (
       <View style={{ flex: 1, padding: 20, justifyContent: "center", gap: 12 }}>
-        <Text style={{ fontSize: 22, fontFamily: "Righteous", color: theme.colors.primary }}>Opportunità</Text>
+        <BrandHeader subtitle="Opportunità" />
         <Text style={{ color: theme.colors.danger }}>{error}</Text>
         <Pressable
           onPress={() => void loadPage(1, "replace")}
@@ -358,6 +359,11 @@ export default function OpportunitiesScreen() {
   return (
     <FlatList
       data={items}
+      ListHeaderComponent={
+        <View style={{ marginBottom: 12 }}>
+          <BrandHeader subtitle="Opportunità" />
+        </View>
+      }
       keyExtractor={(item) => String(item.id)}
       renderItem={({ item }) => {
         const opportunityId = String(item.id ?? "").trim();

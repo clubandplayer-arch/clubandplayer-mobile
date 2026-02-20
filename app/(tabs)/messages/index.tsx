@@ -11,6 +11,7 @@ import {
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import BrandHeader from "../../../src/components/brand/BrandHeader";
 import { fetchDirectMessageThreads } from "../../../src/lib/api";
 import type { DirectThreadSummary } from "../../../src/types/directMessages";
 import { theme } from "../../../src/theme";
@@ -160,10 +161,18 @@ export default function MessagesInboxScreen() {
 
   const header = useMemo(
     () => (
-      <View style={{ padding: 16, paddingTop: insets.top + 16, borderBottomWidth: 1, borderBottomColor: theme.colors.neutral100, gap: 6 }}>
-        <Text style={{ fontSize: 28, fontWeight: "800", color: theme.colors.primary, fontFamily: theme.fonts.brand }}>
-          Messaggi
-        </Text>
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingTop: insets.top + 12,
+          paddingBottom: 12,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.colors.neutral100,
+          backgroundColor: theme.colors.background,
+          gap: 8,
+        }}
+      >
+        <BrandHeader subtitle="Messaggi" />
         {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
       </View>
     ),

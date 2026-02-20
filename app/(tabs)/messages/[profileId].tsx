@@ -10,7 +10,9 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import BrandHeader from "../../../src/components/brand/BrandHeader";
 import {
   fetchDirectMessageThread,
   postDirectMessage,
@@ -37,6 +39,7 @@ function formatWhen(iso?: string | null): string {
 export default function DirectMessageThreadScreen() {
   const params = useLocalSearchParams<{ profileId?: string | string[] }>();
   const profileId = resolveProfileId(params.profileId).trim();
+  const insets = useSafeAreaInsets();
 
   const [thread, setThread] = useState<DirectThreadResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -172,9 +175,20 @@ export default function DirectMessageThreadScreen() {
       style={{ flex: 1, backgroundColor: theme.colors.background }}
       behavior={Platform.select({ ios: "padding", default: undefined })}
     >
-      <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: theme.colors.neutral100 }}>
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingTop: insets.top + 12,
+          paddingBottom: 12,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.colors.neutral100,
+          backgroundColor: theme.colors.background,
+          gap: 8,
+        }}
+      >
+        <BrandHeader subtitle="Messaggi" />
         <Text style={{ fontSize: 20, fontWeight: "700", color: theme.colors.text }}>{peerName}</Text>
-        {error ? <Text style={{ color: theme.colors.danger, marginTop: 4 }}>{error}</Text> : null}
+        {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
       </View>
 
       <FlatList
