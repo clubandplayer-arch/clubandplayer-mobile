@@ -310,7 +310,7 @@ export default function NotificationsScreen() {
 
   const header = useMemo(
     () => (
-      <View style={{ padding: 16, gap: 12, borderBottomWidth: 1, borderBottomColor: theme.colors.neutral100 }}>
+      <View style={{ paddingHorizontal: 16, paddingBottom: 12, gap: 12, borderBottomWidth: 1, borderBottomColor: theme.colors.neutral100, backgroundColor: theme.colors.background }}>
         <BrandHeader subtitle="Notifiche" />
 
         <View style={{ flexDirection: "row", gap: 8 }}>

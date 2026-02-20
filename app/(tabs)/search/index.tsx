@@ -225,7 +225,7 @@ export default function SearchScreen() {
   return (
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ padding: 24, paddingBottom: 32, gap: 16 }}
+      contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 32, gap: 16 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <BrandHeader subtitle="Cerca" />

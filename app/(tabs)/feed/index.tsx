@@ -374,7 +374,14 @@ export default function FeedScreen() {
       : "Nessun contenuto ancora. Qui compariranno i post delle persone e dei club che segui.";
 
     return (
-      <View style={{ padding: theme.spacing.xl, paddingBottom: 12, gap: 12, backgroundColor: theme.colors.background }}>
+      <View
+        style={{
+          paddingHorizontal: theme.spacing.xl,
+          paddingBottom: 12,
+          gap: 12,
+          backgroundColor: theme.colors.background,
+        }}
+      >
         <BrandHeader subtitle="Feed" />
 
         {flash ? (
