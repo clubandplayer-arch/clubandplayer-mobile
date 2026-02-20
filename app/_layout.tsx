@@ -105,6 +105,7 @@ export default function RootLayout() {
     <CrashBoundary>
       <AuthGate />
       <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(onboarding)" options={{ headerShown: false, title: "" }} />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="(auth)" />
 
