@@ -4,11 +4,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { View } from "react-native";
 
 import { fetchDirectMessagesUnreadCount } from "../../src/lib/api";
+import { useIsClub } from "../../src/lib/useIsClub";
 import { on } from "../../src/lib/events/appEvents";
 import { useNotificationsBadgeCount } from "../../src/lib/notificationsBadge";
 
 export default function TabsLayout() {
   const unreadCount = useNotificationsBadgeCount();
+  const { isClub, loading: isClubLoading } = useIsClub();
   const [messagesUnreadCount, setMessagesUnreadCount] = useState<number>(0);
 
   const loadMessagesUnreadCount = useCallback(async () => {
@@ -57,6 +59,9 @@ export default function TabsLayout() {
               case "opportunities/index":
                 iconName = focused ? "briefcase" : "briefcase-outline";
                 break;
+              case "club/roster":
+                iconName = focused ? "people" : "people-outline";
+                break;
               case "notifications/index":
                 iconName = focused ? "notifications" : "notifications-outline";
                 break;
@@ -79,6 +84,15 @@ export default function TabsLayout() {
             tabBarBadge: messagesUnreadCount > 0 ? messagesUnreadCount : undefined,
           }}
         />
+        {isClubLoading ? null : isClub ? (
+          <Tabs.Screen
+            name="club/roster"
+            options={{
+              title: "Rosa",
+              tabBarLabel: "Rosa",
+            }}
+          />
+        ) : null}
         <Tabs.Screen
           name="opportunities/index"
           options={{
