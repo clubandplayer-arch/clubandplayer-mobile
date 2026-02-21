@@ -90,7 +90,6 @@ export default function TabsLayout() {
             options={{
               title: "Rosa",
               tabBarLabel: "Rosa",
-              href: "/club/roster",
             }}
           />
         ) : null}
