@@ -1,5 +1,6 @@
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
+import { fetchProfileMe, fetchWhoami, syncSession } from "./api";
 import { supabase } from "./supabase";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -83,6 +84,36 @@ function waitForRedirectUrl({
   });
 }
 
+async function syncWebSessionAndAudit() {
+  const syncRes = await syncSession();
+  if (__DEV__) {
+    console.log("[auth][syncSession]", {
+      ok: syncRes.ok,
+      status: syncRes.status,
+      errorText: syncRes.ok ? null : syncRes.errorText ?? null,
+    });
+  }
+
+  const whoamiRes = await fetchWhoami();
+  if (__DEV__) {
+    console.log("[auth][whoami]", {
+      ok: whoamiRes.ok,
+      status: whoamiRes.status,
+      role: whoamiRes.ok ? whoamiRes.data?.role ?? null : null,
+      errorText: whoamiRes.ok ? null : whoamiRes.errorText ?? null,
+    });
+  }
+
+  const profileRes = await fetchProfileMe();
+  if (__DEV__) {
+    console.log("[auth][profiles/me]", {
+      ok: profileRes.ok,
+      status: profileRes.status,
+      errorText: profileRes.ok ? null : profileRes.errorText ?? null,
+    });
+  }
+}
+
 export async function signInWithGoogle() {
   const redirectTo = Linking.createURL("callback", { scheme: "clubandplayer" });
 
@@ -145,4 +176,6 @@ export async function signInWithGoogle() {
   if (exchangeError) {
     throw new Error(`Scambio sessione fallito: ${String(exchangeError)}`);
   }
+
+  await syncWebSessionAndAudit();
 }
