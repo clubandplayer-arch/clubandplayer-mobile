@@ -503,17 +503,22 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<Api
   }
 }
 
-export async function syncSession(): Promise<ApiResponse<{ ok: boolean; cleared?: boolean }>> {
-  const { data } = await supabase.auth.getSession();
-  const session = data.session;
-  const payload = session
-    ? { access_token: session.access_token, refresh_token: session.refresh_token }
-    : { access_token: null, refresh_token: null };
-
-  return apiFetch<{ ok: boolean; cleared?: boolean }>("/api/auth/session", {
+export async function syncSession(input: { access_token: string; refresh_token: string }): Promise<ApiResponse<{ ok: boolean; cleared?: boolean }>> {
+  const response = await apiFetch<{ ok: boolean; cleared?: boolean }>("/api/auth/session", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify(input),
+    headers: { "Content-Type": "application/json" },
   });
+
+  if (__DEV__) {
+    console.log("[syncSession]", {
+      ok: response.ok,
+      status: response.status,
+      errorText: response.ok ? null : response.errorText ?? null,
+    });
+  }
+
+  return response;
 }
 
 export async function clearSession(): Promise<ApiResponse<{ ok: boolean; cleared?: boolean }>> {
@@ -1276,7 +1281,19 @@ export function useWebSession() {
     setLoading(true);
     setError(null);
 
-    const res = await syncSession();
+    const { data } = await supabase.auth.getSession();
+    const session = data.session;
+    if (!session) {
+      setReady(false);
+      setError("Sessione Supabase mancante");
+      setLoading(false);
+      return;
+    }
+
+    const res = await syncSession({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+    });
     if (!res.ok) {
       setReady(false);
       setError(res.errorText ?? "Sync session failed");

@@ -84,8 +84,11 @@ function waitForRedirectUrl({
   });
 }
 
-async function syncWebSessionAndAudit() {
-  const syncRes = await syncSession();
+async function syncWebSessionAndAudit(session: { access_token: string; refresh_token: string }) {
+  const syncRes = await syncSession({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+  });
   if (__DEV__) {
     console.log("[auth][syncSession]", {
       ok: syncRes.ok,
@@ -177,5 +180,12 @@ export async function signInWithGoogle() {
     throw new Error(`Scambio sessione fallito: ${String(exchangeError)}`);
   }
 
-  await syncWebSessionAndAudit();
+  const { data: sessionData } = await supabase.auth.getSession();
+  const session = sessionData.session;
+  if (!session) throw new Error("Sessione Supabase mancante dopo exchange");
+
+  await syncWebSessionAndAudit({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+  });
 }
