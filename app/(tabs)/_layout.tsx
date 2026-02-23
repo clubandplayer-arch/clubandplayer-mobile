@@ -3,14 +3,42 @@ import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { fetchDirectMessagesUnreadCount } from "../../src/lib/api";
-import { useIsClub } from "../../src/lib/useIsClub";
 import { on } from "../../src/lib/events/appEvents";
 import { useNotificationsBadgeCount } from "../../src/lib/notificationsBadge";
+import { supabase } from "../../src/lib/supabase";
+import { useIsClub } from "../../src/lib/useIsClub";
 
 export default function TabsLayout() {
   const unreadCount = useNotificationsBadgeCount();
-  const { isClub } = useIsClub();
+  const [sessionPresent, setSessionPresent] = useState(false);
+  const { isClub } = useIsClub(sessionPresent);
   const [messagesUnreadCount, setMessagesUnreadCount] = useState<number>(0);
+
+  useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      const nextPresent = Boolean(data.session);
+      setSessionPresent(nextPresent);
+      if (__DEV__ && !nextPresent) {
+        console.log("[tabs][useIsClub] skipped: sessionPresent=false");
+      }
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      const nextPresent = Boolean(session);
+      setSessionPresent(nextPresent);
+      if (__DEV__ && !nextPresent) {
+        console.log("[tabs][useIsClub] skipped: sessionPresent=false");
+      }
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
 
   const loadMessagesUnreadCount = useCallback(async () => {
     const response = await fetchDirectMessagesUnreadCount();
