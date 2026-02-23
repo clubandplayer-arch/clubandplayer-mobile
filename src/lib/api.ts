@@ -109,6 +109,25 @@ export type FollowListGetResponse = {
   items: unknown[];
 };
 
+export type ClubRosterItem = {
+  playerProfileId: string;
+  full_name?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  role?: string | null;
+  sport?: string | null;
+};
+
+export type ClubRosterGetResponse = {
+  ok: true;
+  sport?: string | null;
+  roster: ClubRosterItem[];
+};
+
+export type ClubRosterPostResponse = {
+  ok: boolean;
+};
+
 // FEED: reactions/comments
 export type FeedReactionsGetResponse = {
   ok: true;
@@ -872,6 +891,17 @@ export async function fetchFollowSuggestions(params?: { limit?: number; kind?: "
   const query = sp.toString();
   const path = query ? `/api/follows/suggestions?${query}` : "/api/follows/suggestions";
   return apiFetch<FollowListGetResponse>(path, { method: "GET" });
+}
+
+export async function fetchClubRoster(): Promise<ApiResponse<ClubRosterGetResponse>> {
+  return apiFetch<ClubRosterGetResponse>("/api/clubs/me/roster", { method: "GET" });
+}
+
+export async function updateClubRoster(input: { playerProfileId: string; inRoster: boolean }): Promise<ApiResponse<ClubRosterPostResponse>> {
+  return apiFetch<ClubRosterPostResponse>("/api/clubs/me/roster", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export async function fetchReactionsForIds(ids: string[]): Promise<ApiResponse<FeedReactionsGetResponse>> {
