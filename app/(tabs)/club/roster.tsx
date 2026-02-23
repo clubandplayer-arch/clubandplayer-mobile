@@ -13,24 +13,6 @@ import BrandHeader from "../../../src/components/brand/BrandHeader";
 import { fetchClubRoster, updateClubRoster, type ClubRosterItem } from "../../../src/lib/api";
 import { theme } from "../../../src/theme";
 
-type RosterRow = ClubRosterItem & { id: string; name: string };
-
-function normalizeRosterItem(item: unknown, index: number): RosterRow {
-  const row = (item ?? {}) as Record<string, unknown>;
-  const playerProfileId = String(
-    row.playerProfileId ?? row.player_profile_id ?? row.profile_id ?? row.id ?? "",
-  ).trim();
-  const displayName = typeof row.display_name === "string" ? row.display_name.trim() : "";
-  const fullName = typeof row.full_name === "string" ? row.full_name.trim() : "";
-  const name = displayName || fullName || "Giocatore";
-  return {
-    ...(row as ClubRosterItem),
-    playerProfileId,
-    id: playerProfileId || `roster-item-${index}`,
-    name,
-  };
-}
-
 function getApiErrorMessage(errorText: string | undefined, status: number): string {
   if (!errorText) return `Errore (${status})`;
   try {
@@ -48,7 +30,7 @@ export default function ClubRosterScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
-  const [items, setItems] = useState<RosterRow[]>([]);
+  const [items, setItems] = useState<ClubRosterItem[]>([]);
 
   const loadRoster = useCallback(async (mode: "initial" | "refresh" = "initial") => {
     if (mode === "initial") setLoading(true);
@@ -63,8 +45,8 @@ export default function ClubRosterScreen() {
         return;
       }
 
-      const rawRoster = Array.isArray(response.data?.roster) ? response.data?.roster : [];
-      setItems(rawRoster.map((item, index) => normalizeRosterItem(item, index)));
+      const roster = Array.isArray(response.data?.roster) ? response.data.roster : [];
+      setItems(roster);
     } catch (e: any) {
       setItems([]);
       setError(e?.message ? String(e.message) : "Errore caricamento rosa");
@@ -79,13 +61,8 @@ export default function ClubRosterScreen() {
   }, [loadRoster]);
 
   const onRemove = useCallback(
-    async (item: RosterRow) => {
-      if (!item.playerProfileId) {
-        Alert.alert("Rosa", "ID giocatore non valido");
-        return;
-      }
-
-      setRemovingId(item.id);
+    async (item: ClubRosterItem) => {
+      setRemovingId(item.playerProfileId);
       const response = await updateClubRoster({
         playerProfileId: item.playerProfileId,
         inRoster: false,
@@ -93,7 +70,11 @@ export default function ClubRosterScreen() {
       setRemovingId(null);
 
       if (!response.ok) {
-        Alert.alert("Rosa", getApiErrorMessage(response.errorText, response.status));
+        if (response.status === 400 || response.status === 409) {
+          Alert.alert("Rosa", getApiErrorMessage(response.errorText, response.status));
+          return;
+        }
+        Alert.alert("Rosa", "Operazione non riuscita");
         return;
       }
 
@@ -128,12 +109,13 @@ export default function ClubRosterScreen() {
       style={{ flex: 1, backgroundColor: theme.colors.background }}
       contentContainerStyle={{ paddingBottom: 24 }}
       data={error ? [] : items}
-      keyExtractor={(item) => item.id}
+      keyExtractor={(item) => item.playerProfileId}
       ListHeaderComponent={header}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadRoster("refresh")} />}
       renderItem={({ item }) => {
         const subtitle = [item.role, item.sport].filter(Boolean).join(" • ");
-        const busy = removingId === item.id;
+        const busy = removingId === item.playerProfileId;
+        const name = item.display_name ?? item.full_name ?? "Giocatore";
 
         return (
           <View
@@ -147,7 +129,7 @@ export default function ClubRosterScreen() {
               backgroundColor: theme.colors.background,
             }}
           >
-            <Text style={{ color: theme.colors.text, fontWeight: "700", fontSize: 16 }}>{item.name}</Text>
+            <Text style={{ color: theme.colors.text, fontWeight: "700", fontSize: 16 }}>{name}</Text>
             {subtitle ? <Text style={{ marginTop: 4, color: theme.colors.muted }}>{subtitle}</Text> : null}
 
             <Pressable
