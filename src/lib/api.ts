@@ -904,13 +904,20 @@ function normalizeClubRosterItem(raw: unknown): ClubRosterItem | null {
     return null;
   }
 
+  const player = (item.player ?? {}) as Record<string, unknown>;
+  const displayNameRaw = player.display_name ?? player.full_name ?? player.name ?? item.display_name ?? item.full_name;
+  const fullNameRaw = player.full_name ?? player.name ?? item.full_name;
+  const avatarUrlRaw = player.avatarUrl ?? item.avatar_url ?? item.avatarUrl;
+  const roleRaw = player.role ?? item.role;
+  const sportRaw = player.sport ?? item.sport;
+
   return {
     playerProfileId,
-    display_name: typeof (item.display_name ?? item.displayName ?? item.name) === "string" ? String(item.display_name ?? item.displayName ?? item.name) : null,
-    full_name: typeof (item.full_name ?? item.fullName) === "string" ? String(item.full_name ?? item.fullName) : null,
-    avatar_url: typeof (item.avatar_url ?? item.avatarUrl) === "string" ? String(item.avatar_url ?? item.avatarUrl) : null,
-    role: typeof item.role === "string" ? item.role : null,
-    sport: typeof item.sport === "string" ? item.sport : null,
+    display_name: typeof displayNameRaw === "string" ? displayNameRaw : null,
+    full_name: typeof fullNameRaw === "string" ? fullNameRaw : null,
+    avatar_url: typeof avatarUrlRaw === "string" ? avatarUrlRaw : null,
+    role: typeof roleRaw === "string" ? roleRaw : null,
+    sport: typeof sportRaw === "string" ? sportRaw : null,
   };
 }
 
