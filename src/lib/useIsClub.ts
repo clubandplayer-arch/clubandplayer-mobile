@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchProfileMe, fetchWhoami } from "./api";
 
 export function useIsClub(enabled: boolean = true) {
   const [isClub, setIsClub] = useState(false);
   const [loading, setLoading] = useState(true);
+  const hasStableProfileRef = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -25,6 +26,8 @@ export function useIsClub(enabled: boolean = true) {
     }
 
     if (profileMe.ok && profileMe.data) {
+      hasStableProfileRef.current = true;
+
       accountType =
         typeof profileMe.data.account_type === "string"
           ? profileMe.data.account_type.toLowerCase()
@@ -46,6 +49,11 @@ export function useIsClub(enabled: boolean = true) {
         });
       }
 
+      setLoading(false);
+      return;
+    }
+
+    if (hasStableProfileRef.current) {
       setLoading(false);
       return;
     }
@@ -83,6 +91,7 @@ export function useIsClub(enabled: boolean = true) {
     if (!enabled) {
       setIsClub(false);
       setLoading(false);
+      hasStableProfileRef.current = false;
       return;
     }
 
