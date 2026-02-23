@@ -906,7 +906,7 @@ function normalizeClubRosterItem(raw: unknown): ClubRosterItem | null {
 
   return {
     playerProfileId,
-    display_name: typeof (item.display_name ?? item.displayName) === "string" ? String(item.display_name ?? item.displayName) : null,
+    display_name: typeof (item.display_name ?? item.displayName ?? item.name) === "string" ? String(item.display_name ?? item.displayName ?? item.name) : null,
     full_name: typeof (item.full_name ?? item.fullName) === "string" ? String(item.full_name ?? item.fullName) : null,
     avatar_url: typeof (item.avatar_url ?? item.avatarUrl) === "string" ? String(item.avatar_url ?? item.avatarUrl) : null,
     role: typeof item.role === "string" ? item.role : null,
@@ -917,6 +917,12 @@ function normalizeClubRosterItem(raw: unknown): ClubRosterItem | null {
 export async function fetchClubRoster(): Promise<ApiResponse<ClubRosterGetResponse>> {
   const response = await apiFetch<ClubRosterGetResponse>("/api/clubs/me/roster", { method: "GET" });
   if (!response.ok || !response.data) return response;
+
+  if (__DEV__ && response.data?.roster?.[0]) {
+    const firstItem = response.data.roster[0] as Record<string, unknown>;
+    console.log("[roster][raw keys]", Object.keys(firstItem));
+    console.log("[roster][raw sample]", JSON.stringify(firstItem).slice(0, 600));
+  }
 
   const mappedRoster = Array.isArray(response.data.roster)
     ? response.data.roster.map(normalizeClubRosterItem).filter((item): item is ClubRosterItem => item !== null)

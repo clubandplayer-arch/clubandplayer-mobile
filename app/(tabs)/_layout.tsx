@@ -37,6 +37,7 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      key={isClub ? "club" : "player"}
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarHideOnKeyboard: true,
