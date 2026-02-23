@@ -83,79 +83,77 @@ export default function ClubRosterScreen() {
     [loadRoster],
   );
 
-  const header = useMemo(
+  const listHeader = useMemo(
     () => (
-      <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
-        <BrandHeader subtitle="Rosa" />
-        {error ? <Text style={{ marginTop: 8, color: theme.colors.danger }}>{error}</Text> : null}
+      <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 }}>
+        {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
       </View>
     ),
     [error],
   );
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-        {header}
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <BrandHeader subtitle="Rosa" />
+
+      {loading ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
           <ActivityIndicator />
         </View>
-      </View>
-    );
-  }
+      ) : (
+        <FlatList
+          style={{ flex: 1, backgroundColor: theme.colors.background }}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          data={error ? [] : items}
+          keyExtractor={(item) => item.playerProfileId}
+          ListHeaderComponent={listHeader}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadRoster("refresh")} />}
+          renderItem={({ item }) => {
+            const subtitle = [item.role, item.sport].filter(Boolean).join(" • ");
+            const busy = removingId === item.playerProfileId;
+            const name = item.display_name ?? item.full_name ?? "Giocatore";
 
-  return (
-    <FlatList
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
-      contentContainerStyle={{ paddingBottom: 24 }}
-      data={error ? [] : items}
-      keyExtractor={(item) => item.playerProfileId}
-      ListHeaderComponent={header}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadRoster("refresh")} />}
-      renderItem={({ item }) => {
-        const subtitle = [item.role, item.sport].filter(Boolean).join(" • ");
-        const busy = removingId === item.playerProfileId;
-        const name = item.display_name ?? item.full_name ?? "Giocatore";
+            return (
+              <View
+                style={{
+                  marginHorizontal: 16,
+                  marginBottom: 10,
+                  borderWidth: 1,
+                  borderColor: theme.colors.neutral100,
+                  borderRadius: 12,
+                  padding: 12,
+                  backgroundColor: theme.colors.background,
+                }}
+              >
+                <Text style={{ color: theme.colors.text, fontWeight: "700", fontSize: 16 }}>{name}</Text>
+                {subtitle ? <Text style={{ marginTop: 4, color: theme.colors.muted }}>{subtitle}</Text> : null}
 
-        return (
-          <View
-            style={{
-              marginHorizontal: 16,
-              marginBottom: 10,
-              borderWidth: 1,
-              borderColor: theme.colors.neutral100,
-              borderRadius: 12,
-              padding: 12,
-              backgroundColor: theme.colors.background,
-            }}
-          >
-            <Text style={{ color: theme.colors.text, fontWeight: "700", fontSize: 16 }}>{name}</Text>
-            {subtitle ? <Text style={{ marginTop: 4, color: theme.colors.muted }}>{subtitle}</Text> : null}
-
-            <Pressable
-              disabled={busy}
-              onPress={() => void onRemove(item)}
-              style={{
-                marginTop: 10,
-                alignSelf: "flex-start",
-                borderWidth: 1,
-                borderColor: theme.colors.danger,
-                borderRadius: 999,
-                paddingVertical: 6,
-                paddingHorizontal: 12,
-                opacity: busy ? 0.6 : 1,
-              }}
-            >
-              <Text style={{ color: theme.colors.danger, fontWeight: "700" }}>{busy ? "Rimozione..." : "Rimuovi"}</Text>
-            </Pressable>
-          </View>
-        );
-      }}
-      ListEmptyComponent={
-        <View style={{ paddingHorizontal: 16, paddingTop: 20 }}>
-          <Text style={{ color: theme.colors.muted }}>Nessun giocatore in rosa</Text>
-        </View>
-      }
-    />
+                <Pressable
+                  disabled={busy}
+                  onPress={() => void onRemove(item)}
+                  style={{
+                    marginTop: 10,
+                    alignSelf: "flex-start",
+                    borderWidth: 1,
+                    borderColor: theme.colors.danger,
+                    borderRadius: 999,
+                    paddingVertical: 6,
+                    paddingHorizontal: 12,
+                    opacity: busy ? 0.6 : 1,
+                  }}
+                >
+                  <Text style={{ color: theme.colors.danger, fontWeight: "700" }}>{busy ? "Rimozione..." : "Rimuovi"}</Text>
+                </Pressable>
+              </View>
+            );
+          }}
+          ListEmptyComponent={
+            <View style={{ paddingHorizontal: 16, paddingTop: 20 }}>
+              <Text style={{ color: theme.colors.muted }}>Nessun giocatore in rosa</Text>
+            </View>
+          }
+        />
+      )}
+    </View>
   );
 }
