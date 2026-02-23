@@ -19,16 +19,28 @@ export default function TabsLayout() {
 
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
-      const nextPresent = Boolean(data.session);
+      const nextPresent = Boolean(data.session?.user?.id);
       setSessionPresent(nextPresent);
+      if (__DEV__) {
+        console.log("[tabs][session]", {
+          sessionPresent: nextPresent,
+          userId: data.session?.user?.id ?? null,
+        });
+      }
       if (__DEV__ && !nextPresent) {
         console.log("[tabs][useIsClub] skipped: sessionPresent=false");
       }
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      const nextPresent = Boolean(session);
+      const nextPresent = Boolean(session?.user?.id);
       setSessionPresent(nextPresent);
+      if (__DEV__) {
+        console.log("[tabs][session]", {
+          sessionPresent: nextPresent,
+          userId: session?.user?.id ?? null,
+        });
+      }
       if (__DEV__ && !nextPresent) {
         console.log("[tabs][useIsClub] skipped: sessionPresent=false");
       }
