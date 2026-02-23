@@ -70,55 +70,8 @@ export default function TabsLayout() {
     },
   });
 
-  if (isClub) {
-    return (
-      <Tabs key="club" screenOptions={commonOptions}>
-        <Tabs.Screen name="feed/index" options={{ title: "Feed", tabBarLabel: "Feed" }} />
-        <Tabs.Screen name="search/index" options={{ title: "Cerca", tabBarLabel: "Cerca" }} />
-        <Tabs.Screen
-          name="messages/index"
-          options={{
-            title: "Messaggi",
-            tabBarLabel: "Messaggi",
-            tabBarBadge: messagesUnreadCount > 0 ? messagesUnreadCount : undefined,
-          }}
-        />
-        <Tabs.Screen
-          name="club/roster"
-          options={{
-            title: "Rosa",
-            tabBarLabel: "Rosa",
-          }}
-        />
-        <Tabs.Screen
-          name="opportunities/index"
-          options={{
-            title: "Opportunità",
-            tabBarLabel: "Opportunità",
-            tabBarLabelStyle: { fontSize: 10 },
-          }}
-        />
-        <Tabs.Screen
-          name="create/index"
-          options={{ title: "Crea", tabBarLabel: "Crea", href: null }}
-        />
-        <Tabs.Screen
-          name="notifications/index"
-          options={{
-            title: "Notifiche",
-            tabBarLabel: "Notifiche",
-            tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
-          }}
-        />
-        <Tabs.Screen name="me/index" options={{ title: "Profilo", tabBarLabel: "Profilo" }} />
-        <Tabs.Screen name="messages/[profileId]" options={{ href: null }} />
-        <Tabs.Screen name="me/debug" options={{ href: null }} />
-      </Tabs>
-    );
-  }
-
   return (
-    <Tabs key="player" screenOptions={commonOptions}>
+    <Tabs screenOptions={commonOptions}>
       <Tabs.Screen name="feed/index" options={{ title: "Feed", tabBarLabel: "Feed" }} />
       <Tabs.Screen name="search/index" options={{ title: "Cerca", tabBarLabel: "Cerca" }} />
       <Tabs.Screen
@@ -127,6 +80,14 @@ export default function TabsLayout() {
           title: "Messaggi",
           tabBarLabel: "Messaggi",
           tabBarBadge: messagesUnreadCount > 0 ? messagesUnreadCount : undefined,
+        }}
+      />
+      <Tabs.Screen
+        name="club/roster"
+        options={{
+          title: "Rosa",
+          tabBarLabel: "Rosa",
+          href: isClub ? undefined : null,
         }}
       />
       <Tabs.Screen
@@ -149,7 +110,6 @@ export default function TabsLayout() {
           tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
         }}
       />
-      <Tabs.Screen name="club/roster" options={{ href: null }} />
       <Tabs.Screen name="me/index" options={{ title: "Profilo", tabBarLabel: "Profilo" }} />
       <Tabs.Screen name="messages/[profileId]" options={{ href: null }} />
       <Tabs.Screen name="me/debug" options={{ href: null }} />

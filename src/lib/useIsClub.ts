@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchProfileMe, fetchWhoami } from "./api";
 
+let lastKnownAccountType: "club" | "athlete" | "guest" | null = null;
+
 export function useIsClub(enabled: boolean = true) {
   const [isClub, setIsClub] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -37,6 +39,7 @@ export function useIsClub(enabled: boolean = true) {
           ? profileMe.data.user_id.trim()
           : null;
 
+      lastKnownAccountType = accountType === "club" ? "club" : "athlete";
       nextIsClub = accountType === "club";
       setIsClub(nextIsClub);
 
@@ -49,6 +52,18 @@ export function useIsClub(enabled: boolean = true) {
         });
       }
 
+      setLoading(false);
+      return;
+    }
+
+    if (lastKnownAccountType === "club") {
+      setIsClub(true);
+      setLoading(false);
+      return;
+    }
+
+    if (lastKnownAccountType === "athlete") {
+      setIsClub(false);
       setLoading(false);
       return;
     }
@@ -72,6 +87,9 @@ export function useIsClub(enabled: boolean = true) {
       role = typeof whoami.data.role === "string" ? whoami.data.role.toLowerCase() : null;
       const user = whoami.data.user as { id?: unknown } | undefined;
       userId = typeof user?.id === "string" && user.id.trim() ? user.id.trim() : null;
+      if (role === "club") lastKnownAccountType = "club";
+      else if (role === "athlete") lastKnownAccountType = "athlete";
+      else if (role === "guest") lastKnownAccountType = "guest";
       nextIsClub = role === "club";
     }
 
@@ -92,6 +110,7 @@ export function useIsClub(enabled: boolean = true) {
       setIsClub(false);
       setLoading(false);
       hasStableProfileRef.current = false;
+      lastKnownAccountType = null;
       return;
     }
 
