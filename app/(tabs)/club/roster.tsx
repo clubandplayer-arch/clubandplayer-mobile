@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   Pressable,
   RefreshControl,
   Text,
@@ -125,8 +126,18 @@ export default function ClubRosterScreen() {
                   backgroundColor: theme.colors.background,
                 }}
               >
-                <Text style={{ color: theme.colors.text, fontWeight: "700", fontSize: 16 }}>{name}</Text>
-                {subtitle ? <Text style={{ marginTop: 4, color: theme.colors.muted }}>{subtitle}</Text> : null}
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  {item.avatar_url ? (
+                    <Image
+                      source={{ uri: item.avatar_url }}
+                      style={{ width: 40, height: 40, borderRadius: 999, backgroundColor: theme.colors.neutral100 }}
+                    />
+                  ) : null}
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: theme.colors.text, fontWeight: "700", fontSize: 16 }}>{name}</Text>
+                    {subtitle ? <Text style={{ marginTop: 4, color: theme.colors.muted }}>{subtitle}</Text> : null}
+                  </View>
+                </View>
 
                 <Pressable
                   disabled={busy}

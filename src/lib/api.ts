@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import Constants from "expo-constants";
 import { supabase } from "./supabase";
 import { resolveItalianLocationLabels } from "./geo/location";
+import { devWarn } from "./debug/devLog";
 import type { NotificationWithActor } from "../types/notifications";
 import type {
   FetchOpportunitiesParams,
@@ -893,8 +894,41 @@ export async function fetchFollowSuggestions(params?: { limit?: number; kind?: "
   return apiFetch<FollowListGetResponse>(path, { method: "GET" });
 }
 
+function normalizeClubRosterItem(raw: unknown): ClubRosterItem | null {
+  const item = (raw ?? {}) as Record<string, unknown>;
+  const playerProfileIdRaw = item.playerProfileId ?? item.player_profile_id;
+  const playerProfileId = typeof playerProfileIdRaw === "string" ? playerProfileIdRaw.trim() : "";
+
+  if (!playerProfileId) {
+    devWarn("fetchClubRoster: roster item missing playerProfileId", { raw: item });
+    return null;
+  }
+
+  return {
+    playerProfileId,
+    display_name: typeof (item.display_name ?? item.displayName) === "string" ? String(item.display_name ?? item.displayName) : null,
+    full_name: typeof (item.full_name ?? item.fullName) === "string" ? String(item.full_name ?? item.fullName) : null,
+    avatar_url: typeof (item.avatar_url ?? item.avatarUrl) === "string" ? String(item.avatar_url ?? item.avatarUrl) : null,
+    role: typeof item.role === "string" ? item.role : null,
+    sport: typeof item.sport === "string" ? item.sport : null,
+  };
+}
+
 export async function fetchClubRoster(): Promise<ApiResponse<ClubRosterGetResponse>> {
-  return apiFetch<ClubRosterGetResponse>("/api/clubs/me/roster", { method: "GET" });
+  const response = await apiFetch<ClubRosterGetResponse>("/api/clubs/me/roster", { method: "GET" });
+  if (!response.ok || !response.data) return response;
+
+  const mappedRoster = Array.isArray(response.data.roster)
+    ? response.data.roster.map(normalizeClubRosterItem).filter((item): item is ClubRosterItem => item !== null)
+    : [];
+
+  return {
+    ...response,
+    data: {
+      ...response.data,
+      roster: mappedRoster,
+    },
+  };
 }
 
 export async function updateClubRoster(input: { playerProfileId: string; inRoster: boolean }): Promise<ApiResponse<ClubRosterPostResponse>> {
