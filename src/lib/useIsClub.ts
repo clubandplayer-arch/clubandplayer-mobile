@@ -14,6 +14,42 @@ export function useIsClub(enabled: boolean = true) {
     let accountType: string | null = null;
     let userId: string | null = null;
 
+    const profileMe = await fetchProfileMe();
+    if (__DEV__) {
+      console.log("[isClub][profileMe]", {
+        ok: profileMe.ok,
+        status: profileMe.status,
+        accountType: profileMe.ok ? profileMe.data?.account_type ?? null : null,
+        errorText: profileMe.ok ? null : profileMe.errorText ?? null,
+      });
+    }
+
+    if (profileMe.ok && profileMe.data) {
+      accountType =
+        typeof profileMe.data.account_type === "string"
+          ? profileMe.data.account_type.toLowerCase()
+          : null;
+      userId =
+        typeof profileMe.data.user_id === "string" && profileMe.data.user_id.trim()
+          ? profileMe.data.user_id.trim()
+          : null;
+
+      nextIsClub = accountType === "club";
+      setIsClub(nextIsClub);
+
+      if (__DEV__) {
+        console.log("[isClub]", {
+          isClub: nextIsClub,
+          role,
+          accountType,
+          userIdPresent: !!userId,
+        });
+      }
+
+      setLoading(false);
+      return;
+    }
+
     const whoami = await fetchWhoami();
     if (__DEV__) {
       console.log("[isClub][whoami]", {
@@ -23,38 +59,12 @@ export function useIsClub(enabled: boolean = true) {
         errorText: whoami.ok ? null : whoami.errorText ?? null,
       });
     }
+
     if (whoami.ok && whoami.data) {
       role = typeof whoami.data.role === "string" ? whoami.data.role.toLowerCase() : null;
       const user = whoami.data.user as { id?: unknown } | undefined;
       userId = typeof user?.id === "string" && user.id.trim() ? user.id.trim() : null;
-      if (role === "club" && userId) nextIsClub = true;
-    }
-
-    if (!nextIsClub) {
-      const profileMe = await fetchProfileMe();
-      if (__DEV__) {
-        console.log("[isClub][profileMe]", {
-          ok: profileMe.ok,
-          status: profileMe.status,
-          accountType: profileMe.ok ? profileMe.data?.account_type ?? null : null,
-          errorText: profileMe.ok ? null : profileMe.errorText ?? null,
-        });
-      }
-      if (profileMe.ok && profileMe.data) {
-        accountType =
-          typeof profileMe.data.account_type === "string"
-            ? profileMe.data.account_type.toLowerCase()
-            : null;
-
-        if (!userId) {
-          userId =
-            typeof profileMe.data.user_id === "string" && profileMe.data.user_id.trim()
-              ? profileMe.data.user_id.trim()
-              : null;
-        }
-
-        if (accountType === "club" && userId) nextIsClub = true;
-      }
+      nextIsClub = role === "club";
     }
 
     setIsClub(nextIsClub);
