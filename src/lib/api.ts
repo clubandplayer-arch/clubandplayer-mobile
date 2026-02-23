@@ -440,6 +440,14 @@ function buildUrl(path: string): string {
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<ApiResponse<T>> {
   const url = buildUrl(path);
+  if (__DEV__ && path.includes("/api/auth/whoami")) {
+    console.log("[apiFetch][whoami][request]", {
+      path,
+      baseUrl: getWebBaseUrl(),
+      url,
+      method: init?.method ?? "GET",
+    });
+  }
   const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData;
   const headers = isFormData
     ? {
@@ -469,6 +477,13 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<Api
   }
 
   if (!response.ok) {
+    if (__DEV__ && path.includes("/api/auth/whoami")) {
+      console.log("[apiFetch][whoami][response]", {
+        ok: false,
+        status,
+        errorText: responseText || `HTTP ${status}`,
+      });
+    }
     return { ok: false, status, errorText: responseText || `HTTP ${status}` };
   }
 
@@ -478,6 +493,10 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<Api
 
   try {
     const json = JSON.parse(responseText) as T;
+    if (__DEV__ && path.includes("/api/auth/whoami")) {
+      const role = typeof (json as any)?.role === "string" ? (json as any).role : null;
+      console.log("[apiFetch][whoami][response]", { ok: true, status, role });
+    }
     return { ok: true, status, data: json };
   } catch (error) {
     return { ok: false, status, errorText: String(error) };

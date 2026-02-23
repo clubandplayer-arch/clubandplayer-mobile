@@ -15,6 +15,14 @@ export function useIsClub(enabled: boolean = true) {
     let userId: string | null = null;
 
     const whoami = await fetchWhoami();
+    if (__DEV__) {
+      console.log("[isClub][whoami]", {
+        ok: whoami.ok,
+        status: whoami.status,
+        role: whoami.ok ? whoami.data?.role ?? null : null,
+        errorText: whoami.ok ? null : whoami.errorText ?? null,
+      });
+    }
     if (whoami.ok && whoami.data) {
       role = typeof whoami.data.role === "string" ? whoami.data.role.toLowerCase() : null;
       const user = whoami.data.user as { id?: unknown } | undefined;
@@ -24,6 +32,14 @@ export function useIsClub(enabled: boolean = true) {
 
     if (!nextIsClub) {
       const profileMe = await fetchProfileMe();
+      if (__DEV__) {
+        console.log("[isClub][profileMe]", {
+          ok: profileMe.ok,
+          status: profileMe.status,
+          accountType: profileMe.ok ? profileMe.data?.account_type ?? null : null,
+          errorText: profileMe.ok ? null : profileMe.errorText ?? null,
+        });
+      }
       if (profileMe.ok && profileMe.data) {
         accountType =
           typeof profileMe.data.account_type === "string"
