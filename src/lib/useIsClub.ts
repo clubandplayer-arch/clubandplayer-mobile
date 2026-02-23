@@ -2,12 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchProfileMe, fetchWhoami } from "./api";
 
-let lastKnownAccountType: "club" | "athlete" | "guest" | null = null;
+let stableAccountType: "club" | "athlete" | null = null;
 
 export function useIsClub(enabled: boolean = true) {
   const [isClub, setIsClub] = useState(false);
   const [loading, setLoading] = useState(true);
-  const hasStableProfileRef = useRef(false);
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -28,8 +28,6 @@ export function useIsClub(enabled: boolean = true) {
     }
 
     if (profileMe.ok && profileMe.data) {
-      hasStableProfileRef.current = true;
-
       accountType =
         typeof profileMe.data.account_type === "string"
           ? profileMe.data.account_type.toLowerCase()
@@ -39,7 +37,7 @@ export function useIsClub(enabled: boolean = true) {
           ? profileMe.data.user_id.trim()
           : null;
 
-      lastKnownAccountType = accountType === "club" ? "club" : "athlete";
+      stableAccountType = accountType === "club" ? "club" : "athlete";
       nextIsClub = accountType === "club";
       setIsClub(nextIsClub);
 
@@ -56,20 +54,22 @@ export function useIsClub(enabled: boolean = true) {
       return;
     }
 
-    if (lastKnownAccountType === "club") {
-      setIsClub(true);
+    if (stableAccountType) {
+      const stickyIsClub = stableAccountType === "club";
+      setIsClub(stickyIsClub);
+      if (__DEV__) {
+        console.log("[isClub][sticky] ignoring downgrade due to stableAccountType", {
+          stableIsClub: stickyIsClub,
+          reason: profileMe.status === 401 ? "401" : "profile-error",
+        });
+      }
       setLoading(false);
-      return;
-    }
-
-    if (lastKnownAccountType === "athlete") {
-      setIsClub(false);
-      setLoading(false);
-      return;
-    }
-
-    if (hasStableProfileRef.current) {
-      setLoading(false);
+      if (enabled && !retryTimeoutRef.current) {
+        retryTimeoutRef.current = setTimeout(() => {
+          retryTimeoutRef.current = null;
+          void load();
+        }, 1000);
+      }
       return;
     }
 
@@ -87,9 +87,6 @@ export function useIsClub(enabled: boolean = true) {
       role = typeof whoami.data.role === "string" ? whoami.data.role.toLowerCase() : null;
       const user = whoami.data.user as { id?: unknown } | undefined;
       userId = typeof user?.id === "string" && user.id.trim() ? user.id.trim() : null;
-      if (role === "club") lastKnownAccountType = "club";
-      else if (role === "athlete") lastKnownAccountType = "athlete";
-      else if (role === "guest") lastKnownAccountType = "guest";
       nextIsClub = role === "club";
     }
 
@@ -107,14 +104,24 @@ export function useIsClub(enabled: boolean = true) {
 
   useEffect(() => {
     if (!enabled) {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
       setIsClub(false);
       setLoading(false);
-      hasStableProfileRef.current = false;
-      lastKnownAccountType = null;
+      stableAccountType = null;
       return;
     }
 
     void load();
+
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
+    };
   }, [enabled, load]);
 
   return { isClub, loading, reload: load };
