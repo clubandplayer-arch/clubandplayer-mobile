@@ -149,6 +149,7 @@ export default function TabsLayout() {
           tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
         }}
       />
+      <Tabs.Screen name="club/roster" options={{ href: null }} />
       <Tabs.Screen name="me/index" options={{ title: "Profilo", tabBarLabel: "Profilo" }} />
       <Tabs.Screen name="messages/[profileId]" options={{ href: null }} />
       <Tabs.Screen name="me/debug" options={{ href: null }} />
