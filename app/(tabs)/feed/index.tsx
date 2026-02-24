@@ -23,7 +23,6 @@ import { clearSession, useWebSession, useWhoami } from "../../../src/lib/api";
 import FeedComposer from "../../../components/feed/FeedComposer";
 import FeedVideoPreview from "../../../components/feed/FeedVideoPreview";
 import LightboxModal from "../../../components/media/LightboxModal";
-import BrandHeader from "../../../src/components/brand/BrandHeader";
 import { sharePostById } from "../../../src/lib/sharePost";
 import { devWarn } from "../../../src/lib/debug/devLog";
 import AdSlot from "../../../components/ads/AdSlot";
@@ -382,7 +381,6 @@ export default function FeedScreen() {
           backgroundColor: theme.colors.background,
         }}
       >
-        <BrandHeader subtitle="Feed" />
 
         {flash ? (
           <View
@@ -457,80 +455,6 @@ export default function FeedScreen() {
               Seguiti
             </Text>
           </Pressable>
-        </View>
-
-        <View
-          style={{
-            borderWidth: 1,
-            borderColor: theme.colors.neutral200,
-            borderRadius: theme.radius.md,
-            padding: 16,
-            gap: 10,
-            backgroundColor: theme.colors.background,
-          }}
-        >
-          <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.text }}>Accesso</Text>
-
-          {web.loading ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <ActivityIndicator />
-              <Text style={{ color: theme.colors.text }}>Verifico sessione web…</Text>
-            </View>
-          ) : web.error ? (
-            <>
-              <Text style={{ color: theme.colors.danger }}>Sessione web non disponibile.</Text>
-              <Pressable
-                onPress={web.retry}
-                style={{
-                  paddingVertical: 10,
-                  paddingHorizontal: 14,
-                  borderWidth: 1,
-                  borderColor: theme.colors.primary,
-                  borderRadius: theme.radius.sm,
-                  alignSelf: "flex-start",
-                }}
-              >
-                <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>Riprova</Text>
-              </Pressable>
-            </>
-          ) : whoami.data?.user ? (
-            <>
-              <Text style={{ color: theme.colors.text }}>
-                Sei loggato.{" "}
-                {whoami.data?.role ? <Text style={{ fontWeight: "700" }}>{whoami.data.role}</Text> : null}
-              </Text>
-
-              <Pressable
-                onPress={onLogout}
-                style={{
-                  paddingVertical: 10,
-                  paddingHorizontal: 14,
-                  backgroundColor: theme.colors.primary,
-                  borderRadius: theme.radius.sm,
-                  alignSelf: "flex-start",
-                }}
-              >
-                <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Logout</Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              <Text style={{ color: theme.colors.text }}>Non risulti loggato. Vai al login.</Text>
-              <Pressable
-                onPress={() => router.replace("/(auth)/login")}
-                style={{
-                  paddingVertical: 10,
-                  paddingHorizontal: 14,
-                  borderWidth: 1,
-                  borderColor: theme.colors.primary,
-                  borderRadius: theme.radius.sm,
-                  alignSelf: "flex-start",
-                }}
-              >
-                <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>Vai al login</Text>
-              </Pressable>
-            </>
-          )}
         </View>
 
         <FeedComposer onPosted={refetchFeed} />
