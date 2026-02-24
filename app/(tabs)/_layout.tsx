@@ -11,7 +11,7 @@ import { useIsClub } from "../../src/lib/useIsClub";
 export default function TabsLayout() {
   const unreadCount = useNotificationsBadgeCount();
   const [sessionPresent, setSessionPresent] = useState(false);
-  const { isClub } = useIsClub(sessionPresent);
+  const { isClub, loading: isClubLoading } = useIsClub(sessionPresent);
   const [messagesUnreadCount, setMessagesUnreadCount] = useState<number>(0);
 
   useEffect(() => {
@@ -127,7 +127,7 @@ export default function TabsLayout() {
         options={{
           title: "Rosa",
           tabBarLabel: "Rosa",
-          href: isClub ? undefined : null,
+          href: isClubLoading ? null : (isClub ? undefined : null),
         }}
       />
       <Tabs.Screen
