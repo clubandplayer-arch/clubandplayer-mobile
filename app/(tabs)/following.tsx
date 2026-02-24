@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   Pressable,
   RefreshControl,
+  Switch,
   Text,
   View,
 } from "react-native";
 
 import BrandHeader from "../../src/components/brand/BrandHeader";
-import { fetchClubRoster, fetchFollowingList, useWebSession } from "../../src/lib/api";
+import { fetchClubRoster, fetchFollowingList, updateClubRoster, useWebSession } from "../../src/lib/api";
 import { supabase } from "../../src/lib/supabase";
 import { useIsClub } from "../../src/lib/useIsClub";
 import { theme } from "../../src/theme";
@@ -19,6 +21,10 @@ type FollowingItem = {
   id: string;
   name: string;
   avatarUrl: string | null;
+};
+
+type DecoratedFollowingItem = FollowingItem & {
+  isInRoster: boolean;
 };
 
 function pickString(record: Record<string, unknown>, keys: string[]): string | null {
@@ -106,11 +112,22 @@ function Avatar({ uri }: { uri: string | null }) {
   );
 }
 
+function parseErrorCode(errorText?: string): string | null {
+  if (!errorText) return null;
+  try {
+    const parsed = JSON.parse(errorText) as { code?: unknown };
+    return typeof parsed.code === "string" ? parsed.code : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function FollowingScreen() {
   const web = useWebSession();
   const [sessionPresent, setSessionPresent] = useState(false);
   const { isClub, loading: isClubLoading } = useIsClub(sessionPresent);
   const [rosterSet, setRosterSet] = useState<Set<string>>(new Set());
+  const [pendingRosterIds, setPendingRosterIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -214,7 +231,7 @@ export default function FollowingScreen() {
     }
   }, [isClub, load, loadRoster]);
 
-  const decoratedItems = useMemo(() => {
+  const decoratedItems = useMemo<DecoratedFollowingItem[]>(() => {
     const next = items.map((item) => ({
       ...item,
       isInRoster: isClub ? rosterSet.has(item.id) : false,
@@ -227,6 +244,66 @@ export default function FollowingScreen() {
 
     return next;
   }, [isClub, items, rosterSet]);
+
+  const onToggleRoster = useCallback(
+    async (item: DecoratedFollowingItem, nextInRoster: boolean) => {
+      if (!isClub) return;
+      if (pendingRosterIds.has(item.id)) return;
+
+      setPendingRosterIds((prev) => new Set(prev).add(item.id));
+
+      setRosterSet((prev) => {
+        const next = new Set(prev);
+        if (nextInRoster) next.add(item.id);
+        else next.delete(item.id);
+        return next;
+      });
+
+      const response = await updateClubRoster({
+        playerProfileId: item.id,
+        inRoster: nextInRoster,
+      });
+
+      if (!response.ok) {
+        setRosterSet((prev) => {
+          const next = new Set(prev);
+          next.delete(item.id);
+          return next;
+        });
+
+        const errorCode = parseErrorCode(response.errorText);
+
+        if (response.status === 400) {
+          Alert.alert("Devi seguire il player prima");
+        } else if (
+          response.status === 409 &&
+          (errorCode === "PLAYER_ALREADY_IN_ROSTER_SPORT" || errorCode === "PLAYER_ALREADY_IN_ROSTER")
+        ) {
+          Alert.alert("Player già in rosa di un altro club per questo sport. Deve essere rimosso prima.");
+        } else {
+          Alert.alert("Errore", "Operazione non riuscita. Riprova.");
+        }
+
+        if (__DEV__) {
+          console.log("[following][club] toggle error", {
+            status: response.status,
+            errorCode,
+            playerProfileId: item.id,
+            inRoster: nextInRoster,
+          });
+        }
+      } else {
+        await loadRoster();
+      }
+
+      setPendingRosterIds((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    },
+    [isClub, loadRoster, pendingRosterIds],
+  );
 
   const empty = useMemo(
     () => !loading && !error && decoratedItems.length === 0,
@@ -261,31 +338,39 @@ export default function FollowingScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24 }}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-          renderItem={({ item }) => (
-            <View
-              style={{
-                borderWidth: 1,
-                borderColor: theme.colors.neutral200,
-                borderRadius: 12,
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 10,
-                backgroundColor: theme.colors.background,
-              }}
-            >
-              <Avatar uri={item.avatarUrl} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.text }}>{item.name}</Text>
+          renderItem={({ item }) => {
+            const pending = pendingRosterIds.has(item.id);
+
+            return (
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderColor: theme.colors.neutral200,
+                  borderRadius: 12,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 10,
+                  backgroundColor: theme.colors.background,
+                }}
+              >
+                <Avatar uri={item.avatarUrl} />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.text }}>{item.name}</Text>
+                </View>
                 {isClub ? (
-                  <Text style={{ color: theme.colors.muted }}>
-                    {item.isInRoster ? "In Rosa" : "Fuori Rosa"}
-                  </Text>
+                  <Switch
+                    value={item.isInRoster}
+                    disabled={pending}
+                    onValueChange={(nextValue) => {
+                      void onToggleRoster(item, nextValue);
+                    }}
+                  />
                 ) : null}
               </View>
-            </View>
-          )}
+            );
+          }}
         />
       )}
     </View>
