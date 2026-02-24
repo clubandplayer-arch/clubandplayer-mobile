@@ -21,6 +21,7 @@ type FollowingItem = {
   id: string;
   name: string;
   avatarUrl: string | null;
+  accountType: "club" | "athlete" | "unknown";
 };
 
 type DecoratedFollowingItem = FollowingItem & {
@@ -37,37 +38,47 @@ function pickString(record: Record<string, unknown>, keys: string[]): string | n
   return null;
 }
 
+function sanitizeName(value: string | null): string | null {
+  if (!value) return null;
+  return value.includes("@") ? null : value;
+}
+
+function normalizeAccountType(value: unknown): "club" | "athlete" | "unknown" {
+  if (value === "club") return "club";
+  if (value === "athlete") return "athlete";
+  return "unknown";
+}
+
 function normalizeFollowingItem(raw: unknown): FollowingItem | null {
   const item = (raw ?? {}) as Record<string, unknown>;
-  const profile = (item.profile ?? item.target_profile ?? {}) as Record<string, unknown>;
 
-  const id =
-    pickString(item, ["target_profile_id", "profile_id", "id"]) ??
-    pickString(profile, ["id", "profile_id"]);
+  const id = typeof item.id === "string" ? item.id.trim() : "";
+  const accountTypeRaw = typeof item.account_type === "string" ? item.account_type.trim() : "";
 
-  if (!id) {
+  if (!id || !accountTypeRaw) {
     if (__DEV__) {
       console.log("[following] dropped item: missing profile id", {
         itemKeys: Object.keys(item),
-        profileKeys: Object.keys(profile),
       });
     }
     return null;
   }
 
+  const accountType = normalizeAccountType(accountTypeRaw);
+
   const name =
-    pickString(item, ["display_name", "full_name", "name", "title"]) ??
-    pickString(profile, ["display_name", "full_name", "name", "title"]) ??
+    sanitizeName(pickString(item, ["name"])) ??
+    sanitizeName(pickString(item, ["display_name"])) ??
+    sanitizeName(pickString(item, ["full_name"])) ??
     "Profilo";
 
-  const avatarUrl =
-    pickString(item, ["avatar_url", "avatarUrl", "image_url", "imageUrl"]) ??
-    pickString(profile, ["avatar_url", "avatarUrl", "image_url", "imageUrl"]);
+  const avatarUrl = pickString(item, ["avatar_url", "avatarUrl"]);
 
   return {
     id,
     name,
     avatarUrl,
+    accountType,
   };
 }
 
@@ -132,6 +143,8 @@ export default function FollowingScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<FollowingItem[]>([]);
+
+  const PINK = (theme.colors as any).rose ?? (theme.colors as any).pink ?? "#E91E63";
 
   useEffect(() => {
     let mounted = true;
@@ -248,6 +261,7 @@ export default function FollowingScreen() {
   const onToggleRoster = useCallback(
     async (item: DecoratedFollowingItem, nextInRoster: boolean) => {
       if (!isClub) return;
+      if (item.accountType !== "athlete") return;
       if (pendingRosterIds.has(item.id)) return;
 
       const wasInRoster = rosterSet.has(item.id);
@@ -374,10 +388,11 @@ export default function FollowingScreen() {
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.text }}>{item.name}</Text>
                 </View>
-                {isClub ? (
+                {isClub && item.accountType === "athlete" ? (
                   <Switch
                     value={item.isInRoster}
                     disabled={pending}
+                    trackColor={{ false: (theme.colors as any).neutral300 ?? theme.colors.neutral200, true: PINK }}
                     onValueChange={(nextValue) => {
                       void onToggleRoster(item, nextValue);
                     }}
