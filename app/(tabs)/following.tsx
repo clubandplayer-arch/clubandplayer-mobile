@@ -250,6 +250,8 @@ export default function FollowingScreen() {
       if (!isClub) return;
       if (pendingRosterIds.has(item.id)) return;
 
+      const wasInRoster = rosterSet.has(item.id);
+
       setPendingRosterIds((prev) => new Set(prev).add(item.id));
 
       setRosterSet((prev) => {
@@ -267,7 +269,8 @@ export default function FollowingScreen() {
       if (!response.ok) {
         setRosterSet((prev) => {
           const next = new Set(prev);
-          next.delete(item.id);
+          if (wasInRoster) next.add(item.id);
+          else next.delete(item.id);
           return next;
         });
 
@@ -302,7 +305,7 @@ export default function FollowingScreen() {
         return next;
       });
     },
-    [isClub, loadRoster, pendingRosterIds],
+    [isClub, loadRoster, pendingRosterIds, rosterSet],
   );
 
   const empty = useMemo(
