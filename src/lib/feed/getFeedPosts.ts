@@ -1,10 +1,4 @@
-import {
-  fetchCommentCountsForIds,
-  fetchFeedPosts,
-  fetchReactionsForIds,
-  type FeedCommentsCountsGetResponse,
-  type FeedReactionsGetResponse,
-} from "../api";
+import { fetchFeedPosts } from "../api";
 import { asString, normalizeMediaRow, type NormalizedMediaItem } from "../media/normalizeMedia";
 
 export type FeedMediaItem = NormalizedMediaItem;
@@ -26,16 +20,10 @@ export type FeedAuthor = {
 
 export type FeedPost = {
   id: string;
-  author_id?: string | null;
-  created_at?: string | null;
+  created_at: string | null;
   raw: Record<string, any>;
-  author?: FeedAuthor | null;
+  author: FeedAuthor | null;
   media: FeedMediaItem[];
-
-  // WEB parity (computed client-side)
-  likeCount?: number;
-  commentCount?: number;
-  viewerHasLiked?: boolean;
 };
 
 type FeedScope = "all" | "following";
@@ -51,12 +39,8 @@ function normalizeMediaList(list: unknown[]): FeedMediaItem[] {
 }
 
 function extractMedia(item: any): FeedMediaItem[] {
-  // ✅ robust (PRIMA)
-  if (Array.isArray(item?.media)) {
+  if (Array.isArray(item?.media) && item.media.length > 0) {
     return normalizeMediaList(item.media);
-  }
-  if (Array.isArray(item?.post_media)) {
-    return normalizeMediaList(item.post_media);
   }
 
   const mediaType = typeof item?.media_type === "string" ? item.media_type.trim().toLowerCase() : "";
@@ -77,143 +61,106 @@ function extractMedia(item: any): FeedMediaItem[] {
 }
 
 function extractAuthor(item: any): FeedAuthor | null {
-  // ✅ robust (PRIMA) + keep DOPO variants
-  const candidate =
-    (item?.author && typeof item.author === "object" ? item.author : null) ||
-    (item?.profile && typeof item.profile === "object" ? item.profile : null) ||
-    (item?.profiles && typeof item.profiles === "object" ? item.profiles : null) ||
-    (item?.author_profile && typeof item.author_profile === "object" ? item.author_profile : null);
-
-  if (!candidate) return null;
+  if (item?.author_profile && typeof item.author_profile === "object") {
+    const profile = item.author_profile;
+    return {
+      id: asString(profile?.id) ?? undefined,
+      user_id: asString(profile?.user_id) ?? undefined,
+      full_name: typeof profile?.full_name === "string" ? profile.full_name : null,
+      display_name: typeof profile?.display_name === "string" ? profile.display_name : null,
+      avatar_url: typeof profile?.avatar_url === "string" ? profile.avatar_url : null,
+      type: typeof profile?.type === "string" ? profile.type : null,
+      account_type: typeof profile?.account_type === "string" ? profile.account_type : null,
+      role: typeof profile?.role === "string" ? profile.role : null,
+      verified_until: typeof profile?.verified_until === "string" ? profile.verified_until : null,
+      certified: typeof profile?.certified === "boolean" ? profile.certified : null,
+      certification_status:
+        typeof profile?.certification_status === "string" ? profile.certification_status : null,
+      is_verified: typeof profile?.is_verified === "boolean" ? profile.is_verified : null,
+    };
+  }
 
   return {
-    id: asString(candidate?.id) ?? undefined,
-    user_id: asString(candidate?.user_id) ?? undefined,
-    full_name: typeof candidate?.full_name === "string" ? candidate.full_name : null,
-    display_name: typeof candidate?.display_name === "string" ? candidate.display_name : null,
-    avatar_url: typeof candidate?.avatar_url === "string" ? candidate.avatar_url : null,
-    type: typeof candidate?.type === "string" ? candidate.type : null,
-    account_type: typeof candidate?.account_type === "string" ? candidate.account_type : null,
-    role: typeof candidate?.role === "string" ? candidate.role : null,
-    verified_until: typeof candidate?.verified_until === "string" ? candidate.verified_until : null,
-    certified: typeof candidate?.certified === "boolean" ? candidate.certified : null,
-    certification_status:
-      typeof candidate?.certification_status === "string" ? candidate.certification_status : null,
-    is_verified: typeof candidate?.is_verified === "boolean" ? candidate.is_verified : null,
+    full_name:
+      typeof item?.author_full_name === "string"
+        ? item.author_full_name
+        : typeof item?.author_display_name === "string"
+          ? item.author_display_name
+          : "Utente",
+    display_name:
+      typeof item?.author_display_name === "string"
+        ? item.author_display_name
+        : typeof item?.author_full_name === "string"
+          ? item.author_full_name
+          : "Utente",
+    avatar_url: typeof item?.author_avatar_url === "string" ? item.author_avatar_url : null,
   };
 }
 
-function normalizeFeedPostsPayload(json: any): { items: any[]; nextPage: string | null } {
+function normalizeFeedPostsPayload(json: any): { items: any[]; nextPage: number | null } {
   const payload = json && typeof json === "object" && "data" in json ? json.data : json;
-  const items = Array.isArray(payload?.items) ? payload.items : Array.isArray(payload) ? payload : [];
-  const nextPageRaw = payload?.nextPage ?? null;
-  const nextPage =
-    nextPageRaw == null ? null : typeof nextPageRaw === "string" ? nextPageRaw : String(nextPageRaw);
-  return { items, nextPage };
-}
-
-function buildCountsMaps(
-  reactions: FeedReactionsGetResponse | null,
-  comments: FeedCommentsCountsGetResponse | null,
-) {
-  const likeCountByPost = new Map<string, number>();
-  const viewerLikedSet = new Set<string>();
-  const commentCountByPost = new Map<string, number>();
-
-  if (reactions?.ok) {
-    for (const row of reactions.counts || []) {
-      if (row?.reaction === "like" && row?.post_id) {
-        likeCountByPost.set(row.post_id, Number(row.count) || 0);
-      }
-    }
-    for (const m of reactions.mine || []) {
-      if (m?.reaction === "like" && m?.post_id) {
-        viewerLikedSet.add(m.post_id);
-      }
-    }
-  }
-
-  if (comments?.ok) {
-    for (const row of comments.counts || []) {
-      if (row?.post_id) commentCountByPost.set(row.post_id, Number(row.count) || 0);
-    }
-  }
-
-  return { likeCountByPost, viewerLikedSet, commentCountByPost };
+  const items = Array.isArray(payload?.items)
+    ? payload.items
+    : Array.isArray(payload?.data)
+      ? payload.data
+      : [];
+  const nextPageRaw = payload?.nextPage;
+  const nextPage = typeof nextPageRaw === "number" ? nextPageRaw : nextPageRaw == null ? null : Number(nextPageRaw);
+  return { items, nextPage: Number.isFinite(nextPage) ? nextPage : null };
 }
 
 export async function getFeedPosts({
   scope,
-  nextPage,
 }: {
   scope: FeedScope;
-  nextPage?: string | null;
 }): Promise<{
   items: FeedPost[];
-  nextPage: string | null;
+  nextPage: number | null;
 }> {
   const res = await fetchFeedPosts({
     scope,
-    nextPage: nextPage ?? undefined,
+    nextPage: "?limit=10&page=0&scope=all",
   });
 
   if (!res.ok) {
-    throw new Error(res.errorText ?? `Feed HTTP ${res.status}`);
+    throw new Error(res.errorText ?? "Errore nel caricamento del feed");
   }
 
-  const { items: rawItems, nextPage: nextPageToken } = normalizeFeedPostsPayload(res.data);
+  const payload = res.data as any;
+  if (payload && typeof payload === "object" && payload.ok === false) {
+    throw new Error(
+      typeof payload.message === "string" && payload.message.trim()
+        ? payload.message
+        : "Errore nel caricamento del feed",
+    );
+  }
 
-  // 1) build base posts exactly like PRIMA (keep author/media robust)
-  const basePosts = rawItems
+  const { items: rawItems, nextPage } = normalizeFeedPostsPayload(payload);
+
+  const items = rawItems
     .map((item: any) => {
       const id = asString(item?.id);
       if (!id) return null;
 
+      const createdAtRaw = item?.created_at ?? item?.createdAt ?? null;
+      const createdAt = typeof createdAtRaw === "string" ? createdAtRaw : null;
+
       return {
         id,
-        author_id: asString(item?.author_id),
-        created_at: asString(item?.created_at),
+        created_at: createdAt,
         raw: item ?? {},
         author: extractAuthor(item),
         media: extractMedia(item),
-        likeCount: 0,
-        commentCount: 0,
-        viewerHasLiked: false,
       } as FeedPost;
     })
     .filter(Boolean) as FeedPost[];
 
-  if (basePosts.length === 0) {
-    return { items: basePosts, nextPage: nextPageToken };
-  }
-
-  // 2) WEB parity: counts are fetched separately using ids=...
-  const ids = basePosts.map((p) => p.id);
-
-  const [reactionsRes, commentsRes] = await Promise.all([
-    fetchReactionsForIds(ids),
-    fetchCommentCountsForIds(ids),
-  ]);
-
-  const reactions = reactionsRes.ok ? (reactionsRes.data ?? null) : null;
-  const comments = commentsRes.ok ? (commentsRes.data ?? null) : null;
-
-  const { likeCountByPost, viewerLikedSet, commentCountByPost } = buildCountsMaps(reactions, comments);
-
-  const items = basePosts.map((p) => ({
-    ...p,
-    likeCount: likeCountByPost.get(p.id) ?? 0,
-    commentCount: commentCountByPost.get(p.id) ?? 0,
-    viewerHasLiked: viewerLikedSet.has(p.id),
-  }));
-
-  return { items, nextPage: nextPageToken };
+  return { items, nextPage };
 }
 
 export function getPostText(raw: Record<string, any>): string {
-  const candidates = [raw?.text, raw?.content, raw?.body, raw?.message, raw?.caption, raw?.description];
-  const found = candidates.find((v) => typeof v === "string" && v.trim().length > 0);
-  return (found ?? "").toString().trim();
+  const value = raw?.content ?? raw?.text ?? "";
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function isEmailLike(value: string): boolean {
@@ -221,10 +168,11 @@ function isEmailLike(value: string): boolean {
 }
 
 export function getAuthorName(author?: FeedAuthor | null): string {
+  const displayName = author?.display_name?.trim() ?? "";
+  if (displayName && !isEmailLike(displayName)) return displayName;
+
   const fullName = author?.full_name?.trim() ?? "";
   if (fullName && !isEmailLike(fullName)) return fullName;
 
-  const displayName = author?.display_name?.trim() ?? "";
-  const name = displayName && !isEmailLike(displayName) ? displayName : "";
-  return name || "Utente";
+  return "Utente";
 }
