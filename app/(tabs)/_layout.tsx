@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Tabs } from "expo-router";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { fetchDirectMessagesUnreadCount } from "../../src/lib/api";
@@ -19,31 +21,11 @@ export default function TabsLayout() {
 
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
-      const nextPresent = Boolean(data.session?.user?.id);
-      setSessionPresent(nextPresent);
-      if (__DEV__) {
-        console.log("[tabs][session]", {
-          sessionPresent: nextPresent,
-          userId: data.session?.user?.id ?? null,
-        });
-      }
-      if (__DEV__ && !nextPresent) {
-        console.log("[tabs][useIsClub] skipped: sessionPresent=false");
-      }
+      setSessionPresent(Boolean(data.session?.user?.id));
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      const nextPresent = Boolean(session?.user?.id);
-      setSessionPresent(nextPresent);
-      if (__DEV__) {
-        console.log("[tabs][session]", {
-          sessionPresent: nextPresent,
-          userId: session?.user?.id ?? null,
-        });
-      }
-      if (__DEV__ && !nextPresent) {
-        console.log("[tabs][useIsClub] skipped: sessionPresent=false");
-      }
+      setSessionPresent(Boolean(session?.user?.id));
     });
 
     return () => {
@@ -60,103 +42,85 @@ export default function TabsLayout() {
 
   useEffect(() => {
     loadMessagesUnreadCount();
-
-    const timer = setInterval(() => {
-      loadMessagesUnreadCount();
-    }, 45000);
-
-    const unsubscribeMessages = on("app:direct-messages-updated", () => {
-      loadMessagesUnreadCount();
-    });
-
+    const timer = setInterval(loadMessagesUnreadCount, 45000);
+    const unsubscribeMessages = on("app:direct-messages-updated", loadMessagesUnreadCount);
     return () => {
       clearInterval(timer);
       unsubscribeMessages();
     };
   }, [loadMessagesUnreadCount]);
 
-  const commonOptions = ({ route }: { route: { name: string } }) => ({
-    headerShown: false,
-    tabBarHideOnKeyboard: true,
-
-    tabBarIcon: ({ focused, size, color }: { focused: boolean; size: number; color: string }) => {
-      let iconName: keyof typeof Ionicons.glyphMap = "apps";
-
-      switch (route.name) {
-        case "feed/index":
-          iconName = focused ? "home" : "home-outline";
-          break;
-        case "search/index":
-          iconName = focused ? "search" : "search-outline";
-          break;
-        case "messages/index":
-          iconName = focused ? "chatbubble" : "chatbubble-outline";
-          break;
-        case "opportunities/index":
-          iconName = focused ? "briefcase" : "briefcase-outline";
-          break;
-        case "club/roster":
-          iconName = focused ? "people" : "people-outline";
-          break;
-        case "following":
-          iconName = focused ? "heart" : "heart-outline";
-          break;
-        case "notifications/index":
-          iconName = focused ? "notifications" : "notifications-outline";
-          break;
-        case "me/index":
-          iconName = focused ? "person" : "person-outline";
-          break;
-      }
-
-      return <Ionicons name={iconName} size={size ?? 22} color={color} />;
-    },
-  });
-
   return (
-    <Tabs screenOptions={commonOptions}>
-      <Tabs.Screen name="feed/index" options={{ title: "Feed", tabBarLabel: "Feed" }} />
-      <Tabs.Screen name="search/index" options={{ title: "Cerca", tabBarLabel: "Cerca" }} />
-      <Tabs.Screen
-        name="messages/index"
-        options={{
-          title: "Messaggi",
-          tabBarLabel: "Messaggi",
-          tabBarBadge: messagesUnreadCount > 0 ? messagesUnreadCount : undefined,
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+      {/* HEADER */}
+      <View style={styles.header}>
+        <Text style={styles.logo}>Club & Player</Text>
+        <View style={styles.headerIcons}>
+          <Ionicons name="chatbubble-outline" size={24} />
+          <Ionicons name="search-outline" size={24} style={{ marginLeft: 16 }} />
+        </View>
+      </View>
+
+      {/* ICON ROW */}
+      <View style={styles.iconRow}>
+        <Ionicons name="home" size={22} color="#007AFF" />
+        <Ionicons name="briefcase-outline" size={22} />
+        <Ionicons name="document-text-outline" size={22} />
+        <Ionicons name="heart-outline" size={22} />
+        <Ionicons name="person-add-outline" size={22} />
+        <Ionicons name="notifications-outline" size={22} />
+        {isClub && <Ionicons name="people-outline" size={22} color="#ff2d55" />}
+      </View>
+
+      <View style={styles.divider} />
+
+      {/* TABS CONTENT */}
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: { display: "none" },
         }}
-      />
-      <Tabs.Screen
-        name="club/roster"
-        options={{
-          title: "Rosa",
-          tabBarLabel: "Rosa",
-          href: isClubLoading ? null : (isClub ? undefined : null),
-        }}
-      />
-      <Tabs.Screen name="following" options={{ title: "Seguiti", tabBarLabel: "Seguiti" }} />
-      <Tabs.Screen
-        name="opportunities/index"
-        options={{
-          title: "Opportunità",
-          tabBarLabel: "Opportunità",
-          tabBarLabelStyle: { fontSize: 10 },
-        }}
-      />
-      <Tabs.Screen
-        name="create/index"
-        options={{ title: "Crea", tabBarLabel: "Crea", href: null }}
-      />
-      <Tabs.Screen
-        name="notifications/index"
-        options={{
-          title: "Notifiche",
-          tabBarLabel: "Notifiche",
-          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
-        }}
-      />
-      <Tabs.Screen name="me/index" options={{ title: "Profilo", tabBarLabel: "Profilo" }} />
-      <Tabs.Screen name="messages/[profileId]" options={{ href: null }} />
-      <Tabs.Screen name="me/debug" options={{ href: null }} />
-    </Tabs>
+      >
+        <Tabs.Screen name="feed/index" />
+        <Tabs.Screen name="search/index" />
+        <Tabs.Screen name="messages/index" />
+        <Tabs.Screen name="club/roster" />
+        <Tabs.Screen name="following" />
+        <Tabs.Screen name="opportunities/index" />
+        <Tabs.Screen name="create/index" options={{ href: null }} />
+        <Tabs.Screen name="notifications/index" />
+        <Tabs.Screen name="me/index" />
+        <Tabs.Screen name="messages/[profileId]" options={{ href: null }} />
+        <Tabs.Screen name="me/debug" options={{ href: null }} />
+      </Tabs>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    height: 60,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  logo: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  headerIcons: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  iconRow: {
+    height: 50,
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#E5E5E5",
+  },
+});
