@@ -29,14 +29,23 @@ function pickString(record: Record<string, unknown>, keys: string[]): string | n
   return null;
 }
 
-function normalizeFollowingItem(raw: unknown, index: number): FollowingItem {
+function normalizeFollowingItem(raw: unknown): FollowingItem | null {
   const item = (raw ?? {}) as Record<string, unknown>;
   const profile = (item.profile ?? item.target_profile ?? {}) as Record<string, unknown>;
 
   const id =
-    pickString(item, ["id", "profile_id", "target_profile_id", "following_id"]) ??
-    pickString(profile, ["id", "profile_id"]) ??
-    `follow-${index}`;
+    pickString(item, ["target_profile_id", "profile_id", "id"]) ??
+    pickString(profile, ["id", "profile_id"]);
+
+  if (!id) {
+    if (__DEV__) {
+      console.log("[following] dropped item: missing profile id", {
+        itemKeys: Object.keys(item),
+        profileKeys: Object.keys(profile),
+      });
+    }
+    return null;
+  }
 
   const name =
     pickString(item, ["display_name", "full_name", "name", "title"]) ??
@@ -52,6 +61,20 @@ function normalizeFollowingItem(raw: unknown, index: number): FollowingItem {
     name,
     avatarUrl,
   };
+}
+
+function resolveItemsPayload(responseData: unknown, responseRoot: unknown): unknown[] | null {
+  if (Array.isArray((responseData as { items?: unknown[] } | null)?.items)) {
+    return (responseData as { items: unknown[] }).items;
+  }
+
+  if (Array.isArray(responseData)) return responseData;
+
+  if (Array.isArray((responseRoot as { items?: unknown[] } | null)?.items)) {
+    return (responseRoot as { items: unknown[] }).items;
+  }
+
+  return null;
 }
 
 function Avatar({ uri }: { uri: string | null }) {
@@ -100,14 +123,16 @@ export default function FollowingScreen() {
       return;
     }
 
-    if (!Array.isArray(response.data?.items)) {
+    const rawItems = resolveItemsPayload(response.data, response as unknown);
+
+    if (!rawItems) {
       setItems([]);
       setError("Risposta inattesa dal server");
       setLoading(false);
       return;
     }
 
-    setItems(response.data.items.map((raw, index) => normalizeFollowingItem(raw, index)));
+    setItems(rawItems.map(normalizeFollowingItem).filter((item): item is FollowingItem => item !== null));
     setError(null);
     setLoading(false);
   }, [web.ready]);
