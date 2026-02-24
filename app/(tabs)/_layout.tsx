@@ -98,6 +98,9 @@ export default function TabsLayout() {
         case "club/roster":
           iconName = focused ? "people" : "people-outline";
           break;
+        case "following":
+          iconName = focused ? "heart" : "heart-outline";
+          break;
         case "notifications/index":
           iconName = focused ? "notifications" : "notifications-outline";
           break;
@@ -130,6 +133,7 @@ export default function TabsLayout() {
           href: isClubLoading ? null : (isClub ? undefined : null),
         }}
       />
+      <Tabs.Screen name="following" options={{ title: "Seguiti", tabBarLabel: "Seguiti" }} />
       <Tabs.Screen
         name="opportunities/index"
         options={{
