@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import Constants from "expo-constants";
 import { supabase } from "./supabase";
 import { resolveItalianLocationLabels } from "./geo/location";
+import { devWarn } from "./debug/devLog";
 import type { NotificationWithActor } from "../types/notifications";
 import type {
   FetchOpportunitiesParams,
@@ -107,6 +108,25 @@ export type FollowTogglePostResponse = {
 export type FollowListGetResponse = {
   ok: true;
   items: unknown[];
+};
+
+export type ClubRosterItem = {
+  playerProfileId: string;
+  full_name?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  role?: string | null;
+  sport?: string | null;
+};
+
+export type ClubRosterGetResponse = {
+  ok: true;
+  sport?: string | null;
+  roster: ClubRosterItem[];
+};
+
+export type ClubRosterPostResponse = {
+  ok: boolean;
 };
 
 // FEED: reactions/comments
@@ -420,6 +440,14 @@ function buildUrl(path: string): string {
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<ApiResponse<T>> {
   const url = buildUrl(path);
+  if (__DEV__ && path.includes("/api/auth/whoami")) {
+    console.log("[apiFetch][whoami][request]", {
+      path,
+      baseUrl: getWebBaseUrl(),
+      url,
+      method: init?.method ?? "GET",
+    });
+  }
   const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData;
   const headers = isFormData
     ? {
@@ -449,6 +477,13 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<Api
   }
 
   if (!response.ok) {
+    if (__DEV__ && path.includes("/api/auth/whoami")) {
+      console.log("[apiFetch][whoami][response]", {
+        ok: false,
+        status,
+        errorText: responseText || `HTTP ${status}`,
+      });
+    }
     return { ok: false, status, errorText: responseText || `HTTP ${status}` };
   }
 
@@ -458,23 +493,32 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<Api
 
   try {
     const json = JSON.parse(responseText) as T;
+    if (__DEV__ && path.includes("/api/auth/whoami")) {
+      const role = typeof (json as any)?.role === "string" ? (json as any).role : null;
+      console.log("[apiFetch][whoami][response]", { ok: true, status, role });
+    }
     return { ok: true, status, data: json };
   } catch (error) {
     return { ok: false, status, errorText: String(error) };
   }
 }
 
-export async function syncSession(): Promise<ApiResponse<{ ok: boolean; cleared?: boolean }>> {
-  const { data } = await supabase.auth.getSession();
-  const session = data.session;
-  const payload = session
-    ? { access_token: session.access_token, refresh_token: session.refresh_token }
-    : { access_token: null, refresh_token: null };
-
-  return apiFetch<{ ok: boolean; cleared?: boolean }>("/api/auth/session", {
+export async function syncSession(input: { access_token: string; refresh_token: string }): Promise<ApiResponse<{ ok: boolean; cleared?: boolean }>> {
+  const response = await apiFetch<{ ok: boolean; cleared?: boolean }>("/api/auth/session", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify(input),
+    headers: { "Content-Type": "application/json" },
   });
+
+  if (__DEV__) {
+    console.log("[syncSession]", {
+      ok: response.ok,
+      status: response.status,
+      errorText: response.ok ? null : response.errorText ?? null,
+    });
+  }
+
+  return response;
 }
 
 export async function clearSession(): Promise<ApiResponse<{ ok: boolean; cleared?: boolean }>> {
@@ -874,6 +918,63 @@ export async function fetchFollowSuggestions(params?: { limit?: number; kind?: "
   return apiFetch<FollowListGetResponse>(path, { method: "GET" });
 }
 
+function normalizeClubRosterItem(raw: unknown): ClubRosterItem | null {
+  const item = (raw ?? {}) as Record<string, unknown>;
+  const playerProfileIdRaw = item.playerProfileId ?? item.player_profile_id;
+  const playerProfileId = typeof playerProfileIdRaw === "string" ? playerProfileIdRaw.trim() : "";
+
+  if (!playerProfileId) {
+    devWarn("fetchClubRoster: roster item missing playerProfileId", { raw: item });
+    return null;
+  }
+
+  const player = (item.player ?? {}) as Record<string, unknown>;
+  const displayNameRaw = player.display_name ?? player.full_name ?? player.name ?? item.display_name ?? item.full_name;
+  const fullNameRaw = player.full_name ?? player.name ?? item.full_name;
+  const avatarUrlRaw = player.avatarUrl ?? item.avatar_url ?? item.avatarUrl;
+  const roleRaw = player.role ?? item.role;
+  const sportRaw = player.sport ?? item.sport;
+
+  return {
+    playerProfileId,
+    display_name: typeof displayNameRaw === "string" ? displayNameRaw : null,
+    full_name: typeof fullNameRaw === "string" ? fullNameRaw : null,
+    avatar_url: typeof avatarUrlRaw === "string" ? avatarUrlRaw : null,
+    role: typeof roleRaw === "string" ? roleRaw : null,
+    sport: typeof sportRaw === "string" ? sportRaw : null,
+  };
+}
+
+export async function fetchClubRoster(): Promise<ApiResponse<ClubRosterGetResponse>> {
+  const response = await apiFetch<ClubRosterGetResponse>("/api/clubs/me/roster", { method: "GET" });
+  if (!response.ok || !response.data) return response;
+
+  if (__DEV__ && response.data?.roster?.[0]) {
+    const firstItem = response.data.roster[0] as Record<string, unknown>;
+    console.log("[roster][raw keys]", Object.keys(firstItem));
+    console.log("[roster][raw sample]", JSON.stringify(firstItem).slice(0, 600));
+  }
+
+  const mappedRoster = Array.isArray(response.data.roster)
+    ? response.data.roster.map(normalizeClubRosterItem).filter((item): item is ClubRosterItem => item !== null)
+    : [];
+
+  return {
+    ...response,
+    data: {
+      ...response.data,
+      roster: mappedRoster,
+    },
+  };
+}
+
+export async function updateClubRoster(input: { playerProfileId: string; inRoster: boolean }): Promise<ApiResponse<ClubRosterPostResponse>> {
+  return apiFetch<ClubRosterPostResponse>("/api/clubs/me/roster", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export async function fetchReactionsForIds(ids: string[]): Promise<ApiResponse<FeedReactionsGetResponse>> {
   const q = buildIdsQuery(ids);
   return apiFetch<FeedReactionsGetResponse>(`/api/feed/reactions?${q}`, { method: "GET" });
@@ -1170,39 +1271,6 @@ export function useWhoami(enabled: boolean = true) {
   return { data, loading, error, reload: load };
 }
 
-export function useIsClub(enabled: boolean = true) {
-  const [isClub, setIsClub] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-
-    const whoami = await fetchWhoami();
-    const whoamiRole = whoami.data?.role;
-    if (typeof whoamiRole === "string") {
-      setIsClub(whoamiRole.toLowerCase() === "club");
-      setLoading(false);
-      return;
-    }
-
-    const profileMe = await fetchProfileMe();
-    const accountType = profileMe.data?.account_type;
-    setIsClub(typeof accountType === "string" && accountType.toLowerCase() === "club");
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    if (!enabled) {
-      setIsClub(false);
-      setLoading(false);
-      return;
-    }
-
-    void load();
-  }, [enabled, load]);
-
-  return { isClub, loading, reload: load };
-}
 
 export function useWebSession() {
   const [ready, setReady] = useState(false);
@@ -1213,7 +1281,19 @@ export function useWebSession() {
     setLoading(true);
     setError(null);
 
-    const res = await syncSession();
+    const { data } = await supabase.auth.getSession();
+    const session = data.session;
+    if (!session) {
+      setReady(false);
+      setError("Sessione Supabase mancante");
+      setLoading(false);
+      return;
+    }
+
+    const res = await syncSession({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+    });
     if (!res.ok) {
       setReady(false);
       setError(res.errorText ?? "Sync session failed");

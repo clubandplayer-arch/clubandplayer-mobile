@@ -2,8 +2,42 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import * as Linking from "expo-linking";
+import { fetchProfileMe, fetchWhoami, syncSession } from "../../src/lib/api";
 import { supabase } from "../../src/lib/supabase";
 import { theme } from "../../src/theme";
+
+async function syncWebSessionAndAudit(session: { access_token: string; refresh_token: string }) {
+  const syncRes = await syncSession({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+  });
+  if (__DEV__) {
+    console.log("[auth/callback][syncSession]", {
+      ok: syncRes.ok,
+      status: syncRes.status,
+      errorText: syncRes.ok ? null : syncRes.errorText ?? null,
+    });
+  }
+
+  const whoamiRes = await fetchWhoami();
+  if (__DEV__) {
+    console.log("[auth/callback][whoami]", {
+      ok: whoamiRes.ok,
+      status: whoamiRes.status,
+      role: whoamiRes.ok ? whoamiRes.data?.role ?? null : null,
+      errorText: whoamiRes.ok ? null : whoamiRes.errorText ?? null,
+    });
+  }
+
+  const profileRes = await fetchProfileMe();
+  if (__DEV__) {
+    console.log("[auth/callback][profiles/me]", {
+      ok: profileRes.ok,
+      status: profileRes.status,
+      errorText: profileRes.ok ? null : profileRes.errorText ?? null,
+    });
+  }
+}
 
 export default function AuthCallback() {
   const [error, setError] = useState<string | null>(null);
@@ -16,14 +50,27 @@ export default function AuthCallback() {
 
     // If session already exists (e.g. exchange done in src/lib/auth.ts),
     // move on even if no URL is delivered to this screen.
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
       if (!isMounted) return;
-      if (data.session) router.replace("/(tabs)/feed");
+      if (!data.session || handledRef.current) return;
+
+      handledRef.current = true;
+      await syncWebSessionAndAudit({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      });
+      router.replace("/(tabs)/feed");
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!isMounted) return;
-      if (session) router.replace("/(tabs)/feed");
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!isMounted || !session || handledRef.current) return;
+
+      handledRef.current = true;
+      await syncWebSessionAndAudit({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      });
+      router.replace("/(tabs)/feed");
     });
 
     const timeoutId = setTimeout(() => {
@@ -57,6 +104,18 @@ export default function AuthCallback() {
         return;
       }
 
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData.session;
+      if (!session) {
+        if (isMounted) setError("Sessione Supabase mancante dopo exchange");
+        handledRef.current = false;
+        return;
+      }
+
+      await syncWebSessionAndAudit({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      });
       if (isMounted) router.replace("/(tabs)/feed");
     };
 

@@ -118,7 +118,17 @@ export default function DebugScreen() {
     setIsSyncing(true);
     setSyncResult("");
     try {
-      const result = await syncSession();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData.session;
+      if (!session) {
+        setSyncResult(`ERROR\nSessione Supabase mancante`);
+        return;
+      }
+
+      const result = await syncSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      });
       if (result.ok) {
         setSyncResult(
           `OK (status ${result.status})\n${JSON.stringify(
