@@ -225,11 +225,11 @@ export default function FollowingScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([load(), isClub ? loadRoster() : Promise.resolve()]);
+      await Promise.all([load(), isClub && !isClubLoading ? loadRoster() : Promise.resolve()]);
     } finally {
       setRefreshing(false);
     }
-  }, [isClub, load, loadRoster]);
+  }, [isClub, isClubLoading, load, loadRoster]);
 
   const decoratedItems = useMemo<DecoratedFollowingItem[]>(() => {
     const next = items.map((item) => ({
@@ -261,49 +261,61 @@ export default function FollowingScreen() {
         return next;
       });
 
-      const response = await updateClubRoster({
-        playerProfileId: item.id,
-        inRoster: nextInRoster,
-      });
-
-      if (!response.ok) {
-        setRosterSet((prev) => {
-          const next = new Set(prev);
-          if (wasInRoster) next.add(item.id);
-          else next.delete(item.id);
-          return next;
+      try {
+        const response = await updateClubRoster({
+          playerProfileId: item.id,
+          inRoster: nextInRoster,
         });
 
-        const errorCode = parseErrorCode(response.errorText);
-
-        if (response.status === 400) {
-          Alert.alert("Devi seguire il player prima");
-        } else if (
-          response.status === 409 &&
-          (errorCode === "PLAYER_ALREADY_IN_ROSTER_SPORT" || errorCode === "PLAYER_ALREADY_IN_ROSTER")
-        ) {
-          Alert.alert("Player già in rosa di un altro club per questo sport. Deve essere rimosso prima.");
-        } else {
-          Alert.alert("Errore", "Operazione non riuscita. Riprova.");
-        }
-
-        if (__DEV__) {
-          console.log("[following][club] toggle error", {
-            status: response.status,
-            errorCode,
-            playerProfileId: item.id,
-            inRoster: nextInRoster,
+        if (!response.ok) {
+          setRosterSet((prev) => {
+            const next = new Set(prev);
+            if (wasInRoster) next.add(item.id);
+            else next.delete(item.id);
+            return next;
           });
-        }
-      } else {
-        await loadRoster();
-      }
 
-      setPendingRosterIds((prev) => {
-        const next = new Set(prev);
-        next.delete(item.id);
-        return next;
-      });
+          const errorCode = parseErrorCode(response.errorText);
+
+          if (response.status === 400) {
+            Alert.alert("Devi seguire il player prima");
+          } else if (
+            response.status === 409 &&
+            (errorCode === "PLAYER_ALREADY_IN_ROSTER_SPORT" || errorCode === "PLAYER_ALREADY_IN_ROSTER")
+          ) {
+            Alert.alert("Player già in rosa di un altro club per questo sport. Deve essere rimosso prima.");
+          } else {
+            Alert.alert("Errore", "Operazione non riuscita. Riprova.");
+          }
+
+          if (__DEV__) {
+            console.log("[following][club] toggle error", {
+              status: response.status,
+              errorCode,
+              playerProfileId: item.id,
+              inRoster: nextInRoster,
+            });
+          }
+        } else {
+          try {
+            await loadRoster();
+          } catch (error) {
+            if (__DEV__) {
+              console.log("[following][club] loadRoster after toggle failed", {
+                playerProfileId: item.id,
+                inRoster: nextInRoster,
+                error: String(error),
+              });
+            }
+          }
+        }
+      } finally {
+        setPendingRosterIds((prev) => {
+          const next = new Set(prev);
+          next.delete(item.id);
+          return next;
+        });
+      }
     },
     [isClub, loadRoster, pendingRosterIds, rosterSet],
   );
