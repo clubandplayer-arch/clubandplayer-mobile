@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
+  SectionList,
   Image,
   Pressable,
   RefreshControl,
@@ -144,7 +144,8 @@ export default function FollowingScreen() {
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<FollowingItem[]>([]);
 
-  const PINK = (theme.colors as any).rose ?? (theme.colors as any).pink ?? "#E91E63";
+  const PINK_SOFT = "#F7D6E6";
+  const PINK_STRONG = "#E91E63";
 
   useEffect(() => {
     let mounted = true;
@@ -334,6 +335,21 @@ export default function FollowingScreen() {
     [isClub, loadRoster, pendingRosterIds, rosterSet],
   );
 
+  const sections = useMemo(() => {
+    const clubItems = decoratedItems.filter((item) => item.accountType === "club");
+    const playerItems = decoratedItems.filter((item) => item.accountType === "athlete");
+    const unknownItems = decoratedItems.filter((item) => item.accountType === "unknown");
+
+    const next: Array<{ title: string; data: DecoratedFollowingItem[] }> = [
+      { title: "Club che segui", data: clubItems },
+      { title: "Player che segui", data: playerItems },
+    ];
+
+    if (unknownItems.length > 0) next.push({ title: "Altri", data: unknownItems });
+
+    return next;
+  }, [decoratedItems]);
+
   const empty = useMemo(
     () => !loading && !error && decoratedItems.length === 0,
     [decoratedItems.length, error, loading],
@@ -361,11 +377,25 @@ export default function FollowingScreen() {
           <Text style={{ color: theme.colors.muted, textAlign: "center" }}>Non stai seguendo nessun profilo.</Text>
         </View>
       ) : (
-        <FlatList
-          data={decoratedItems}
+        <SectionList
+          sections={sections}
           keyExtractor={(item) => item.id}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24, gap: 10 }}
+          stickySectionHeadersEnabled={false}
+          renderSectionHeader={({ section }) => (
+            <Text
+              style={{
+                fontSize: 20,
+                fontWeight: "800",
+                color: theme.colors.text,
+                marginTop: 8,
+                marginBottom: 8,
+              }}
+            >
+              {section.title}
+            </Text>
+          )}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
           renderItem={({ item }) => {
             const pending = pendingRosterIds.has(item.id);
@@ -389,14 +419,34 @@ export default function FollowingScreen() {
                   <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.text }}>{item.name}</Text>
                 </View>
                 {isClub && item.accountType === "athlete" ? (
-                  <Switch
-                    value={item.isInRoster}
-                    disabled={pending}
-                    trackColor={{ false: (theme.colors as any).neutral300 ?? theme.colors.neutral200, true: PINK }}
-                    onValueChange={(nextValue) => {
-                      void onToggleRoster(item, nextValue);
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                      borderWidth: 1,
+                      borderColor: PINK_STRONG,
+                      backgroundColor: PINK_SOFT,
+                      borderRadius: 999,
+                      paddingLeft: 10,
+                      paddingRight: 6,
+                      paddingVertical: 4,
                     }}
-                  />
+                  >
+                    <Text style={{ color: PINK_STRONG, fontWeight: "700", fontSize: 12 }}>In Rosa</Text>
+                    <Switch
+                      value={item.isInRoster}
+                      disabled={pending}
+                      thumbColor="#FFFFFF"
+                      trackColor={{
+                        false: (theme.colors as any).neutral300 ?? theme.colors.neutral200,
+                        true: PINK_SOFT,
+                      }}
+                      onValueChange={(nextValue) => {
+                        void onToggleRoster(item, nextValue);
+                      }}
+                    />
+                  </View>
                 ) : null}
               </View>
             );
