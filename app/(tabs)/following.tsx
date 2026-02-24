@@ -10,7 +10,9 @@ import {
 } from "react-native";
 
 import BrandHeader from "../../src/components/brand/BrandHeader";
-import { fetchFollowingList, useWebSession } from "../../src/lib/api";
+import { fetchClubRoster, fetchFollowingList, useWebSession } from "../../src/lib/api";
+import { supabase } from "../../src/lib/supabase";
+import { useIsClub } from "../../src/lib/useIsClub";
 import { theme } from "../../src/theme";
 
 type FollowingItem = {
@@ -106,10 +108,63 @@ function Avatar({ uri }: { uri: string | null }) {
 
 export default function FollowingScreen() {
   const web = useWebSession();
+  const [sessionPresent, setSessionPresent] = useState(false);
+  const { isClub, loading: isClubLoading } = useIsClub(sessionPresent);
+  const [rosterSet, setRosterSet] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<FollowingItem[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      setSessionPresent(Boolean(data.session?.user?.id));
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSessionPresent(Boolean(session?.user?.id));
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  const loadRoster = useCallback(async () => {
+    const response = await fetchClubRoster();
+    if (!response.ok || !response.data) {
+      setRosterSet(new Set());
+      return;
+    }
+
+    const nextRosterSet = new Set(
+      response.data.roster
+        .map((row) => String(row.playerProfileId ?? "").trim())
+        .filter(Boolean),
+    );
+
+    if (__DEV__) {
+      console.log("[following][club] rosterSet size", nextRosterSet.size);
+    }
+
+    setRosterSet(nextRosterSet);
+  }, []);
+
+  useEffect(() => {
+    if (!web.ready) return;
+    if (isClubLoading) return;
+
+    if (!isClub) {
+      setRosterSet(new Set());
+      return;
+    }
+
+    void loadRoster();
+  }, [isClub, isClubLoading, loadRoster, web.ready]);
 
   const load = useCallback(async () => {
     if (!web.ready) return;
@@ -153,13 +208,30 @@ export default function FollowingScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await load();
+      await Promise.all([load(), isClub ? loadRoster() : Promise.resolve()]);
     } finally {
       setRefreshing(false);
     }
-  }, [load]);
+  }, [isClub, load, loadRoster]);
 
-  const empty = useMemo(() => !loading && !error && items.length === 0, [error, items.length, loading]);
+  const decoratedItems = useMemo(() => {
+    const next = items.map((item) => ({
+      ...item,
+      isInRoster: isClub ? rosterSet.has(item.id) : false,
+    }));
+
+    if (__DEV__ && isClub) {
+      const marked = next.filter((item) => item.isInRoster).length;
+      console.log("[following][club] marked in roster", { marked, total: next.length });
+    }
+
+    return next;
+  }, [isClub, items, rosterSet]);
+
+  const empty = useMemo(
+    () => !loading && !error && decoratedItems.length === 0,
+    [decoratedItems.length, error, loading],
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
@@ -184,7 +256,7 @@ export default function FollowingScreen() {
         </View>
       ) : (
         <FlatList
-          data={items}
+          data={decoratedItems}
           keyExtractor={(item) => item.id}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24 }}
@@ -204,9 +276,14 @@ export default function FollowingScreen() {
               }}
             >
               <Avatar uri={item.avatarUrl} />
-              <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.text, flex: 1 }}>
-                {item.name}
-              </Text>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.text }}>{item.name}</Text>
+                {isClub ? (
+                  <Text style={{ color: theme.colors.muted }}>
+                    {item.isInRoster ? "In Rosa" : "Fuori Rosa"}
+                  </Text>
+                ) : null}
+              </View>
             </View>
           )}
         />
