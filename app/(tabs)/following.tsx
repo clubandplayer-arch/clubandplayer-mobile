@@ -331,7 +331,7 @@ export default function FollowingScreen() {
         </View>
       ) : empty ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 24 }}>
-          <Text style={{ fontSize: 20, fontWeight: "800", color: theme.colors.text }}>Seguiti (placeholder)</Text>
+          <Text style={{ fontSize: 20, fontWeight: "800", color: theme.colors.text }}>Seguiti</Text>
           <Text style={{ color: theme.colors.muted, textAlign: "center" }}>Non stai seguendo nessun profilo.</Text>
         </View>
       ) : (
