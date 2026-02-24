@@ -145,7 +145,7 @@ export default function FollowingScreen() {
   const [items, setItems] = useState<FollowingItem[]>([]);
 
   const PINK_SOFT = "#F7D6E6";
-  const PINK_STRONG = "#E91E63";
+  const PINK = "#E91E63";
 
   useEffect(() => {
     let mounted = true;
@@ -425,7 +425,7 @@ export default function FollowingScreen() {
                       alignItems: "center",
                       gap: 8,
                       borderWidth: 1,
-                      borderColor: PINK_STRONG,
+                      borderColor: PINK,
                       backgroundColor: PINK_SOFT,
                       borderRadius: 999,
                       paddingLeft: 10,
@@ -433,11 +433,11 @@ export default function FollowingScreen() {
                       paddingVertical: 4,
                     }}
                   >
-                    <Text style={{ color: PINK_STRONG, fontWeight: "700", fontSize: 12 }}>In Rosa</Text>
+                    <Text style={{ color: PINK, fontWeight: "700", fontSize: 12 }}>In Rosa</Text>
                     <Switch
                       value={item.isInRoster}
                       disabled={pending}
-                      thumbColor="#FFFFFF"
+                      thumbColor={item.isInRoster ? PINK : "#FFFFFF"}
                       trackColor={{
                         false: (theme.colors as any).neutral300 ?? theme.colors.neutral200,
                         true: PINK_SOFT,
