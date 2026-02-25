@@ -3,6 +3,7 @@ import { Tabs, useRouter } from "expo-router";
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { usePathname } from "expo-router";
 
 import { useFonts } from "expo-font";
 import { Righteous_400Regular } from "@expo-google-fonts/righteous";
@@ -27,6 +28,11 @@ export default function TabsLayout() {
   const [sessionPresent, setSessionPresent] = useState(false);
   const { isClub, loading: isClubLoading } = useIsClub(sessionPresent);
   const [messagesUnreadCount, setMessagesUnreadCount] = useState<number>(0);
+  const pathname = usePathname();
+
+  function isActive(route: string) {
+  return pathname?.startsWith(route);
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -123,13 +129,49 @@ export default function TabsLayout() {
 
       {/* ICON ROW (fase 2 farà routing+active indicator) */}
       <View style={styles.iconRow}>
-        <Ionicons name="home" size={22} color={BRAND_DARK} />
-        <Ionicons name="briefcase-outline" size={22} color={BRAND_LIGHT} />
-        <Ionicons name="document-text-outline" size={22} color={BRAND_LIGHT} />
-        <Ionicons name="heart-outline" size={22} color={BRAND_LIGHT} />
-        <Ionicons name="person-add-outline" size={22} color={BRAND_LIGHT} />
-        <Ionicons name="notifications-outline" size={22} color={BRAND_LIGHT} />
-        {isClub ? <Ionicons name="people-outline" size={22} color="#ff2d55" /> : null}
+        {[
+          { icon: "home", route: "/feed" },
+          { icon: "briefcase-outline", route: "/opportunities" },
+          { icon: "document-text-outline", route: "/applications" },
+          { icon: "heart-outline", route: "/following" },
+          { icon: "person-add-outline", route: "/search" },
+          { icon: "notifications-outline", route: "/notifications" },
+        ].map((item) => {
+          const active = isActive(item.route);
+
+          return (
+            <TouchableOpacity
+              key={item.route}
+              style={styles.iconItem}
+              onPress={() => router.push(item.route)}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={item.icon as any}
+                size={22}
+                color={active ? BRAND_DARK : BRAND_LIGHT}
+              />
+
+              {/* Active indicator */}
+              {active && <View style={styles.activeIndicator} />}
+            </TouchableOpacity>
+          );
+        })}
+
+        {isClub && (
+          <TouchableOpacity
+            style={styles.iconItem}
+            onPress={() => router.push("/club/roster")}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="people-outline"
+              size={22}
+              color={isActive("/club/roster") ? "#ff2d55" : "#ff9db3"}
+            />
+            {isActive("/club/roster") && <View style={styles.activeIndicator} />}
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.divider} />
@@ -220,4 +262,19 @@ const styles = StyleSheet.create({
   },
 
   divider: { height: 1, backgroundColor: "#E5E5E5" },
+  iconItem: {
+  alignItems: "center",
+  justifyContent: "center",
+  flex: 1,
+  height: 48,
+},
+
+activeIndicator: {
+  position: "absolute",
+  bottom: 0,
+  height: 3,
+  width: 22,
+  backgroundColor: "#00527a",
+  borderRadius: 2,
+},
 });
