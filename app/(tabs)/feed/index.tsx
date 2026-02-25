@@ -376,6 +376,7 @@ export default function FeedScreen() {
       <View
         style={{
           paddingHorizontal: theme.spacing.xl,
+          paddingTop: 12,        // 🔥 AGGIUNGI QUESTA RIGA
           paddingBottom: 12,
           gap: 12,
           backgroundColor: theme.colors.background,

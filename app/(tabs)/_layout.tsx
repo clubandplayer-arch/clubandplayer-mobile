@@ -71,17 +71,25 @@ export default function TabsLayout() {
           onPress={() => router.push("/feed")}
           style={styles.brandWrap}
         >
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.brandText,
+            fontsLoaded ? { fontFamily: "Righteous_400Regular" } : null,
+          ]}
+        >
+          <Text style={{ color: BRAND_LIGHT }}>Club</Text>
           <Text
-            numberOfLines={1}
-            style={[
-              styles.brandText,
-              fontsLoaded ? { fontFamily: "Righteous_400Regular" } : null,
-            ]}
+            style={{
+              color: BRAND_DARK,
+              fontSize: 30,       // 🔥 & più grande
+              lineHeight: 30,
+            }}
           >
-            <Text style={{ color: BRAND_LIGHT }}>Club</Text>
-            <Text style={{ color: BRAND_DARK }}> &amp; </Text>
-            <Text style={{ color: BRAND_LIGHT }}>Player</Text>
+            &
           </Text>
+          <Text style={{ color: BRAND_LIGHT }}>Player</Text>
+        </Text>
         </TouchableOpacity>
 
         <View style={styles.headerRight}>
