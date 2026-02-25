@@ -8,13 +8,11 @@ import {
   Image,
   Alert,
 } from "react-native";
-import { useRouter } from "expo-router";
-
-import { useWebSession } from "../../../src/lib/api";
 import { theme } from "../../../src/theme";
+import { useWebSession } from "../../../src/lib/api";
 
-// NOTE: riusiamo la stessa base URL web del resto dell’app
-const WEB_BASE_URL = process.env.EXPO_PUBLIC_WEB_BASE_URL ?? "https://www.clubandplayer.com";
+const WEB_BASE_URL =
+  process.env.EXPO_PUBLIC_WEB_BASE_URL ?? "https://www.clubandplayer.com";
 
 type SuggestionItem = {
   id: string;
@@ -23,28 +21,59 @@ type SuggestionItem = {
   avatar_url?: string | null;
   account_type?: string | null;
   type?: string | null;
+
   country?: string | null;
+  region?: string | null;
+  province?: string | null;
   city?: string | null;
+
   sport?: string | null;
+  role?: string | null;
 };
 
 type SuggestionsResponse = {
   items?: SuggestionItem[];
   data?: SuggestionItem[];
   nextCursor?: string | null;
-  role?: string | null;
   ok?: boolean;
   code?: string;
   message?: string;
 };
 
-function getName(p: SuggestionItem) {
-  return (p.display_name ?? p.full_name ?? "").trim() || "Profilo";
-}
-
 function isClubProfile(p: SuggestionItem) {
   const t = (p.account_type ?? p.type ?? "").toString().toLowerCase().trim();
   return t === "club" || t === "clubs";
+}
+
+function looksLikeEmail(s: string) {
+  return s.includes("@") && s.includes(".");
+}
+
+function humanizeName(p: SuggestionItem) {
+  const raw = (p.display_name ?? p.full_name ?? "").trim();
+  if (!raw) return isClubProfile(p) ? "Club" : "Player";
+  if (!looksLikeEmail(raw)) return raw;
+
+  // fallback: usa la parte prima di @, “Club”/“Player” se troppo brutta
+  const local = raw.split("@")[0]?.trim() ?? "";
+  if (!local || local.length < 2) return isClubProfile(p) ? "Club" : "Player";
+  return local.charAt(0).toUpperCase() + local.slice(1);
+}
+
+function compactParts(parts: Array<string | null | undefined>) {
+  return parts
+    .map((x) => (x ?? "").toString().trim())
+    .filter((x) => x.length > 0);
+}
+
+function formatMetaLine(p: SuggestionItem) {
+  const location = compactParts([p.city, p.province, p.region, p.country]).join(" • ");
+  const sportRole = compactParts([p.sport, p.role]).join(" • ");
+
+  if (sportRole && location) return `${sportRole}  —  ${location}`;
+  if (sportRole) return sportRole;
+  if (location) return location;
+  return "—";
 }
 
 function Avatar({ url, size = 44 }: { url?: string | null; size?: number }) {
@@ -74,58 +103,84 @@ function Avatar({ url, size = 44 }: { url?: string | null; size?: number }) {
 }
 
 export default function DiscoverScreen() {
-  const router = useRouter();
   const web = useWebSession();
 
   const [tab, setTab] = useState<"club" | "player">("club");
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [items, setItems] = useState<SuggestionItem[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [pendingIds, setPendingIds] = useState<Record<string, boolean>>({});
 
-  const fetchSuggestions = useCallback(async () => {
-    if (!web.ready) return;
+  const mergeUnique = useCallback((prev: SuggestionItem[], next: SuggestionItem[]) => {
+    const seen = new Set(prev.map((x) => x.id));
+    const out = [...prev];
+    for (const it of next) {
+      if (!it?.id) continue;
+      if (seen.has(it.id)) continue;
+      seen.add(it.id);
+      out.push(it);
+    }
+    return out;
+  }, []);
 
-    setLoading(true);
-    setError(null);
+  const fetchSuggestions = useCallback(
+    async ({ reset }: { reset: boolean }) => {
+      if (!web.ready) return;
 
-    try {
-      const res = await fetch(`${WEB_BASE_URL}/api/follows/suggestions`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-        // NB: in RN i cookie vengono gestiti dall’app/session bridge già esistente.
-      });
+      const cursor = reset ? null : nextCursor;
 
-      const json = (await res.json()) as SuggestionsResponse;
-
-      if (!res.ok) {
-        setError(json?.message ?? "Errore nel caricamento suggerimenti");
-        setItems([]);
-        return;
+      if (reset) {
+        setLoading(true);
+        setError(null);
+      } else {
+        if (!cursor) return;
+        setLoadingMore(true);
       }
 
-      const list = (json.items ?? json.data ?? []) as SuggestionItem[];
-      setItems(Array.isArray(list) ? list : []);
-    } catch (e: any) {
-      setError(e?.message ? String(e.message) : "Errore nel caricamento suggerimenti");
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [web.ready]);
+      try {
+        const url =
+          cursor ? `${WEB_BASE_URL}/api/follows/suggestions?cursor=${encodeURIComponent(cursor)}`
+                 : `${WEB_BASE_URL}/api/follows/suggestions`;
+
+        const res = await fetch(url, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+
+        const json = (await res.json()) as SuggestionsResponse;
+
+        if (!res.ok) {
+          setError(json?.message ?? "Errore nel caricamento suggerimenti");
+          if (reset) setItems([]);
+          return;
+        }
+
+        const list = (json.items ?? json.data ?? []) as SuggestionItem[];
+        const safe = Array.isArray(list) ? list : [];
+
+        setItems((prev) => (reset ? safe : mergeUnique(prev, safe)));
+        setNextCursor(json.nextCursor ?? null);
+      } catch (e: any) {
+        setError(e?.message ? String(e.message) : "Errore nel caricamento suggerimenti");
+        if (reset) setItems([]);
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [mergeUnique, nextCursor, web.ready],
+  );
 
   useEffect(() => {
-    // carica appena la web session è pronta
     if (!web.ready) return;
-    fetchSuggestions();
+    fetchSuggestions({ reset: true });
   }, [fetchSuggestions, web.ready]);
 
   const filtered = useMemo(() => {
-    return items.filter((p) => {
-      const isClub = isClubProfile(p);
-      return tab === "club" ? isClub : !isClub;
-    });
+    return items.filter((p) => (tab === "club" ? isClubProfile(p) : !isClubProfile(p)));
   }, [items, tab]);
 
   const toggleFollow = useCallback(
@@ -149,7 +204,7 @@ export default function DiscoverScreen() {
           return;
         }
 
-        // UX semplice: dopo “Segui”, rimuoviamo il profilo dai suggerimenti
+        // UX: dopo “Segui” togli il profilo dalla lista
         setItems((prev) => prev.filter((x) => x.id !== targetProfileId));
       } catch {
         Alert.alert("Errore", "Operazione non riuscita");
@@ -169,16 +224,15 @@ export default function DiscoverScreen() {
       {/* Spacer TOP per non stare attaccati al divider della shell */}
       <View style={{ paddingTop: 12 }} />
 
-      {/* Header page (senza BrandHeader / senza titolo grande) */}
       <View style={{ paddingHorizontal: theme.spacing.xl, gap: 10 }}>
-        <Text style={{ fontSize: 26, fontWeight: "900", color: theme.colors.text }}>
+        <Text style={{ fontSize: 30, fontWeight: "900", color: theme.colors.text }}>
           Scopri profili
         </Text>
         <Text style={{ color: theme.colors.muted }}>
           Suggerimenti ordinati per zona di interesse (città, provincia, regione).
         </Text>
 
-        {/* Toggle Club / Player (stile web) */}
+        {/* Toggle Club / Player */}
         <View
           style={{
             flexDirection: "row",
@@ -230,7 +284,6 @@ export default function DiscoverScreen() {
           </Pressable>
         </View>
 
-        {/* Stati */}
         {!web.ready ? (
           <View style={{ paddingVertical: 12, flexDirection: "row", gap: 10, alignItems: "center" }}>
             <ActivityIndicator />
@@ -258,14 +311,13 @@ export default function DiscoverScreen() {
           >
             <Text style={{ fontWeight: "900", color: theme.colors.danger }}>Errore</Text>
             <Text style={{ color: theme.colors.danger }}>{error}</Text>
-            <Pressable onPress={fetchSuggestions} style={{ alignSelf: "flex-start" }}>
+            <Pressable onPress={() => fetchSuggestions({ reset: true })} style={{ alignSelf: "flex-start" }}>
               <Text style={{ color: theme.colors.primary, fontWeight: "900" }}>Riprova</Text>
             </Pressable>
           </View>
         ) : null}
       </View>
 
-      {/* Lista */}
       <FlatList
         data={filtered}
         keyExtractor={(it) => it.id}
@@ -275,8 +327,23 @@ export default function DiscoverScreen() {
           paddingBottom: 24,
           gap: 10,
         }}
+        onEndReachedThreshold={0.6}
+        onEndReached={() => {
+          if (loadingMore) return;
+          if (!nextCursor) return;
+          fetchSuggestions({ reset: false });
+        }}
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={{ paddingVertical: 16, alignItems: "center" }}>
+              <ActivityIndicator />
+              <Text style={{ marginTop: 8, color: theme.colors.muted }}>Carico altri profili…</Text>
+            </View>
+          ) : <View style={{ height: 8 }} />
+        }
         renderItem={({ item }) => {
-          const name = getName(item);
+          const name = humanizeName(item);
+          const meta = formatMetaLine(item);
           const disabled = Boolean(pendingIds[item.id]);
 
           return (
@@ -298,9 +365,7 @@ export default function DiscoverScreen() {
                 <Text style={{ fontSize: 16, fontWeight: "900", color: theme.colors.text }}>
                   {name}
                 </Text>
-                <Text style={{ color: theme.colors.muted }}>
-                  {(item.city ?? "").trim() || "—"} {item.country ? `• ${item.country}` : ""}
-                </Text>
+                <Text style={{ color: theme.colors.muted }}>{meta}</Text>
               </View>
 
               <Pressable
@@ -326,9 +391,7 @@ export default function DiscoverScreen() {
         ListEmptyComponent={
           !loading && !error ? (
             <View style={{ paddingTop: 16 }}>
-              <Text style={{ color: theme.colors.muted }}>
-                Nessun suggerimento disponibile.
-              </Text>
+              <Text style={{ color: theme.colors.muted }}>Nessun suggerimento disponibile.</Text>
             </View>
           ) : null
         }
