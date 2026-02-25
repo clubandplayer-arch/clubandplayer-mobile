@@ -21,6 +21,7 @@ type SuggestionItem = {
   avatar_url?: string | null;
   account_type?: string | null;
   type?: string | null;
+  name?: string | null;
 
   country?: string | null;
   region?: string | null;
@@ -46,15 +47,31 @@ function isClubProfile(p: SuggestionItem) {
 }
 
 function looksLikeEmail(s: string) {
-  return s.includes("@") && s.includes(".");
+  const v = s.trim();
+  return v.includes("@") && v.includes(".");
 }
 
-function humanizeName(p: SuggestionItem) {
-  const raw = (p.display_name ?? p.full_name ?? "").trim();
-  if (!raw) return isClubProfile(p) ? "Club" : "Player";
-  if (!looksLikeEmail(raw)) return raw;
+function pickNameCandidate(v: unknown) {
+  const s = (typeof v === "string" ? v : "").trim();
+  return s.length ? s : "";
+}
 
-  // fallback: usa la parte prima di @, “Club”/“Player” se troppo brutta
+// ✅ Regola coerente con feed/following:
+// 1) name (se presente) → 2) full_name → 3) display_name
+// e se sembra un'email, scarta e prova il successivo.
+function humanizeName(p: SuggestionItem) {
+  const name = pickNameCandidate((p as any).name);
+  const full = pickNameCandidate((p as any).full_name);
+  const display = pickNameCandidate((p as any).display_name);
+
+  if (name && !looksLikeEmail(name)) return name;
+  if (full && !looksLikeEmail(full)) return full;
+  if (display && !looksLikeEmail(display)) return display;
+
+  // fallback: se sono tutti email o vuoti, prova a rendere "umano" il migliore disponibile
+  const raw = name || full || display;
+  if (!raw) return isClubProfile(p) ? "Club" : "Player";
+
   const local = raw.split("@")[0]?.trim() ?? "";
   if (!local || local.length < 2) return isClubProfile(p) ? "Club" : "Player";
   return local.charAt(0).toUpperCase() + local.slice(1);
