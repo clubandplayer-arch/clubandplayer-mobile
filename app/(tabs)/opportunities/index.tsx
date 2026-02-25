@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 
-import BrandHeader from "../../../src/components/brand/BrandHeader";
 import { devWarn } from "../../../src/lib/debug/devLog";
 import { applyToOpportunity, fetchMyApplications, fetchOpportunities, useWebSession, useWhoami } from "../../../src/lib/api";
 import type { Opportunity } from "../../../src/types/opportunity";
@@ -339,7 +338,6 @@ export default function OpportunitiesScreen() {
   if (error && items.length === 0) {
     return (
       <View style={{ flex: 1, padding: 20, justifyContent: "center", gap: 12 }}>
-        <BrandHeader subtitle="Opportunità" />
         <Text style={{ color: theme.colors.danger }}>{error}</Text>
         <Pressable
           onPress={() => void loadPage(1, "replace")}
@@ -362,14 +360,6 @@ export default function OpportunitiesScreen() {
       data={items}
       ListHeaderComponent={
         <View style={{ marginBottom: 12 }}>
-          <BrandHeader
-            subtitle="Opportunità"
-            rightAction={{
-              label: "Candidature",
-              onPress: () => router.push("/applications"),
-              color: theme.colors.primary,
-            }}
-          />
         </View>
       }
       keyExtractor={(item) => String(item.id)}

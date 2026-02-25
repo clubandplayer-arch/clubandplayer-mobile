@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 
-import BrandHeader from "../../../src/components/brand/BrandHeader";
 import { fetchDirectMessageThreads } from "../../../src/lib/api";
 import type { DirectThreadSummary } from "../../../src/types/directMessages";
 import { theme } from "../../../src/theme";
@@ -169,7 +168,6 @@ export default function MessagesInboxScreen() {
           gap: 8,
         }}
       >
-        <BrandHeader subtitle="Messaggi" />
         {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
       </View>
     ),
