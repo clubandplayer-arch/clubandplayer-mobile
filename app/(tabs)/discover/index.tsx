@@ -158,9 +158,12 @@ export default function DiscoverScreen() {
       }
 
       try {
+        const roleParam = tab === "club" ? "club" : "athlete";
+        const base = `${WEB_BASE_URL}/api/follows/suggestions?role=${encodeURIComponent(roleParam)}&limit=50`;
+
         const url =
-          cursor ? `${WEB_BASE_URL}/api/follows/suggestions?cursor=${encodeURIComponent(cursor)}`
-                 : `${WEB_BASE_URL}/api/follows/suggestions`;
+          cursor ? `${base}&cursor=${encodeURIComponent(cursor)}`
+                 : base;
 
         const res = await fetch(url, {
           method: "GET",
@@ -181,6 +184,8 @@ export default function DiscoverScreen() {
         if (__DEV__) {
           console.log("[discover][suggestions]", {
             reset,
+            tab,
+            roleParam,
             got: safe.length,
             nextCursor: (json as any)?.nextCursor ?? null,
             url,
@@ -197,7 +202,7 @@ export default function DiscoverScreen() {
         setLoadingMore(false);
       }
     },
-    [mergeUnique, nextCursor, web.ready],
+    [mergeUnique, nextCursor, web.ready, tab],
   );
 
   useEffect(() => {
