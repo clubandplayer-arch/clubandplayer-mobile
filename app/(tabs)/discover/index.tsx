@@ -165,6 +165,7 @@ export default function DiscoverScreen() {
         const res = await fetch(url, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
         });
 
         const json = (await res.json()) as SuggestionsResponse;
@@ -177,9 +178,17 @@ export default function DiscoverScreen() {
 
         const list = (json.items ?? json.data ?? []) as SuggestionItem[];
         const safe = Array.isArray(list) ? list : [];
+        if (__DEV__) {
+          console.log("[discover][suggestions]", {
+            reset,
+            got: safe.length,
+            nextCursor: (json as any)?.nextCursor ?? null,
+            url,
+          });
+        }
 
         setItems((prev) => (reset ? safe : mergeUnique(prev, safe)));
-        setNextCursor(json.nextCursor ?? null);
+        setNextCursor((json as any)?.nextCursor ?? null);
       } catch (e: any) {
         setError(e?.message ? String(e.message) : "Errore nel caricamento suggerimenti");
         if (reset) setItems([]);
