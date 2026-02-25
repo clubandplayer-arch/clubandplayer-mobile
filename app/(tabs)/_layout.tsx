@@ -15,7 +15,7 @@ import { clearSession } from "../../src/lib/api";
 import { supabase } from "../../src/lib/supabase";
 import { useIsClub } from "../../src/lib/useIsClub";
 
-const BRAND_DARK = "#00527a";  // blu scuro logo
+const BRAND_DARK = "#00527a"; // blu scuro logo
 const BRAND_LIGHT = "#2a7aa0"; // blu chiaro logo (lo rifiniamo dopo)
 
 export default function TabsLayout() {
@@ -33,7 +33,7 @@ export default function TabsLayout() {
   const pathname = usePathname();
 
   function isActive(route: string) {
-  return pathname?.startsWith(route);
+    return pathname?.startsWith(route);
   }
 
   useEffect(() => {
@@ -53,6 +53,10 @@ export default function TabsLayout() {
       sub.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    setAvatarMenuOpen(false);
+  }, [pathname]);
 
   const loadMessagesUnreadCount = useCallback(async () => {
     const response = await fetchDirectMessagesUnreadCount();
@@ -74,6 +78,15 @@ export default function TabsLayout() {
     setAvatarMenuOpen(false);
   }, []);
 
+  const onAvatarPress = useCallback(() => {
+    if (!sessionPresent) {
+      router.push("/login");
+      return;
+    }
+
+    setAvatarMenuOpen((prev) => !prev);
+  }, [router, sessionPresent]);
+
   const navigateFromAvatarMenu = useCallback(
     (route: string) => {
       closeAvatarMenu();
@@ -83,22 +96,22 @@ export default function TabsLayout() {
   );
 
   const onLogoutFromAvatarMenu = useCallback(async () => {
-    closeAvatarMenu();
-
-    try {
-      await supabase.auth.signOut();
-    } catch {
-      // no-op: navigation to login must happen anyway
-    }
+    setAvatarMenuOpen(false);
 
     try {
       await clearSession();
     } catch {
-      // no-op: navigation to login must happen anyway
+      // no-op: replace to login must happen anyway
+    }
+
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // no-op: replace to login must happen anyway
     }
 
     router.replace("/login");
-  }, [closeAvatarMenu, router]);
+  }, [router]);
 
   const avatarMenuItems = isClub
     ? [
@@ -134,25 +147,25 @@ export default function TabsLayout() {
           onPress={() => router.push("/feed")}
           style={styles.brandWrap}
         >
-        <Text
-          numberOfLines={1}
-          style={[
-            styles.brandText,
-            fontsLoaded ? { fontFamily: "Righteous_400Regular" } : null,
-          ]}
-        >
-          <Text style={{ color: BRAND_LIGHT }}>Club</Text>
           <Text
-            style={{
-              color: BRAND_DARK,
-              fontSize: 30,       // 🔥 & più grande
-              lineHeight: 30,
-            }}
+            numberOfLines={1}
+            style={[
+              styles.brandText,
+              fontsLoaded ? { fontFamily: "Righteous_400Regular" } : null,
+            ]}
           >
-            &
+            <Text style={{ color: BRAND_LIGHT }}>Club</Text>
+            <Text
+              style={{
+                color: BRAND_DARK,
+                fontSize: 30,
+                lineHeight: 30,
+              }}
+            >
+              &
+            </Text>
+            <Text style={{ color: BRAND_LIGHT }}>Player</Text>
           </Text>
-          <Text style={{ color: BRAND_LIGHT }}>Player</Text>
-        </Text>
         </TouchableOpacity>
 
         <View style={styles.headerRight}>
@@ -179,37 +192,34 @@ export default function TabsLayout() {
             <Ionicons name="search-outline" size={22} color={BRAND_DARK} />
           </TouchableOpacity>
 
-          <Pressable
-            onPress={() => setAvatarMenuOpen((prev) => !prev)}
-            hitSlop={10}
-            style={styles.avatarCircle}
-          >
-            <Ionicons name="person-outline" size={18} color={BRAND_DARK} />
-          </Pressable>
+          <View style={styles.avatarAnchor}>
+            <Pressable onPress={onAvatarPress} hitSlop={10} style={styles.avatarCircle}>
+              <Ionicons name="person-outline" size={18} color={BRAND_DARK} />
+            </Pressable>
+
+            {avatarMenuOpen ? (
+              <View style={styles.avatarDropdown}>
+                {avatarMenuItems.map((item, index) => {
+                  const isLast = index === avatarMenuItems.length - 1;
+
+                  return (
+                    <View key={item.label}>
+                      <Pressable onPress={item.onPress} style={styles.avatarMenuItem}>
+                        <Text style={[styles.avatarMenuItemText, item.danger ? styles.avatarMenuItemDanger : null]}>
+                          {item.label}
+                        </Text>
+                      </Pressable>
+                      {!isLast ? <View style={styles.avatarMenuDivider} /> : null}
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
+          </View>
         </View>
       </View>
 
-      {avatarMenuOpen ? (
-        <>
-          <Pressable style={styles.avatarOverlay} onPress={closeAvatarMenu} />
-          <View style={styles.avatarDropdown}>
-            {avatarMenuItems.map((item, index) => {
-              const isLast = index === avatarMenuItems.length - 1;
-
-              return (
-                <View key={item.label}>
-                  <Pressable onPress={item.onPress} style={styles.avatarMenuItem}>
-                    <Text style={[styles.avatarMenuItemText, item.danger ? styles.avatarMenuItemDanger : null]}>
-                      {item.label}
-                    </Text>
-                  </Pressable>
-                  {!isLast ? <View style={styles.avatarMenuDivider} /> : null}
-                </View>
-              );
-            })}
-          </View>
-        </>
-      ) : null}
+      {avatarMenuOpen ? <Pressable style={styles.avatarOverlay} onPress={closeAvatarMenu} /> : null}
 
       {/* ICON ROW (fase 2 farà routing+active indicator) */}
       <View style={styles.iconRow}>
@@ -304,6 +314,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: "#fff",
+    zIndex: 40,
   },
 
   brandWrap: { minWidth: 0, flexShrink: 1, paddingRight: 12 },
@@ -320,6 +331,11 @@ const styles = StyleSheet.create({
     height: 34,
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  avatarAnchor: {
+    position: "relative",
+    zIndex: 50,
   },
 
   avatarCircle: {
@@ -340,8 +356,8 @@ const styles = StyleSheet.create({
 
   avatarDropdown: {
     position: "absolute",
-    top: 56,
-    right: 12,
+    top: 44,
+    right: 0,
     width: 240,
     backgroundColor: "#fff",
     borderRadius: 12,
@@ -350,8 +366,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 10,
-    elevation: 8,
-    zIndex: 20,
+    elevation: 20,
+    zIndex: 50,
   },
 
   avatarMenuItem: {
@@ -399,19 +415,20 @@ const styles = StyleSheet.create({
   },
 
   divider: { height: 1, backgroundColor: "#E5E5E5" },
-  iconItem: {
-  alignItems: "center",
-  justifyContent: "center",
-  flex: 1,
-  height: 48,
-},
 
-activeIndicator: {
-  position: "absolute",
-  bottom: 0,
-  height: 3,
-  width: 22,
-  backgroundColor: "#00527a",
-  borderRadius: 2,
-},
+  iconItem: {
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+    height: 48,
+  },
+
+  activeIndicator: {
+    position: "absolute",
+    bottom: 0,
+    height: 3,
+    width: 22,
+    backgroundColor: "#00527a",
+    borderRadius: 2,
+  },
 });
