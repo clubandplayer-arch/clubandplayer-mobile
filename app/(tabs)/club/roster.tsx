@@ -10,7 +10,6 @@ import {
   View,
 } from "react-native";
 
-import BrandHeader from "../../../src/components/brand/BrandHeader";
 import { fetchClubRoster, updateClubRoster, type ClubRosterItem } from "../../../src/lib/api";
 import { theme } from "../../../src/theme";
 
@@ -94,9 +93,7 @@ export default function ClubRosterScreen() {
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <BrandHeader subtitle="Rosa" />
-
+    <View style={{ flex: 1, backgroundColor: theme.colors.background, paddingTop: 12 }}>
       {loading ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
           <ActivityIndicator />
