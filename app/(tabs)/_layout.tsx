@@ -134,7 +134,7 @@ export default function TabsLayout() {
           { icon: "briefcase-outline", route: "/opportunities" },
           { icon: "document-text-outline", route: "/applications" },
           { icon: "heart-outline", route: "/following" },
-          { icon: "person-add-outline", route: "/search" },
+          { icon: "person-add-outline", route: "/discover" },
           { icon: "notifications-outline", route: "/notifications" },
         ].map((item) => {
           const active = isActive(item.route);
