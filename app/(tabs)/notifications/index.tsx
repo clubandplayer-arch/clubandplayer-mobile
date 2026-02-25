@@ -309,7 +309,7 @@ export default function NotificationsScreen() {
 
   const header = useMemo(
     () => (
-      <View style={{ paddingHorizontal: 16, paddingBottom: 12, gap: 12, borderBottomWidth: 1, borderBottomColor: theme.colors.neutral100, backgroundColor: theme.colors.background }}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, gap: 12, borderBottomWidth: 1, borderBottomColor: theme.colors.neutral100, backgroundColor: theme.colors.background }}>
 
         <View style={{ flexDirection: "row", gap: 8 }}>
           <Pressable

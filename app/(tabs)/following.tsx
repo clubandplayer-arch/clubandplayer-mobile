@@ -11,7 +11,6 @@ import {
   View,
 } from "react-native";
 
-import BrandHeader from "../../src/components/brand/BrandHeader";
 import { fetchClubRoster, fetchFollowingList, updateClubRoster, useWebSession } from "../../src/lib/api";
 import { supabase } from "../../src/lib/supabase";
 import { useIsClub } from "../../src/lib/useIsClub";
@@ -357,7 +356,6 @@ export default function FollowingScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <BrandHeader subtitle="Seguiti" />
 
       {loading ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
