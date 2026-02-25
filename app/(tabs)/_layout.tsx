@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Tabs, useRouter } from "expo-router";
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Platform, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { usePathname } from "expo-router";
@@ -11,6 +11,7 @@ import { Righteous_400Regular } from "@expo-google-fonts/righteous";
 import { fetchDirectMessagesUnreadCount } from "../../src/lib/api";
 import { on } from "../../src/lib/events/appEvents";
 import { useNotificationsBadgeCount } from "../../src/lib/notificationsBadge";
+import { clearSession } from "../../src/lib/api";
 import { supabase } from "../../src/lib/supabase";
 import { useIsClub } from "../../src/lib/useIsClub";
 
@@ -28,6 +29,7 @@ export default function TabsLayout() {
   const [sessionPresent, setSessionPresent] = useState(false);
   const { isClub, loading: isClubLoading } = useIsClub(sessionPresent);
   const [messagesUnreadCount, setMessagesUnreadCount] = useState<number>(0);
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const pathname = usePathname();
 
   function isActive(route: string) {
@@ -67,6 +69,61 @@ export default function TabsLayout() {
       unsubscribeMessages();
     };
   }, [loadMessagesUnreadCount]);
+
+  const closeAvatarMenu = useCallback(() => {
+    setAvatarMenuOpen(false);
+  }, []);
+
+  const navigateFromAvatarMenu = useCallback(
+    (route: string) => {
+      closeAvatarMenu();
+      router.push(route as any);
+    },
+    [closeAvatarMenu, router]
+  );
+
+  const onLogoutFromAvatarMenu = useCallback(async () => {
+    closeAvatarMenu();
+
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // no-op: navigation to login must happen anyway
+    }
+
+    try {
+      await clearSession();
+    } catch {
+      // no-op: navigation to login must happen anyway
+    }
+
+    router.replace("/login");
+  }, [closeAvatarMenu, router]);
+
+  const avatarMenuItems = isClub
+    ? [
+        { label: "Profilo", onPress: () => navigateFromAvatarMenu("/club/profile"), danger: false },
+        {
+          label: "Crea opportunità",
+          onPress: () => navigateFromAvatarMenu("/opportunities/new"),
+          danger: false,
+        },
+        {
+          label: "Candidature ricevute",
+          onPress: () => navigateFromAvatarMenu("/club/applications"),
+          danger: false,
+        },
+        {
+          label: "Verifica profilo",
+          onPress: () => navigateFromAvatarMenu("/club/verification"),
+          danger: false,
+        },
+        { label: "Logout", onPress: onLogoutFromAvatarMenu, danger: true },
+      ]
+    : [
+        { label: "Profilo", onPress: () => navigateFromAvatarMenu("/player/profile"), danger: false },
+        { label: "Logout", onPress: onLogoutFromAvatarMenu, danger: true },
+      ];
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -122,10 +179,37 @@ export default function TabsLayout() {
             <Ionicons name="search-outline" size={22} color={BRAND_DARK} />
           </TouchableOpacity>
 
-          {/* Avatar circle: Fase 3. Placeholder spazio fisso per non shiftare layout */}
-          <View style={{ width: 34 }} />
+          <Pressable
+            onPress={() => setAvatarMenuOpen((prev) => !prev)}
+            hitSlop={10}
+            style={styles.avatarCircle}
+          >
+            <Ionicons name="person-outline" size={18} color={BRAND_DARK} />
+          </Pressable>
         </View>
       </View>
+
+      {avatarMenuOpen ? (
+        <>
+          <Pressable style={styles.avatarOverlay} onPress={closeAvatarMenu} />
+          <View style={styles.avatarDropdown}>
+            {avatarMenuItems.map((item, index) => {
+              const isLast = index === avatarMenuItems.length - 1;
+
+              return (
+                <View key={item.label}>
+                  <Pressable onPress={item.onPress} style={styles.avatarMenuItem}>
+                    <Text style={[styles.avatarMenuItemText, item.danger ? styles.avatarMenuItemDanger : null]}>
+                      {item.label}
+                    </Text>
+                  </Pressable>
+                  {!isLast ? <View style={styles.avatarMenuDivider} /> : null}
+                </View>
+              );
+            })}
+          </View>
+        </>
+      ) : null}
 
       {/* ICON ROW (fase 2 farà routing+active indicator) */}
       <View style={styles.iconRow}>
@@ -236,6 +320,59 @@ const styles = StyleSheet.create({
     height: 34,
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  avatarCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: "#d7e4ea",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+  },
+
+  avatarOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+  },
+
+  avatarDropdown: {
+    position: "absolute",
+    top: 56,
+    right: 12,
+    width: 240,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingVertical: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 8,
+    zIndex: 20,
+  },
+
+  avatarMenuItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+
+  avatarMenuItemText: {
+    fontSize: 15,
+    color: "#1b1b1b",
+  },
+
+  avatarMenuItemDanger: {
+    color: "#d92d20",
+    fontWeight: "600",
+  },
+
+  avatarMenuDivider: {
+    height: 1,
+    backgroundColor: "#eee",
+    marginHorizontal: 10,
   },
 
   badge: {
