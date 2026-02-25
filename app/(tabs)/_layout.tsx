@@ -197,7 +197,7 @@ export default function TabsLayout() {
               {avatarUrl ? (
                 <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
               ) : (
-                <Ionicons name="person-outline" size={28} color={BRAND_DARK} />
+                <Ionicons name="person-outline" size={22} color={BRAND_DARK} />
               )}
             </Pressable>
 
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
 
   header: {
-    height: 80,
+    height: 68,
     paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
@@ -343,9 +343,9 @@ const styles = StyleSheet.create({
   },
 
   avatarCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     borderWidth: 1,
     borderColor: "#d7e4ea",
     alignItems: "center",
@@ -355,9 +355,9 @@ const styles = StyleSheet.create({
   },
 
   avatarImage: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
   },
 
   avatarOverlay: {
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
 
   avatarDropdown: {
     position: "absolute",
-    top: 78,
+    top: 58,
     right: 0,
     width: 240,
     backgroundColor: "#fff",
