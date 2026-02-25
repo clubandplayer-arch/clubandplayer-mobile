@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Tabs, useRouter } from "expo-router";
-import { View, Text, TouchableOpacity, StyleSheet, Platform, Pressable } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Platform, Pressable, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { usePathname } from "expo-router";
@@ -8,10 +8,9 @@ import { usePathname } from "expo-router";
 import { useFonts } from "expo-font";
 import { Righteous_400Regular } from "@expo-google-fonts/righteous";
 
-import { fetchDirectMessagesUnreadCount } from "../../src/lib/api";
+import { fetchDirectMessagesUnreadCount, clearSession, fetchProfileMe } from "../../src/lib/api";
 import { on } from "../../src/lib/events/appEvents";
 import { useNotificationsBadgeCount } from "../../src/lib/notificationsBadge";
-import { clearSession } from "../../src/lib/api";
 import { supabase } from "../../src/lib/supabase";
 import { useIsClub } from "../../src/lib/useIsClub";
 
@@ -30,6 +29,7 @@ export default function TabsLayout() {
   const { isClub, loading: isClubLoading } = useIsClub(sessionPresent);
   const [messagesUnreadCount, setMessagesUnreadCount] = useState<number>(0);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const pathname = usePathname();
 
   function isActive(route: string) {
@@ -57,6 +57,26 @@ export default function TabsLayout() {
   useEffect(() => {
     setAvatarMenuOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!sessionPresent) {
+      setAvatarUrl(null);
+      return;
+    }
+
+    fetchProfileMe().then((response) => {
+      if (cancelled || !response.ok || !response.data) return;
+      const profile = (response.data as any)?.data ?? response.data;
+      const nextAvatarUrl = profile?.avatar_url ?? profile?.avatarUrl ?? null;
+      setAvatarUrl(typeof nextAvatarUrl === "string" && nextAvatarUrl.length > 0 ? nextAvatarUrl : null);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionPresent]);
 
   const loadMessagesUnreadCount = useCallback(async () => {
     const response = await fetchDirectMessagesUnreadCount();
@@ -113,30 +133,10 @@ export default function TabsLayout() {
     router.replace("/login");
   }, [router]);
 
-  const avatarMenuItems = isClub
-    ? [
-        { label: "Profilo", onPress: () => navigateFromAvatarMenu("/club/profile"), danger: false },
-        {
-          label: "Crea opportunità",
-          onPress: () => navigateFromAvatarMenu("/opportunities/new"),
-          danger: false,
-        },
-        {
-          label: "Candidature ricevute",
-          onPress: () => navigateFromAvatarMenu("/club/applications"),
-          danger: false,
-        },
-        {
-          label: "Verifica profilo",
-          onPress: () => navigateFromAvatarMenu("/club/verification"),
-          danger: false,
-        },
-        { label: "Logout", onPress: onLogoutFromAvatarMenu, danger: true },
-      ]
-    : [
-        { label: "Profilo", onPress: () => navigateFromAvatarMenu("/player/profile"), danger: false },
-        { label: "Logout", onPress: onLogoutFromAvatarMenu, danger: true },
-      ];
+  const avatarMenuItems = [
+    { label: "Profilo", onPress: () => navigateFromAvatarMenu(isClub ? "/club/profile" : "/player/profile"), danger: false },
+    { label: "Logout", onPress: onLogoutFromAvatarMenu, danger: true },
+  ];
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -194,7 +194,11 @@ export default function TabsLayout() {
 
           <View style={styles.avatarAnchor}>
             <Pressable onPress={onAvatarPress} hitSlop={10} style={styles.avatarCircle}>
-              <Ionicons name="person-outline" size={18} color={BRAND_DARK} />
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+              ) : (
+                <Ionicons name="person-outline" size={18} color={BRAND_DARK} />
+              )}
             </Pressable>
 
             {avatarMenuOpen ? (
@@ -347,11 +351,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#fff",
+    overflow: "hidden",
+  },
+
+  avatarImage: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
   },
 
   avatarOverlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 10,
+    backgroundColor: "transparent",
   },
 
   avatarDropdown: {
