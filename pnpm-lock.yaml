@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@expo-google-fonts/righteous':
+        specifier: ^0.4.1
+        version: 0.4.1
       '@react-native-async-storage/async-storage':
         specifier: ^2.2.0
         version: 2.2.0(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))
@@ -29,6 +32,9 @@ importers:
       expo-file-system:
         specifier: ^19.0.21
         version: 19.0.21(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))
+      expo-font:
+        specifier: ~14.0.11
+        version: 14.0.11(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       expo-image-picker:
         specifier: ^17.0.10
         version: 17.0.10(expo@54.0.33)
@@ -610,6 +616,9 @@ packages:
   '@egjs/hammerjs@2.0.17':
     resolution: {integrity: sha512-XQsZgjm2EcVUiZQf11UBJQfmZeEmOW8DpI1gsFeln6w0ae0ii4dMQEQ0kjl6DspdWX1aGY1/loyXnP0JS06e/A==}
     engines: {node: '>=0.8.0'}
+
+  '@expo-google-fonts/righteous@0.4.1':
+    resolution: {integrity: sha512-oWlxXmRNYRN5aHW2cLJopUTr7T+mNRGfKjBeQlYLbOIf1yn6UF5kcg9PqkD6gG8BG1pKxzT3jXzcRvFSRL1HKA==}
 
   '@expo/cli@54.0.23':
     resolution: {integrity: sha512-km0h72SFfQCmVycH/JtPFTVy69w6Lx1cHNDmfLfQqgKFYeeHTjx7LVDP4POHCtNxFP2UeRazrygJhlh4zz498g==}
@@ -3881,6 +3890,8 @@ snapshots:
   '@egjs/hammerjs@2.0.17':
     dependencies:
       '@types/hammerjs': 2.0.46
+
+  '@expo-google-fonts/righteous@0.4.1': {}
 
   '@expo/cli@54.0.23(expo-router@6.0.23)(expo@54.0.33)(graphql@16.8.1)(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))':
     dependencies:

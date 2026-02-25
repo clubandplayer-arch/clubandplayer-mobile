@@ -48,7 +48,7 @@ const config: ExpoConfig = {
     ],
   },
 
-  plugins: ["expo-router", "expo-video"],
+  plugins: ["expo-router", "expo-video", "expo-font"],
 
   // ✅ NECESSARIO per collegare il progetto locale a EAS (dynamic config)
   extra: {

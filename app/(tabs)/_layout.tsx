@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Tabs } from "expo-router";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { Tabs, useRouter } from "expo-router";
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+
+import { useFonts } from "expo-font";
+import { Righteous_400Regular } from "@expo-google-fonts/righteous";
 
 import { fetchDirectMessagesUnreadCount } from "../../src/lib/api";
 import { on } from "../../src/lib/events/appEvents";
@@ -10,7 +13,16 @@ import { useNotificationsBadgeCount } from "../../src/lib/notificationsBadge";
 import { supabase } from "../../src/lib/supabase";
 import { useIsClub } from "../../src/lib/useIsClub";
 
+const BRAND_DARK = "#00527a";  // blu scuro logo
+const BRAND_LIGHT = "#2a7aa0"; // blu chiaro logo (lo rifiniamo dopo)
+
 export default function TabsLayout() {
+  const router = useRouter();
+
+  const [fontsLoaded] = useFonts({
+    Righteous_400Regular,
+  });
+
   const unreadCount = useNotificationsBadgeCount();
   const [sessionPresent, setSessionPresent] = useState(false);
   const { isClub, loading: isClubLoading } = useIsClub(sessionPresent);
@@ -51,25 +63,65 @@ export default function TabsLayout() {
   }, [loadMessagesUnreadCount]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
-      {/* HEADER */}
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      {/* HEADER (mockup) */}
       <View style={styles.header}>
-        <Text style={styles.logo}>Club & Player</Text>
-        <View style={styles.headerIcons}>
-          <Ionicons name="chatbubble-outline" size={24} />
-          <Ionicons name="search-outline" size={24} style={{ marginLeft: 16 }} />
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.push("/feed")}
+          style={styles.brandWrap}
+        >
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.brandText,
+              fontsLoaded ? { fontFamily: "Righteous_400Regular" } : null,
+            ]}
+          >
+            <Text style={{ color: BRAND_LIGHT }}>Club</Text>
+            <Text style={{ color: BRAND_DARK }}> &amp; </Text>
+            <Text style={{ color: BRAND_LIGHT }}>Player</Text>
+          </Text>
+        </TouchableOpacity>
+
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => router.push("/messages")}
+            style={styles.iconBtn}
+          >
+            <Ionicons name="chatbubble-outline" size={22} color={BRAND_DARK} />
+            {messagesUnreadCount > 0 ? (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {messagesUnreadCount > 99 ? "99+" : String(messagesUnreadCount)}
+                </Text>
+              </View>
+            ) : null}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => router.push("/search")}
+            style={styles.iconBtn}
+          >
+            <Ionicons name="search-outline" size={22} color={BRAND_DARK} />
+          </TouchableOpacity>
+
+          {/* Avatar circle: Fase 3. Placeholder spazio fisso per non shiftare layout */}
+          <View style={{ width: 34 }} />
         </View>
       </View>
 
-      {/* ICON ROW */}
+      {/* ICON ROW (fase 2 farà routing+active indicator) */}
       <View style={styles.iconRow}>
-        <Ionicons name="home" size={22} color="#007AFF" />
-        <Ionicons name="briefcase-outline" size={22} />
-        <Ionicons name="document-text-outline" size={22} />
-        <Ionicons name="heart-outline" size={22} />
-        <Ionicons name="person-add-outline" size={22} />
-        <Ionicons name="notifications-outline" size={22} />
-        {isClub && <Ionicons name="people-outline" size={22} color="#ff2d55" />}
+        <Ionicons name="home" size={22} color={BRAND_DARK} />
+        <Ionicons name="briefcase-outline" size={22} color={BRAND_LIGHT} />
+        <Ionicons name="document-text-outline" size={22} color={BRAND_LIGHT} />
+        <Ionicons name="heart-outline" size={22} color={BRAND_LIGHT} />
+        <Ionicons name="person-add-outline" size={22} color={BRAND_LIGHT} />
+        <Ionicons name="notifications-outline" size={22} color={BRAND_LIGHT} />
+        {isClub ? <Ionicons name="people-outline" size={22} color="#ff2d55" /> : null}
       </View>
 
       <View style={styles.divider} />
@@ -78,17 +130,28 @@ export default function TabsLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
+          tabBarHideOnKeyboard: true,
           tabBarStyle: { display: "none" },
         }}
       >
         <Tabs.Screen name="feed/index" />
         <Tabs.Screen name="search/index" />
         <Tabs.Screen name="messages/index" />
-        <Tabs.Screen name="club/roster" />
+        <Tabs.Screen
+          name="club/roster"
+          options={{
+            href: isClubLoading ? null : isClub ? undefined : null,
+          }}
+        />
         <Tabs.Screen name="following" />
         <Tabs.Screen name="opportunities/index" />
         <Tabs.Screen name="create/index" options={{ href: null }} />
-        <Tabs.Screen name="notifications/index" />
+        <Tabs.Screen
+          name="notifications/index"
+          options={{
+            tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          }}
+        />
         <Tabs.Screen name="me/index" />
         <Tabs.Screen name="messages/[profileId]" options={{ href: null }} />
         <Tabs.Screen name="me/debug" options={{ href: null }} />
@@ -98,29 +161,55 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: "#fff" },
+
   header: {
-    height: 60,
+    height: 56,
     paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    backgroundColor: "#fff",
   },
-  logo: {
-    fontSize: 18,
-    fontWeight: "600",
+
+  brandWrap: { minWidth: 0, flexShrink: 1, paddingRight: 12 },
+
+  brandText: {
+    fontSize: 22,
+    letterSpacing: Platform.select({ ios: 0.2, android: 0.1, default: 0.2 }),
   },
-  headerIcons: {
-    flexDirection: "row",
+
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
+
+  iconBtn: {
+    width: 34,
+    height: 34,
     alignItems: "center",
+    justifyContent: "center",
   },
+
+  badge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
+    borderRadius: 999,
+    backgroundColor: "#ff3b30",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  badgeText: { color: "#fff", fontSize: 10, fontWeight: "800" },
+
   iconRow: {
-    height: 50,
+    height: 48,
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
+    backgroundColor: "#fff",
   },
-  divider: {
-    height: 1,
-    backgroundColor: "#E5E5E5",
-  },
+
+  divider: { height: 1, backgroundColor: "#E5E5E5" },
 });
