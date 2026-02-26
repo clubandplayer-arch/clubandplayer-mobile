@@ -158,8 +158,8 @@ export default function TabsLayout() {
             <Text
               style={{
                 color: BRAND_DARK,
-                fontSize: 30,
-                lineHeight: 30,
+                fontSize: 36,
+                lineHeight: 36,
               }}
             >
               &
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   brandWrap: { minWidth: 0, flexShrink: 1, paddingRight: 12 },
 
   brandText: {
-    fontSize: 22,
+    fontSize: 26,
     letterSpacing: Platform.select({ ios: 0.2, android: 0.1, default: 0.2 }),
   },
 
