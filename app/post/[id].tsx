@@ -39,8 +39,9 @@ function formatWhen(iso?: string | null) {
   }
 }
 
-function Avatar({ url, size = 44 }: { url?: string | null; size?: number }) {
+function Avatar({ url, size = 44, name }: { url?: string | null; size?: number; name?: string }) {
   if (!url) {
+    const initial = name?.trim().charAt(0).toUpperCase() || "U";
     return (
       <View
         style={{
@@ -48,8 +49,14 @@ function Avatar({ url, size = 44 }: { url?: string | null; size?: number }) {
           height: size,
           borderRadius: size / 2,
           backgroundColor: theme.colors.neutral200,
+          alignItems: "center",
+          justifyContent: "center",
         }}
-      />
+      >
+        <Text style={{ fontSize: Math.max(12, Math.floor(size * 0.35)), fontWeight: "700", color: theme.colors.text }}>
+          {initial}
+        </Text>
+      </View>
     );
   }
   return (
@@ -405,7 +412,7 @@ export default function PostDetailScreen() {
             disabled={!post.author_id}
             style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
           >
-            <Avatar url={(author as any)?.avatar_url ?? null} size={44} />
+            <Avatar url={(author as any)?.avatar_url ?? null} size={44} name={authorName} />
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                 <Text style={{ fontSize: 16, fontWeight: "900" }}>{authorName}</Text>
