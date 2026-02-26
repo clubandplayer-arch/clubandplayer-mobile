@@ -89,7 +89,7 @@ export default function NotificationsScreen() {
     setErrorText(null);
 
     // IMPORTANT: all=1 per ottenere la lista completa (coerente col web che ha filtro unread separato)
-    const res = await fetchNotifications({ all: 1 });
+    const res = await fetchNotifications({ limit: 50 });
 
     console.log("[notifications][fetch]", {
       ok: res.ok,
