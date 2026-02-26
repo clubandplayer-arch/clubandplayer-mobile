@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
-import { getAuthorName, getPostText, type FeedAuthor, type FeedMediaItem } from "../../src/lib/feed/getFeedPosts";
+import { getPostText, type FeedAuthor, type FeedMediaItem } from "../../src/lib/feed/getFeedPosts";
 import { asString, normalizeMediaRow } from "../../src/lib/media/normalizeMedia";
 import { resolveProfileByAuthorId } from "../../src/lib/profiles/resolveProfile";
 import { getPostSocial, type PostSocialResult } from "../../src/lib/posts/getPostSocial";
@@ -30,6 +30,12 @@ type PostRow = {
   [k: string]: any;
 };
 
+function getSafeAuthorName(author: any): string {
+  const name = author?.display_name || author?.full_name || author?.public_name;
+  if (typeof name === "string" && name.trim()) return name.trim();
+  return "Utente";
+}
+
 function formatWhen(iso?: string | null) {
   if (!iso) return "";
   try {
@@ -39,8 +45,9 @@ function formatWhen(iso?: string | null) {
   }
 }
 
-function Avatar({ url, size = 44 }: { url?: string | null; size?: number }) {
+function Avatar({ url, size = 44, name }: { url?: string | null; size?: number; name?: string }) {
   if (!url) {
+    const initial = name?.trim().charAt(0).toUpperCase() || "U";
     return (
       <View
         style={{
@@ -48,8 +55,14 @@ function Avatar({ url, size = 44 }: { url?: string | null; size?: number }) {
           height: size,
           borderRadius: size / 2,
           backgroundColor: theme.colors.neutral200,
+          alignItems: "center",
+          justifyContent: "center",
         }}
-      />
+      >
+        <Text style={{ fontSize: Math.max(12, Math.floor(size * 0.35)), fontWeight: "700", color: theme.colors.text }}>
+          {initial}
+        </Text>
+      </View>
     );
   }
   return (
@@ -91,7 +104,7 @@ export default function PostDetailScreen() {
 
   const when = useMemo(() => formatWhen(post?.created_at ?? null), [post?.created_at]);
   const text = useMemo(() => (post ? getPostText(post as any) : ""), [post]);
-  const authorName = useMemo(() => getAuthorName(author), [author]);
+  const authorName = useMemo(() => getSafeAuthorName(author), [author]);
 
   const load = useCallback(async () => {
     setError(null);
@@ -525,14 +538,14 @@ export default function PostDetailScreen() {
           {social.comments.length > 0 ? (
             <View style={{ gap: 12 }}>
               {social.comments.map((comment) => {
-                const commentAuthorName = getAuthorName(comment.author);
+                const commentAuthorName = getSafeAuthorName(comment.author);
                 const commentWhen = formatWhen(comment.created_at);
                 return (
                   <View
                     key={comment.id}
                     style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}
                   >
-                    <Avatar url={comment.author?.avatar_url ?? null} size={36} />
+                    <Avatar url={comment.author?.avatar_url ?? null} size={36} name={commentAuthorName} />
                     <View style={{ flex: 1, gap: 4 }}>
                       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
