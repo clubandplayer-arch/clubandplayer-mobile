@@ -101,6 +101,8 @@ export default function NotificationsScreen() {
     const kinds = (res.data?.data ?? []).map((n: any) => n.kind);
     console.log("[notifications][kinds]", kinds);
 
+    console.log("[notifications][raw-data]", JSON.stringify(res.data, null, 2));
+
     if (!res.ok) {
       setNotifications([]);
       setErrorText(res.errorText || `Errore caricamento notifiche (HTTP ${res.status})`);
