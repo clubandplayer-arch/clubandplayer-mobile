@@ -19,11 +19,7 @@ import {
   useWhoami,
 } from "../../src/lib/api";
 import { CommentsSection } from "../../src/components/CommentsSection";
-import {
-  getAuthorName,
-  getPostText,
-  type FeedAuthor,
-} from "../../src/lib/feed/getFeedPosts";
+import { getPostText, type FeedAuthor } from "../../src/lib/feed/getFeedPosts";
 import { emit } from "../../src/lib/events/appEvents";
 import { sharePostById } from "../../src/lib/sharePost";
 import { devWarn } from "../../src/lib/debug/devLog";
@@ -68,6 +64,12 @@ function formatWhen(iso?: string | null) {
   }
 }
 
+function getSafeAuthorName(author: any): string {
+  const name = author?.display_name || author?.full_name || author?.public_name;
+  if (typeof name === "string" && name.trim()) return name.trim();
+  return "Utente";
+}
+
 function getWhoamiUserId(user: unknown): string | null {
   if (!user || typeof user !== "object") return null;
 
@@ -78,8 +80,9 @@ function getWhoamiUserId(user: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
-function Avatar({ url, size = 44 }: { url?: string | null; size?: number }) {
+function Avatar({ url, size = 44, name }: { url?: string | null; size?: number; name?: string }) {
   if (!url) {
+    const initial = name?.trim().charAt(0).toUpperCase() || "U";
     return (
       <View
         style={{
@@ -87,8 +90,14 @@ function Avatar({ url, size = 44 }: { url?: string | null; size?: number }) {
           height: size,
           borderRadius: size / 2,
           backgroundColor: theme.colors.neutral200,
+          alignItems: "center",
+          justifyContent: "center",
         }}
-      />
+      >
+        <Text style={{ fontSize: Math.max(12, Math.floor(size * 0.35)), fontWeight: "700", color: theme.colors.text }}>
+          {initial}
+        </Text>
+      </View>
     );
   }
   return (
@@ -179,7 +188,7 @@ function PostVideo({ uri }: { uri: string }) {
 }
 
 function PostCard({ post, title }: { post: PostDetail; title?: string }) {
-  const authorName = getAuthorName(post.author);
+  const authorName = getSafeAuthorName(post.author);
   const when = formatWhen(post.created_at);
   const text = getPostText(post.raw);
   const mediaUrl = asString((post.raw as any)?.media_url);
@@ -203,7 +212,7 @@ function PostCard({ post, title }: { post: PostDetail; title?: string }) {
       ) : null}
 
       <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-        <Avatar url={post.author?.avatar_url ?? null} size={44} />
+        <Avatar url={post.author?.avatar_url ?? null} size={44} name={authorName} />
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 16, fontWeight: "800", color: theme.colors.text }}>
             {authorName}
