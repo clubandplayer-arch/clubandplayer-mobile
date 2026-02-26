@@ -4,6 +4,7 @@ import { useFocusEffect } from "@react-navigation/native";
 
 import { fetchNotifications } from "../../../src/lib/api";
 import { theme } from "../../../src/theme";
+import { useRouter } from "expo-router";
 
 type NotificationActor = {
   id?: string;
@@ -35,10 +36,14 @@ function getNotificationMessage(kind: string): string {
       return "ha commentato un post";
     case "new_reaction":
       return "ha reagito a un post";
+    case "new_reaction": // (no, non duplicare: una sola volta)
+      return "ha reagito a un post";
     case "follow":
       return "ha iniziato a seguirti";
     case "application_status_changed":
       return "ha aggiornato una candidatura";
+    case "application_received":
+      return "nuova candidatura ricevuta";
     case "new_application_received":
       return "nuova candidatura ricevuta";
     case "message":
@@ -84,6 +89,7 @@ export default function NotificationsScreen() {
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [errorText, setErrorText] = useState<string | null>(null);
+  const router = useRouter();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -178,7 +184,21 @@ export default function NotificationsScreen() {
 
         return (
           <Pressable
-            onPress={() => console.log("TODO PR-N2 deep link", item.id)}
+            onPress={() => {
+              const p: any = item.payload ?? {};
+
+              if (item.kind === "message" && typeof p.thread_id === "string") {
+                router.push(`/messages/${p.thread_id}`);
+                return;
+              }
+
+              if ((item.kind === "new_comment" || item.kind === "new_reaction") && typeof p.post_id === "string") {
+                router.push(`/posts/${p.post_id}`);
+                return;
+              }
+
+              console.log("TODO PR-N2 deep link", item.id, item.kind);
+            }}
             style={{
               flexDirection: "row",
               paddingHorizontal: 16,

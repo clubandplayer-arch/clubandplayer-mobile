@@ -191,7 +191,7 @@ export default function TabsLayout() {
           >
             <Ionicons name="chatbubble-outline" size={22} color={BRAND_DARK} />
             {messagesUnreadCount > 0 ? (
-              <View style={styles.badge}>
+              <View style={[styles.badge, { top: 0, right: 10 }]}>
                 <Text style={styles.badgeText}>
                   {messagesUnreadCount > 99 ? "99+" : String(messagesUnreadCount)}
                 </Text>
@@ -266,7 +266,7 @@ export default function TabsLayout() {
               />
 
               {item.route === "/notifications" && unreadCount > 0 ? (
-                <View style={styles.badge}>
+                <View style={[styles.badge, { top: 0, right: 10 }]}>
                   <Text style={styles.badgeText}>{unreadCount > 99 ? "99+" : String(unreadCount)}</Text>
                 </View>
               ) : null}
