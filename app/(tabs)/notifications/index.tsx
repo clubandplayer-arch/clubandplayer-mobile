@@ -1,8 +1,28 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 
-import { getNotifications, type NotificationItem } from "../../../src/lib/api";
+import { fetchNotifications } from "../../../src/lib/api";
 import { theme } from "../../../src/theme";
+
+type NotificationActor = {
+  id?: string;
+  display_name?: string | null;
+  full_name?: string | null;
+  avatar_url?: string | null;
+  account_type?: string | null;
+};
+
+type NotificationItem = {
+  id: string;
+  kind: string;
+  payload: any;
+  created_at: string;
+  read?: boolean;
+  read_at?: string | null;
+  actor_profile_id?: string | null;
+  actor?: NotificationActor | null;
+};
 
 function getActorName(notification: NotificationItem): string {
   return notification.actor?.display_name || notification.actor?.full_name || "Utente";
@@ -62,23 +82,46 @@ function Avatar({ name, avatarUrl }: { name: string; avatarUrl?: string | null }
 export default function NotificationsScreen() {
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [errorText, setErrorText] = useState<string | null>(null);
 
-  useEffect(() => {
-    let mounted = true;
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErrorText(null);
 
-    (async () => {
-      setLoading(true);
-      const items = await getNotifications();
-      if (mounted) {
-        setNotifications(items);
-        setLoading(false);
-      }
-    })();
+    // IMPORTANT: all=1 per ottenere la lista completa (coerente col web che ha filtro unread separato)
+    const res = await fetchNotifications({ all: 1 });
 
-    return () => {
-      mounted = false;
-    };
+    console.log("[notifications][fetch]", {
+      ok: res.ok,
+      status: res.status,
+      errorText: res.errorText ?? null,
+      items: res.data?.data?.length ?? 0,
+    });
+
+    if (!res.ok) {
+      setNotifications([]);
+      setErrorText(res.errorText || `Errore caricamento notifiche (HTTP ${res.status})`);
+      setLoading(false);
+      return;
+    }
+
+    setNotifications((res.data?.data as NotificationItem[]) ?? []);
+    setLoading(false);
   }, []);
+
+  // Refetch quando la screen torna in focus (es: dopo login o dopo navigazioni)
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      (async () => {
+        if (!active) return;
+        await load();
+      })();
+      return () => {
+        active = false;
+      };
+    }, [load])
+  );
 
   if (loading) {
     return (
@@ -88,58 +131,84 @@ export default function NotificationsScreen() {
     );
   }
 
+  if (errorText) {
+    return (
+      <View style={{ flex: 1, padding: 16 }}>
+        <Text style={{ color: theme.colors.text, fontWeight: "700", marginBottom: 8 }}>Errore</Text>
+        <Text style={{ color: theme.colors.text, marginBottom: 12 }}>{errorText}</Text>
+
+        <Pressable
+          onPress={() => void load()}
+          style={{
+            alignSelf: "flex-start",
+            paddingVertical: 10,
+            paddingHorizontal: 14,
+            borderRadius: 10,
+            backgroundColor: theme.colors.primary,
+          }}
+        >
+          <Text style={{ color: "white", fontWeight: "700" }}>Riprova</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (!notifications.length) {
+    return (
+      <View style={{ flex: 1, padding: 16 }}>
+        <Text style={{ color: theme.colors.text, fontWeight: "700", marginBottom: 8 }}>Notifiche</Text>
+        <Text style={{ color: theme.colors.text }}>Nessuna notifica da mostrare.</Text>
+      </View>
+    );
+  }
+
   return (
     <FlatList
       data={notifications}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => {
-        const actorName = getActorName(item);
-        const isUnread = item.read_at == null && item.read !== true;
+        const name = getActorName(item);
+        const unread = item.read_at == null && item.read !== true;
 
         return (
           <Pressable
             onPress={() => console.log("TODO PR-N2 deep link", item.id)}
             style={{
+              flexDirection: "row",
               paddingHorizontal: 16,
               paddingVertical: 12,
+              gap: 12,
               borderBottomWidth: 1,
-              borderBottomColor: theme.colors.neutral100,
-              backgroundColor: theme.colors.background,
+              borderBottomColor: theme.colors.neutral200,
+              backgroundColor: unread ? theme.colors.neutral100 : "transparent",
             }}
           >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-              <Avatar name={actorName} avatarUrl={item.actor?.avatar_url} />
+            <Avatar name={name} avatarUrl={item.actor?.avatar_url} />
 
-              <View style={{ flex: 1, gap: 4 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                  <Text style={{ color: theme.colors.text, fontWeight: isUnread ? "600" : "500", flex: 1 }}>
-                    {actorName} {getNotificationMessage(item.kind)}
-                  </Text>
-                  {isUnread ? (
-                    <View
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: 4,
-                        backgroundColor: theme.colors.primary,
-                      }}
-                    />
-                  ) : null}
-                </View>
-
-                <Text style={{ color: theme.colors.muted, fontSize: 12 }}>
-                  {new Date(item.created_at).toLocaleString()}
-                </Text>
-              </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: theme.colors.text, fontWeight: unread ? "600" : "500" }}>{name}</Text>
+              <Text style={{ color: theme.colors.text, marginTop: 2 }}>
+                {getNotificationMessage(item.kind)}
+              </Text>
+              <Text style={{ color: theme.colors.muted, marginTop: 6, fontSize: 12 }}>
+                {new Date(item.created_at).toLocaleString()}
+              </Text>
             </View>
+
+            {unread ? (
+              <View
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 5,
+                  backgroundColor: theme.colors.primary,
+                  marginTop: 4,
+                }}
+              />
+            ) : null}
           </Pressable>
         );
       }}
-      ListEmptyComponent={
-        <View style={{ paddingHorizontal: 16, paddingVertical: 20 }}>
-          <Text style={{ color: theme.colors.muted }}>Nessuna notifica disponibile.</Text>
-        </View>
-      }
     />
   );
 }
