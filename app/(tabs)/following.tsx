@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  SectionList,
+  FlatList,
   Image,
   Pressable,
   RefreshControl,
@@ -142,6 +142,7 @@ export default function FollowingScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<FollowingItem[]>([]);
+  const [tab, setTab] = useState<"club" | "player">("club");
 
   const PINK_SOFT = "#F7D6E6";
   const PINK = "#E91E63";
@@ -334,28 +335,71 @@ export default function FollowingScreen() {
     [isClub, loadRoster, pendingRosterIds, rosterSet],
   );
 
-  const sections = useMemo(() => {
-    const clubItems = decoratedItems.filter((item) => item.accountType === "club");
-    const playerItems = decoratedItems.filter((item) => item.accountType === "athlete");
-    const unknownItems = decoratedItems.filter((item) => item.accountType === "unknown");
-
-    const next: Array<{ title: string; data: DecoratedFollowingItem[] }> = [
-      { title: "Club che segui", data: clubItems },
-      { title: "Player che segui", data: playerItems },
-    ];
-
-    if (unknownItems.length > 0) next.push({ title: "Altri", data: unknownItems });
-
-    return next;
-  }, [decoratedItems]);
+  const filteredItems = useMemo(() =>
+    decoratedItems.filter((item) => (tab === "club" ? item.accountType === "club" : item.accountType === "athlete")),
+    [decoratedItems, tab],
+  );
 
   const empty = useMemo(
-    () => !loading && !error && decoratedItems.length === 0,
-    [decoratedItems.length, error, loading],
+    () => !loading && !error && filteredItems.length === 0,
+    [error, filteredItems.length, loading],
   );
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <View style={{ paddingTop: 12 }} />
+      <View style={{ paddingHorizontal: theme.spacing.xl, gap: 10, paddingBottom: 8 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            borderWidth: 1,
+            borderColor: theme.colors.neutral200,
+            borderRadius: theme.radius.pill,
+            padding: 4,
+            gap: 6,
+            backgroundColor: theme.colors.neutral50,
+            alignSelf: "flex-start",
+          }}
+        >
+          <Pressable
+            onPress={() => setTab("club")}
+            style={{
+              paddingVertical: 6,
+              paddingHorizontal: 14,
+              borderRadius: theme.radius.pill,
+              backgroundColor: tab === "club" ? theme.colors.primary : "transparent",
+            }}
+          >
+            <Text
+              style={{
+                color: tab === "club" ? theme.colors.background : theme.colors.text,
+                fontWeight: "800",
+              }}
+            >
+              Club
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setTab("player")}
+            style={{
+              paddingVertical: 6,
+              paddingHorizontal: 14,
+              borderRadius: theme.radius.pill,
+              backgroundColor: tab === "player" ? theme.colors.primary : "transparent",
+            }}
+          >
+            <Text
+              style={{
+                color: tab === "player" ? theme.colors.background : theme.colors.text,
+                fontWeight: "800",
+              }}
+            >
+              Player
+            </Text>
+          </Pressable>
+        </View>
+      </View>
 
       {loading ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
@@ -371,29 +415,15 @@ export default function FollowingScreen() {
         </View>
       ) : empty ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 24 }}>
-          <Text style={{ fontSize: 20, fontWeight: "800", color: theme.colors.text }}>Seguiti</Text>
+          <Text style={{ fontSize: 20, fontWeight: "800", color: theme.colors.text }}>Nessun profilo</Text>
           <Text style={{ color: theme.colors.muted, textAlign: "center" }}>Non stai seguendo nessun profilo.</Text>
         </View>
       ) : (
-        <SectionList
-          sections={sections}
+        <FlatList
+          data={filteredItems}
           keyExtractor={(item) => item.id}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24, gap: 10 }}
-          stickySectionHeadersEnabled={false}
-          renderSectionHeader={({ section }) => (
-            <Text
-              style={{
-                fontSize: 20,
-                fontWeight: "800",
-                color: theme.colors.text,
-                marginTop: 8,
-                marginBottom: 8,
-              }}
-            >
-              {section.title}
-            </Text>
-          )}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
           renderItem={({ item }) => {
             const pending = pendingRosterIds.has(item.id);

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Tabs, useRouter } from "expo-router";
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Platform, Pressable, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { usePathname } from "expo-router";
@@ -8,13 +8,13 @@ import { usePathname } from "expo-router";
 import { useFonts } from "expo-font";
 import { Righteous_400Regular } from "@expo-google-fonts/righteous";
 
-import { fetchDirectMessagesUnreadCount } from "../../src/lib/api";
+import { fetchDirectMessagesUnreadCount, clearSession, fetchProfileMe } from "../../src/lib/api";
 import { on } from "../../src/lib/events/appEvents";
 import { useNotificationsBadgeCount } from "../../src/lib/notificationsBadge";
 import { supabase } from "../../src/lib/supabase";
 import { useIsClub } from "../../src/lib/useIsClub";
 
-const BRAND_DARK = "#00527a";  // blu scuro logo
+const BRAND_DARK = "#00527a"; // blu scuro logo
 const BRAND_LIGHT = "#2a7aa0"; // blu chiaro logo (lo rifiniamo dopo)
 
 export default function TabsLayout() {
@@ -28,10 +28,25 @@ export default function TabsLayout() {
   const [sessionPresent, setSessionPresent] = useState(false);
   const { isClub, loading: isClubLoading } = useIsClub(sessionPresent);
   const [messagesUnreadCount, setMessagesUnreadCount] = useState<number>(0);
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const pathname = usePathname();
 
   function isActive(route: string) {
-  return pathname?.startsWith(route);
+    if (!pathname) return false;
+    if (route === "/applications") return pathname.includes("/applications");
+    if (route === "/discover") return pathname.startsWith("/discover");
+    return pathname.startsWith(route);
+  }
+
+  function iconNameForRoute(route: string, active: boolean): keyof typeof Ionicons.glyphMap {
+    if (route === "/feed") return active ? "home" : "home-outline";
+    if (route === "/opportunities") return active ? "briefcase" : "briefcase-outline";
+    if (route === "/applications") return active ? "document-text" : "document-text-outline";
+    if (route === "/following") return active ? "people" : "people-outline";
+    if (route === "/discover") return active ? "person-add" : "person-add-outline";
+    if (route === "/notifications") return active ? "notifications" : "notifications-outline";
+    return "ellipse-outline";
   }
 
   useEffect(() => {
@@ -52,6 +67,30 @@ export default function TabsLayout() {
     };
   }, []);
 
+  useEffect(() => {
+    setAvatarMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!sessionPresent) {
+      setAvatarUrl(null);
+      return;
+    }
+
+    fetchProfileMe().then((response) => {
+      if (cancelled || !response.ok || !response.data) return;
+      const profile = (response.data as any)?.data ?? response.data;
+      const nextAvatarUrl = profile?.avatar_url ?? profile?.avatarUrl ?? null;
+      setAvatarUrl(typeof nextAvatarUrl === "string" && nextAvatarUrl.length > 0 ? nextAvatarUrl : null);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionPresent]);
+
   const loadMessagesUnreadCount = useCallback(async () => {
     const response = await fetchDirectMessagesUnreadCount();
     if (!response.ok || !response.data) return;
@@ -68,6 +107,50 @@ export default function TabsLayout() {
     };
   }, [loadMessagesUnreadCount]);
 
+  const closeAvatarMenu = useCallback(() => {
+    setAvatarMenuOpen(false);
+  }, []);
+
+  const onAvatarPress = useCallback(() => {
+    if (!sessionPresent) {
+      router.push("/login");
+      return;
+    }
+
+    setAvatarMenuOpen((prev) => !prev);
+  }, [router, sessionPresent]);
+
+  const navigateFromAvatarMenu = useCallback(
+    (route: string) => {
+      closeAvatarMenu();
+      router.push(route as any);
+    },
+    [closeAvatarMenu, router]
+  );
+
+  const onLogoutFromAvatarMenu = useCallback(async () => {
+    setAvatarMenuOpen(false);
+
+    try {
+      await clearSession();
+    } catch {
+      // no-op: replace to login must happen anyway
+    }
+
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // no-op: replace to login must happen anyway
+    }
+
+    router.replace("/login");
+  }, [router]);
+
+  const avatarMenuItems = [
+    { label: "Profilo", onPress: () => navigateFromAvatarMenu(isClub ? "/club/profile" : "/player/profile"), danger: false },
+    { label: "Logout", onPress: onLogoutFromAvatarMenu, danger: true },
+  ];
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       {/* HEADER (mockup) */}
@@ -77,25 +160,25 @@ export default function TabsLayout() {
           onPress={() => router.push("/feed")}
           style={styles.brandWrap}
         >
-        <Text
-          numberOfLines={1}
-          style={[
-            styles.brandText,
-            fontsLoaded ? { fontFamily: "Righteous_400Regular" } : null,
-          ]}
-        >
-          <Text style={{ color: BRAND_LIGHT }}>Club</Text>
           <Text
-            style={{
-              color: BRAND_DARK,
-              fontSize: 30,       // 🔥 & più grande
-              lineHeight: 30,
-            }}
+            numberOfLines={1}
+            style={[
+              styles.brandText,
+              fontsLoaded ? { fontFamily: "Righteous_400Regular" } : null,
+            ]}
           >
-            &
+            <Text style={{ color: BRAND_LIGHT }}>Club</Text>
+            <Text
+              style={{
+                color: BRAND_DARK,
+                fontSize: 36,
+                lineHeight: 36,
+              }}
+            >
+              &
+            </Text>
+            <Text style={{ color: BRAND_LIGHT }}>Player</Text>
           </Text>
-          <Text style={{ color: BRAND_LIGHT }}>Player</Text>
-        </Text>
         </TouchableOpacity>
 
         <View style={styles.headerRight}>
@@ -122,20 +205,48 @@ export default function TabsLayout() {
             <Ionicons name="search-outline" size={22} color={BRAND_DARK} />
           </TouchableOpacity>
 
-          {/* Avatar circle: Fase 3. Placeholder spazio fisso per non shiftare layout */}
-          <View style={{ width: 34 }} />
+          <View style={styles.avatarAnchor}>
+            <Pressable onPress={onAvatarPress} hitSlop={10} style={styles.avatarCircle}>
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+              ) : (
+                <Ionicons name="person-outline" size={22} color={BRAND_DARK} />
+              )}
+            </Pressable>
+
+            {avatarMenuOpen ? (
+              <View style={styles.avatarDropdown}>
+                {avatarMenuItems.map((item, index) => {
+                  const isLast = index === avatarMenuItems.length - 1;
+
+                  return (
+                    <View key={item.label}>
+                      <Pressable onPress={item.onPress} style={styles.avatarMenuItem}>
+                        <Text style={[styles.avatarMenuItemText, item.danger ? styles.avatarMenuItemDanger : null]}>
+                          {item.label}
+                        </Text>
+                      </Pressable>
+                      {!isLast ? <View style={styles.avatarMenuDivider} /> : null}
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
+          </View>
         </View>
       </View>
+
+      {avatarMenuOpen ? <Pressable style={styles.avatarOverlay} onPress={closeAvatarMenu} /> : null}
 
       {/* ICON ROW (fase 2 farà routing+active indicator) */}
       <View style={styles.iconRow}>
         {[
-          { icon: "home", route: "/feed" },
-          { icon: "briefcase-outline", route: "/opportunities" },
-          { icon: "document-text-outline", route: "/applications" },
-          { icon: "heart-outline", route: "/following" },
-          { icon: "person-add-outline", route: "/discover" },
-          { icon: "notifications-outline", route: "/notifications" },
+          { route: "/feed" },
+          { route: "/opportunities" },
+          { route: "/applications" },
+          { route: "/following" },
+          { route: "/discover" },
+          { route: "/notifications" },
         ].map((item) => {
           const active = isActive(item.route);
 
@@ -147,7 +258,7 @@ export default function TabsLayout() {
               activeOpacity={0.8}
             >
               <Ionicons
-                name={item.icon as any}
+                name={iconNameForRoute(item.route, active)}
                 size={22}
                 color={active ? BRAND_DARK : BRAND_LIGHT}
               />
@@ -214,18 +325,19 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
 
   header: {
-    height: 56,
+    height: 68,
     paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: "#fff",
+    zIndex: 40,
   },
 
   brandWrap: { minWidth: 0, flexShrink: 1, paddingRight: 12 },
 
   brandText: {
-    fontSize: 22,
+    fontSize: 26,
     letterSpacing: Platform.select({ ios: 0.2, android: 0.1, default: 0.2 }),
   },
 
@@ -236,6 +348,72 @@ const styles = StyleSheet.create({
     height: 34,
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  avatarAnchor: {
+    position: "relative",
+    zIndex: 50,
+  },
+
+  avatarCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: "#d7e4ea",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+    overflow: "hidden",
+  },
+
+  avatarImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+  },
+
+  avatarOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+    backgroundColor: "transparent",
+  },
+
+  avatarDropdown: {
+    position: "absolute",
+    top: 58,
+    right: 0,
+    width: 240,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingVertical: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 20,
+    zIndex: 50,
+  },
+
+  avatarMenuItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+
+  avatarMenuItemText: {
+    fontSize: 15,
+    color: "#1b1b1b",
+  },
+
+  avatarMenuItemDanger: {
+    color: "#d92d20",
+    fontWeight: "600",
+  },
+
+  avatarMenuDivider: {
+    height: 1,
+    backgroundColor: "#eee",
+    marginHorizontal: 10,
   },
 
   badge: {
@@ -262,19 +440,20 @@ const styles = StyleSheet.create({
   },
 
   divider: { height: 1, backgroundColor: "#E5E5E5" },
-  iconItem: {
-  alignItems: "center",
-  justifyContent: "center",
-  flex: 1,
-  height: 48,
-},
 
-activeIndicator: {
-  position: "absolute",
-  bottom: 0,
-  height: 3,
-  width: 22,
-  backgroundColor: "#00527a",
-  borderRadius: 2,
-},
+  iconItem: {
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+    height: 48,
+  },
+
+  activeIndicator: {
+    position: "absolute",
+    bottom: 0,
+    height: 3,
+    width: 22,
+    backgroundColor: "#00527a",
+    borderRadius: 2,
+  },
 });
