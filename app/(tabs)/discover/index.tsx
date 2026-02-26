@@ -256,11 +256,8 @@ export default function DiscoverScreen() {
       <View style={{ paddingTop: 12 }} />
 
       <View style={{ paddingHorizontal: theme.spacing.xl, gap: 10 }}>
-        <Text style={{ fontSize: 30, fontWeight: "900", color: theme.colors.text }}>
-          Scopri profili
-        </Text>
-        <Text style={{ color: theme.colors.muted }}>
-          Suggerimenti ordinati per zona di interesse (città, provincia, regione).
+        <Text style={{ fontSize: 30, fontWeight: "900", color: "#00527a" }}>
+          Chi seguire
         </Text>
 
         {/* Toggle Club / Player */}

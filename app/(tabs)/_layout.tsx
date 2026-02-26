@@ -44,7 +44,7 @@ export default function TabsLayout() {
     if (route === "/opportunities") return active ? "briefcase" : "briefcase-outline";
     if (route === "/applications") return active ? "document-text" : "document-text-outline";
     if (route === "/following") return active ? "people" : "people-outline";
-    if (route === "/discover") return active ? "people" : "people-outline";
+    if (route === "/discover") return active ? "person-add" : "person-add-outline";
     if (route === "/notifications") return active ? "notifications" : "notifications-outline";
     return "ellipse-outline";
   }
