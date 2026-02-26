@@ -4,6 +4,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Platform, Pressable, Image } 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { usePathname } from "expo-router";
+import { useNotificationsUnreadPoller } from "../../src/lib/useNotificationsUnreadPoller";
 
 import { useFonts } from "expo-font";
 import { Righteous_400Regular } from "@expo-google-fonts/righteous";
@@ -31,6 +32,7 @@ export default function TabsLayout() {
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const pathname = usePathname();
+  useNotificationsUnreadPoller();
 
   function isActive(route: string) {
     if (!pathname) return false;
