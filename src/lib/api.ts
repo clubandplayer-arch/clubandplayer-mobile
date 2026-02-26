@@ -872,9 +872,20 @@ export async function fetchNotifications(params?: {
   if (typeof params?.page === "number") sp.set("page", String(params.page));
   if (params?.all === 1) sp.set("all", "1");
   if (params?.unread) sp.set("unread", "true");
+
+  // ✅ cache buster: evita risposte “vecchie” (proxy / fetch / layer intermedi)
+  sp.set("_ts", String(Date.now()));
+
   const query = sp.toString();
-  const path = query ? `/api/notifications?${query}` : "/api/notifications";
-  return apiFetch<NotificationsResponse>(path, { method: "GET" });
+  const path = `/api/notifications?${query}`;
+
+  return apiFetch<NotificationsResponse>(path, {
+    method: "GET",
+    headers: {
+      "Cache-Control": "no-store, no-cache, must-revalidate",
+      Pragma: "no-cache",
+    },
+  });
 }
 
 export async function getNotifications(): Promise<NotificationItem[]> {
