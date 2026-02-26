@@ -270,6 +270,23 @@ export type NotificationsUnreadCountResponse = {
   count: number;
 };
 
+export type NotificationItem = {
+  id: string;
+  kind: string;
+  payload: any;
+  created_at: string;
+  read?: boolean;
+  read_at?: string | null;
+  actor_profile_id?: string | null;
+  actor?: {
+    id?: string;
+    display_name?: string | null;
+    full_name?: string | null;
+    avatar_url?: string | null;
+    account_type?: string | null;
+  } | null;
+};
+
 export type ApplicationStatus = "submitted" | "seen" | "accepted" | "rejected";
 
 export type ReceivedApplicationItem = {
@@ -858,6 +875,12 @@ export async function fetchNotifications(params?: {
   const query = sp.toString();
   const path = query ? `/api/notifications?${query}` : "/api/notifications";
   return apiFetch<NotificationsResponse>(path, { method: "GET" });
+}
+
+export async function getNotifications(): Promise<NotificationItem[]> {
+  const response = await apiFetch<{ data?: NotificationItem[] }>("/api/notifications", { method: "GET" });
+  if (!response.ok) return [];
+  return response.data?.data ?? [];
 }
 
 export async function patchNotificationsMarkRead(params: {
