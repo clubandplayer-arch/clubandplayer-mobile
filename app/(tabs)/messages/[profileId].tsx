@@ -9,9 +9,9 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useLocalSearchParams } from "expo-router";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
+import BrandHeader from "../../../src/components/brand/BrandHeader";
 import {
   fetchDirectMessageThread,
   postDirectMessage,
@@ -38,7 +38,7 @@ function formatWhen(iso?: string | null): string {
 export default function DirectMessageThreadScreen() {
   const params = useLocalSearchParams<{ profileId?: string | string[] }>();
   const profileId = resolveProfileId(params.profileId).trim();
-  const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   const [thread, setThread] = useState<DirectThreadResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -170,27 +170,29 @@ export default function DirectMessageThreadScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <KeyboardAvoidingView
-        style={{ flex: 1, backgroundColor: theme.colors.background }}
-        behavior={Platform.select({ ios: "padding", default: undefined })}
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
+      behavior={Platform.select({ ios: "padding", default: undefined })}
+    >
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingBottom: 12,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.colors.neutral100,
+          backgroundColor: theme.colors.background,
+          gap: 8,
+        }}
       >
-        <View
-          style={{
-            paddingHorizontal: 16,
-            paddingTop: 12,
-            paddingBottom: 12,
-            borderBottomWidth: 1,
-            borderBottomColor: theme.colors.neutral100,
-            backgroundColor: theme.colors.background,
-            gap: 8,
-          }}
-        >
-          <Text style={{ fontSize: 20, fontWeight: "700", color: theme.colors.text }}>{peerName}</Text>
-          {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
-        </View>
+        <BrandHeader
+          subtitle="Messaggi"
+          leftAction={{ label: "←", onPress: () => router.back(), color: theme.colors.text }}
+        />
+        <Text style={{ fontSize: 20, fontWeight: "700", color: theme.colors.text }}>{peerName}</Text>
+        {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
+      </View>
 
-        <FlatList
+      <FlatList
         ref={listRef}
         data={thread?.messages || []}
         keyExtractor={(item) => item.id}
@@ -198,18 +200,16 @@ export default function DirectMessageThreadScreen() {
         contentContainerStyle={{ paddingVertical: 8 }}
       />
 
-        <View
-          style={{
-            borderTopWidth: 1,
-            borderTopColor: theme.colors.neutral100,
-            paddingTop: 12,
-            paddingHorizontal: 12,
-            paddingBottom: Math.max(insets.bottom, 12),
-            flexDirection: "row",
-            gap: 8,
-            alignItems: "flex-end",
-          }}
-        >
+      <View
+        style={{
+          borderTopWidth: 1,
+          borderTopColor: theme.colors.neutral100,
+          padding: 12,
+          flexDirection: "row",
+          gap: 8,
+          alignItems: "flex-end",
+        }}
+      >
         <TextInput
           value={input}
           onChangeText={setInput}
@@ -240,8 +240,7 @@ export default function DirectMessageThreadScreen() {
         >
           <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Invia</Text>
         </Pressable>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      </View>
+    </KeyboardAvoidingView>
   );
 }

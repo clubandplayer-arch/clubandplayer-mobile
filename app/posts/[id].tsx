@@ -539,7 +539,7 @@ export default function PostDetailScreen() {
             <Text style={{ color: theme.colors.muted }}>Caricamento reazioni…</Text>
           </View>
         ) : (
-          <View style={{ gap: 10 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
             <Text style={{ color: theme.colors.text }}>👍 {social.likeCount}</Text>
             <Text style={{ color: theme.colors.text }}>💬 {social.commentCount}</Text>
           </View>
