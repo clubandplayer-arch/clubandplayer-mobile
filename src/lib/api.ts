@@ -864,7 +864,7 @@ export async function applyToOpportunity(opportunityId: string, note?: string | 
 export async function fetchNotifications(params?: {
   limit?: number;
   page?: number;
-  all?: 1;
+  all?: number;
   unread?: boolean;
 }): Promise<ApiResponse<NotificationsResponse>> {
   const sp = new URLSearchParams();
