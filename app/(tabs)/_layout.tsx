@@ -33,7 +33,20 @@ export default function TabsLayout() {
   const pathname = usePathname();
 
   function isActive(route: string) {
-    return pathname?.startsWith(route);
+    if (!pathname) return false;
+    if (route === "/applications") return pathname.includes("/applications");
+    if (route === "/discover") return pathname.startsWith("/discover") || pathname.startsWith("/search");
+    return pathname.startsWith(route);
+  }
+
+  function iconNameForRoute(route: string, active: boolean): keyof typeof Ionicons.glyphMap {
+    if (route === "/feed") return active ? "home" : "home-outline";
+    if (route === "/opportunities") return active ? "briefcase" : "briefcase-outline";
+    if (route === "/applications") return active ? "document-text" : "document-text-outline";
+    if (route === "/following") return active ? "people" : "people-outline";
+    if (route === "/discover") return active ? "search" : "search-outline";
+    if (route === "/notifications") return active ? "notifications" : "notifications-outline";
+    return "ellipse-outline";
   }
 
   useEffect(() => {
@@ -228,12 +241,12 @@ export default function TabsLayout() {
       {/* ICON ROW (fase 2 farà routing+active indicator) */}
       <View style={styles.iconRow}>
         {[
-          { icon: "home", route: "/feed" },
-          { icon: "briefcase-outline", route: "/opportunities" },
-          { icon: "document-text-outline", route: "/applications" },
-          { icon: "heart-outline", route: "/following" },
-          { icon: "person-add-outline", route: "/discover" },
-          { icon: "notifications-outline", route: "/notifications" },
+          { route: "/feed" },
+          { route: "/opportunities" },
+          { route: "/applications" },
+          { route: "/following" },
+          { route: "/discover" },
+          { route: "/notifications" },
         ].map((item) => {
           const active = isActive(item.route);
 
@@ -245,7 +258,7 @@ export default function TabsLayout() {
               activeOpacity={0.8}
             >
               <Ionicons
-                name={item.icon as any}
+                name={iconNameForRoute(item.route, active)}
                 size={22}
                 color={active ? BRAND_DARK : BRAND_LIGHT}
               />
