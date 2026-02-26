@@ -9,6 +9,7 @@ type NotificationActor = {
   id?: string;
   display_name?: string | null;
   full_name?: string | null;
+  public_name?: string | null;
   avatar_url?: string | null;
   account_type?: string | null;
 };
@@ -25,7 +26,7 @@ type NotificationItem = {
 };
 
 function getActorName(notification: NotificationItem): string {
-  return notification.actor?.display_name || notification.actor?.full_name || "Utente";
+  return notification.actor?.display_name || notification.actor?.full_name || notification.actor?.public_name || "Utente";
 }
 
 function getNotificationMessage(kind: string): string {
