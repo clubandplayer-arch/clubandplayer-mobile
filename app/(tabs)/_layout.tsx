@@ -263,6 +263,12 @@ export default function TabsLayout() {
                 color={active ? BRAND_DARK : BRAND_LIGHT}
               />
 
+              {item.route === "/notifications" && unreadCount > 0 ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unreadCount > 99 ? "99+" : String(unreadCount)}</Text>
+                </View>
+              ) : null}
+
               {/* Active indicator */}
               {active && <View style={styles.activeIndicator} />}
             </TouchableOpacity>
