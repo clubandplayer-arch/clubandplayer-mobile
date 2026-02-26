@@ -35,7 +35,7 @@ export default function TabsLayout() {
   function isActive(route: string) {
     if (!pathname) return false;
     if (route === "/applications") return pathname.includes("/applications");
-    if (route === "/discover") return pathname.startsWith("/discover") || pathname.startsWith("/search");
+    if (route === "/discover") return pathname.startsWith("/discover");
     return pathname.startsWith(route);
   }
 
@@ -44,7 +44,7 @@ export default function TabsLayout() {
     if (route === "/opportunities") return active ? "briefcase" : "briefcase-outline";
     if (route === "/applications") return active ? "document-text" : "document-text-outline";
     if (route === "/following") return active ? "people" : "people-outline";
-    if (route === "/discover") return active ? "search" : "search-outline";
+    if (route === "/discover") return active ? "people" : "people-outline";
     if (route === "/notifications") return active ? "notifications" : "notifications-outline";
     return "ellipse-outline";
   }
