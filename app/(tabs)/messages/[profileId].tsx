@@ -44,6 +44,7 @@ export default function DirectMessageThreadScreen() {
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+
   const listRef = useRef<FlatList<DirectMessage>>(null);
   const insets = useSafeAreaInsets();
 
@@ -95,68 +96,68 @@ export default function DirectMessageThreadScreen() {
     scrollToBottom();
   }, [scrollToBottom, thread?.messages?.length]);
 
+  // ✅ Misura tastiera: useremo SOLO su Android (per evitare doppi offset)
   useEffect(() => {
-  const showSub = Keyboard.addListener("keyboardDidShow", (e) => {
-    setKeyboardHeight(e.endCoordinates?.height ?? 0);
-  });
-  const hideSub = Keyboard.addListener("keyboardDidHide", () => {
-    setKeyboardHeight(0);
-  });
+    if (Platform.OS !== "android") return;
 
-  return () => {
-    showSub.remove();
-    hideSub.remove();
-  };
-}, []);
-
-const sendMessage = useCallback(async () => {
-  const content = input.trim();
-  if (!content || !profileId) return;
-
-  setSending(true);
-  setError(null);
-
-  try {
-    const response = await postDirectMessage(profileId, content);
-    if (!response.ok || !response.data?.message) {
-      setError(response.errorText || "Invio non riuscito");
-      return;
-    }
-
-    setInput("");
-    setThread((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        messages: [...(prev.messages || []), response.data.message],
-      };
+    const showSub = Keyboard.addListener("keyboardDidShow", (e) => {
+      setKeyboardHeight((e as any)?.endCoordinates?.height ?? 0);
+    });
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      setKeyboardHeight(0);
     });
 
-    emit("app:direct-messages-updated");
-    scrollToBottom();
-  } catch (e) {
-    setError("Invio non riuscito");
-  } finally {
-    setSending(false);
-  }
-}, [input, profileId, scrollToBottom]);
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
-    const peerName = useMemo(() => {
-      const full = thread?.peer?.full_name?.trim();
-      const display = thread?.peer?.display_name?.trim();
-      return full || display || "Messaggi";
-    }, [thread?.peer?.display_name, thread?.peer?.full_name]);
+  const sendMessage = useCallback(async () => {
+    const content = input.trim();
+    if (!content || !profileId) return;
 
-    const peerSubLabel = useMemo(() => {
-      const full = thread?.peer?.full_name?.trim();
-      const display = thread?.peer?.display_name?.trim();
+    setSending(true);
+    setError(null);
 
-      // mostra la seconda riga solo se è diversa dal titolo
-      if (display && full && display !== full) return display;
+    try {
+      const response = await postDirectMessage(profileId, content);
+      if (!response.ok || !response.data?.message) {
+        setError(response.errorText || "Invio non riuscito");
+        return;
+      }
 
-      // altrimenti non mostrare nulla
-      return undefined;
-    }, [thread?.peer?.display_name, thread?.peer?.full_name]);
+      setInput("");
+      setThread((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          messages: [...(prev.messages || []), response.data.message],
+        };
+      });
+
+      emit("app:direct-messages-updated");
+      scrollToBottom();
+    } catch (e) {
+      setError("Invio non riuscito");
+    } finally {
+      setSending(false);
+    }
+  }, [input, profileId, scrollToBottom]);
+
+  const peerName = useMemo(() => {
+    const full = thread?.peer?.full_name?.trim();
+    const display = thread?.peer?.display_name?.trim();
+    return full || display || "Messaggi";
+  }, [thread?.peer?.display_name, thread?.peer?.full_name]);
+
+  const peerSubLabel = useMemo(() => {
+    const full = thread?.peer?.full_name?.trim();
+    const display = thread?.peer?.display_name?.trim();
+    if (display && full && display !== full) return display;
+    return undefined;
+  }, [thread?.peer?.display_name, thread?.peer?.full_name]);
+
   const avatarUri = thread?.peer?.avatar_url?.trim();
 
   const renderItem = useCallback(
@@ -197,13 +198,17 @@ const sendMessage = useCallback(async () => {
     );
   }
 
+  // ✅ iOS usa KeyboardAvoidingView; Android usa View (evita il gap enorme)
+  const Container = Platform.OS === "ios" ? KeyboardAvoidingView : View;
+  const containerProps =
+    Platform.OS === "ios"
+      ? { behavior: "padding" as const, keyboardVerticalOffset: 0 }
+      : {};
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={["top", "bottom"]}>
-      <KeyboardAvoidingView
-        style={{ flex: 1, backgroundColor: theme.colors.background }}
-        behavior={Platform.OS === "ios" ? "padding" : "padding"}
-        keyboardVerticalOffset={0}
-      >
+      <Container style={{ flex: 1, backgroundColor: theme.colors.background }} {...containerProps}>
+        {/* Header */}
         <View
           style={{
             paddingHorizontal: 16,
@@ -219,6 +224,7 @@ const sendMessage = useCallback(async () => {
           <Pressable onPress={() => router.back()} hitSlop={8}>
             <Text style={{ fontSize: 20, color: theme.colors.text }}>←</Text>
           </Pressable>
+
           {avatarUri ? (
             <Image source={{ uri: avatarUri }} style={{ width: 40, height: 40, borderRadius: 20 }} />
           ) : (
@@ -235,35 +241,31 @@ const sendMessage = useCallback(async () => {
               <Text style={{ color: theme.colors.text, fontWeight: "700" }}>{peerName.slice(0, 1).toUpperCase()}</Text>
             </View>
           )}
+
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 18, fontWeight: "700", color: theme.colors.text }}>
-              {peerName}
-            </Text>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: theme.colors.text }}>{peerName}</Text>
 
-            {peerSubLabel ? (
-              <Text style={{ fontSize: 13, color: theme.colors.muted }}>
-                {peerSubLabel}
-              </Text>
-            ) : null}
+            {peerSubLabel ? <Text style={{ fontSize: 13, color: theme.colors.muted }}>{peerSubLabel}</Text> : null}
 
-            {error ? (
-              <Text style={{ color: theme.colors.danger }}>{error}</Text>
-            ) : null}
+            {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
           </View>
         </View>
 
+        {/* Messages */}
         <FlatList
           ref={listRef}
           data={thread?.messages || []}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={{
-          paddingVertical: 8,
-          paddingBottom: composerMinHeight + Math.max(insets.bottom, 12),
-        }}
+            paddingVertical: 8,
+            // spazio per non finire sotto al composer quando tastiera è chiusa
+            paddingBottom: composerMinHeight + Math.max(insets.bottom, 12),
+          }}
           keyboardShouldPersistTaps="handled"
         />
 
+        {/* Composer */}
         <View
           style={{
             borderTopWidth: 1,
@@ -271,11 +273,13 @@ const sendMessage = useCallback(async () => {
             paddingTop: 12,
             paddingHorizontal: 12,
             paddingBottom: Math.max(insets.bottom, 12),
-            marginBottom: keyboardHeight, // ✅ spinge il composer sopra la tastiera (Android)
+            // ✅ SOLO Android: spinge sopra la tastiera senza KeyboardAvoidingView
+            marginBottom: Platform.OS === "android" ? keyboardHeight : 0,
             flexDirection: "row",
             gap: 8,
             alignItems: "flex-end",
             minHeight: composerMinHeight,
+            backgroundColor: theme.colors.background,
           }}
         >
           <TextInput
@@ -295,6 +299,7 @@ const sendMessage = useCallback(async () => {
               backgroundColor: theme.colors.background,
             }}
           />
+
           <Pressable
             onPress={sendMessage}
             disabled={sending || !input.trim()}
@@ -309,7 +314,7 @@ const sendMessage = useCallback(async () => {
             <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Invia</Text>
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
+      </Container>
     </SafeAreaView>
   );
 }
