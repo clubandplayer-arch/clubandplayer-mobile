@@ -43,6 +43,8 @@ export default function DirectMessageThreadScreen() {
   const [sending, setSending] = useState(false);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  // Android only: we manually shift the composer above the keyboard.
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const listRef = useRef<FlatList<DirectMessage>>(null);
@@ -89,19 +91,21 @@ export default function DirectMessageThreadScreen() {
     return () => {
       mounted = false;
     };
-  }, [loadThread, profileId]);
+  }, [loadThread]);
 
   useEffect(() => {
     if (!thread?.messages?.length) return;
     scrollToBottom();
   }, [scrollToBottom, thread?.messages?.length]);
 
-  // ✅ Misura tastiera: useremo SOLO su Android (per evitare doppi offset)
+  // ✅ IMPORTANT:
+  // - iOS: KeyboardAvoidingView handles layout
+  // - Android: DO NOT use KeyboardAvoidingView (to avoid double offsets/gaps)
   useEffect(() => {
     if (Platform.OS !== "android") return;
 
     const showSub = Keyboard.addListener("keyboardDidShow", (e) => {
-      setKeyboardHeight((e as any)?.endCoordinates?.height ?? 0);
+      setKeyboardHeight(e.endCoordinates?.height ?? 0);
     });
     const hideSub = Keyboard.addListener("keyboardDidHide", () => {
       setKeyboardHeight(0);
@@ -138,7 +142,7 @@ export default function DirectMessageThreadScreen() {
 
       emit("app:direct-messages-updated");
       scrollToBottom();
-    } catch (e) {
+    } catch {
       setError("Invio non riuscito");
     } finally {
       setSending(false);
@@ -154,7 +158,11 @@ export default function DirectMessageThreadScreen() {
   const peerSubLabel = useMemo(() => {
     const full = thread?.peer?.full_name?.trim();
     const display = thread?.peer?.display_name?.trim();
+
+    // mostra la seconda riga solo se è diversa dal titolo
     if (display && full && display !== full) return display;
+
+    // altrimenti non mostrare nulla
     return undefined;
   }, [thread?.peer?.display_name, thread?.peer?.full_name]);
 
@@ -181,14 +189,27 @@ export default function DirectMessageThreadScreen() {
               backgroundColor: mine ? theme.colors.primary : theme.colors.neutral200,
             }}
           >
-            <Text style={{ color: mine ? theme.colors.background : theme.colors.text }}>{item.content}</Text>
+            <Text style={{ color: mine ? theme.colors.background : theme.colors.text }}>
+              {item.content}
+            </Text>
           </View>
-          <Text style={{ fontSize: 11, color: theme.colors.muted, marginTop: 2 }}>{formatWhen(item.created_at)}</Text>
+          <Text style={{ fontSize: 11, color: theme.colors.muted, marginTop: 2 }}>
+            {formatWhen(item.created_at)}
+          </Text>
         </View>
       );
     },
     [thread?.currentProfileId],
   );
+
+  const composerBottomPadding =
+    Platform.OS === "android" && keyboardHeight > 0 ? 12 : Math.max(insets.bottom, 12);
+
+  const listBottomPadding =
+    composerMinHeight +
+    composerBottomPadding +
+    8 +
+    (Platform.OS === "android" ? keyboardHeight : 0);
 
   if (loading) {
     return (
@@ -198,123 +219,132 @@ export default function DirectMessageThreadScreen() {
     );
   }
 
-  // ✅ iOS usa KeyboardAvoidingView; Android usa View (evita il gap enorme)
-  const Container = Platform.OS === "ios" ? KeyboardAvoidingView : View;
-  const containerProps =
-    Platform.OS === "ios"
-      ? { behavior: "padding" as const, keyboardVerticalOffset: 0 }
-      : {};
+  const Content = (
+    <>
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingBottom: 12,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.colors.neutral100,
+          backgroundColor: theme.colors.background,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+        }}
+      >
+        <Pressable onPress={() => router.back()} hitSlop={8}>
+          <Text style={{ fontSize: 20, color: theme.colors.text }}>←</Text>
+        </Pressable>
+
+        {avatarUri ? (
+          <Image source={{ uri: avatarUri }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+        ) : (
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: theme.colors.neutral200,
+            }}
+          >
+            <Text style={{ color: theme.colors.text, fontWeight: "700" }}>
+              {peerName.slice(0, 1).toUpperCase()}
+            </Text>
+          </View>
+        )}
+
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 18, fontWeight: "700", color: theme.colors.text }}>{peerName}</Text>
+
+          {peerSubLabel ? (
+            <Text style={{ fontSize: 13, color: theme.colors.muted }}>{peerSubLabel}</Text>
+          ) : null}
+
+          {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
+        </View>
+      </View>
+
+      <FlatList
+        ref={listRef}
+        data={thread?.messages || []}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        contentContainerStyle={{
+          paddingVertical: 8,
+          paddingBottom: listBottomPadding,
+        }}
+        keyboardShouldPersistTaps="handled"
+      />
+
+      <View
+        style={{
+          borderTopWidth: 1,
+          borderTopColor: theme.colors.neutral100,
+          paddingTop: 12,
+          paddingHorizontal: 12,
+          paddingBottom: composerBottomPadding,
+
+          // ✅ Android: push composer exactly above keyboard (NO KeyboardAvoidingView on Android)
+          marginBottom: Platform.OS === "android" ? keyboardHeight : 0,
+
+          flexDirection: "row",
+          gap: 8,
+          alignItems: "flex-end",
+          minHeight: composerMinHeight,
+          backgroundColor: theme.colors.background,
+        }}
+      >
+        <TextInput
+          value={input}
+          onChangeText={setInput}
+          placeholder="Scrivi un messaggio"
+          multiline
+          style={{
+            flex: 1,
+            minHeight: 40,
+            maxHeight: 120,
+            borderWidth: 1,
+            borderColor: theme.colors.neutral200,
+            borderRadius: 12,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            backgroundColor: theme.colors.background,
+            color: theme.colors.text,
+          }}
+        />
+        <Pressable
+          onPress={sendMessage}
+          disabled={sending || !input.trim()}
+          style={{
+            backgroundColor: theme.colors.primary,
+            borderRadius: 10,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            opacity: sending || !input.trim() ? 0.6 : 1,
+          }}
+        >
+          <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Invia</Text>
+        </Pressable>
+      </View>
+    </>
+  );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={["top", "bottom"]}>
-      <Container style={{ flex: 1, backgroundColor: theme.colors.background }} {...containerProps}>
-        {/* Header */}
-        <View
-          style={{
-            paddingHorizontal: 16,
-            paddingBottom: 12,
-            borderBottomWidth: 1,
-            borderBottomColor: theme.colors.neutral100,
-            backgroundColor: theme.colors.background,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 12,
-          }}
+      {Platform.OS === "ios" ? (
+        <KeyboardAvoidingView
+          style={{ flex: 1, backgroundColor: theme.colors.background }}
+          behavior="padding"
+          keyboardVerticalOffset={0}
         >
-          <Pressable onPress={() => router.back()} hitSlop={8}>
-            <Text style={{ fontSize: 20, color: theme.colors.text }}>←</Text>
-          </Pressable>
-
-          {avatarUri ? (
-            <Image source={{ uri: avatarUri }} style={{ width: 40, height: 40, borderRadius: 20 }} />
-          ) : (
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: theme.colors.neutral200,
-              }}
-            >
-              <Text style={{ color: theme.colors.text, fontWeight: "700" }}>{peerName.slice(0, 1).toUpperCase()}</Text>
-            </View>
-          )}
-
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 18, fontWeight: "700", color: theme.colors.text }}>{peerName}</Text>
-
-            {peerSubLabel ? <Text style={{ fontSize: 13, color: theme.colors.muted }}>{peerSubLabel}</Text> : null}
-
-            {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
-          </View>
-        </View>
-
-        {/* Messages */}
-        <FlatList
-          ref={listRef}
-          data={thread?.messages || []}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={{
-            paddingVertical: 8,
-            // spazio per non finire sotto al composer quando tastiera è chiusa
-            paddingBottom: composerMinHeight + Math.max(insets.bottom, 12),
-          }}
-          keyboardShouldPersistTaps="handled"
-        />
-
-        {/* Composer */}
-        <View
-          style={{
-            borderTopWidth: 1,
-            borderTopColor: theme.colors.neutral100,
-            paddingTop: 12,
-            paddingHorizontal: 12,
-            paddingBottom: Math.max(insets.bottom, 12),
-            // ✅ SOLO Android: spinge sopra la tastiera senza KeyboardAvoidingView
-            marginBottom: Platform.OS === "android" ? keyboardHeight : 0,
-            flexDirection: "row",
-            gap: 8,
-            alignItems: "flex-end",
-            minHeight: composerMinHeight,
-            backgroundColor: theme.colors.background,
-          }}
-        >
-          <TextInput
-            value={input}
-            onChangeText={setInput}
-            placeholder="Scrivi un messaggio"
-            multiline
-            style={{
-              flex: 1,
-              minHeight: 40,
-              maxHeight: 120,
-              borderWidth: 1,
-              borderColor: theme.colors.neutral200,
-              borderRadius: 12,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              backgroundColor: theme.colors.background,
-            }}
-          />
-
-          <Pressable
-            onPress={sendMessage}
-            disabled={sending || !input.trim()}
-            style={{
-              backgroundColor: theme.colors.primary,
-              borderRadius: 10,
-              paddingHorizontal: 14,
-              paddingVertical: 10,
-              opacity: sending || !input.trim() ? 0.6 : 1,
-            }}
-          >
-            <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Invia</Text>
-          </Pressable>
-        </View>
-      </Container>
+          {Content}
+        </KeyboardAvoidingView>
+      ) : (
+        <View style={{ flex: 1, backgroundColor: theme.colors.background }}>{Content}</View>
+      )}
     </SafeAreaView>
   );
 }
