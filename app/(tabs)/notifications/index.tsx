@@ -2,7 +2,8 @@ import { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
-import { fetchNotifications } from "../../../src/lib/api";
+import { fetchNotifications, postNotificationsMarkAllRead } from "../../../src/lib/api";
+import { setNotificationsBadgeCount } from "../../../src/lib/notificationsBadge";
 import { theme } from "../../../src/theme";
 import { useRouter } from "expo-router";
 
@@ -91,6 +92,18 @@ export default function NotificationsScreen() {
   const [errorText, setErrorText] = useState<string | null>(null);
   const router = useRouter();
 
+  const markAllAsRead = useCallback(async () => {
+    setNotifications((prev) =>
+      prev.map((item) => ({
+        ...item,
+        read: true,
+        read_at: item.read_at ?? new Date().toISOString(),
+      }))
+    );
+    setNotificationsBadgeCount(0);
+    await postNotificationsMarkAllRead();
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setErrorText(null);
@@ -117,9 +130,16 @@ export default function NotificationsScreen() {
       return;
     }
 
-    setNotifications((res.data?.data as NotificationItem[]) ?? []);
+    const nextNotifications = (res.data?.data as NotificationItem[]) ?? [];
+    setNotifications(nextNotifications);
+
+    const hasUnread = nextNotifications.some((item) => item.read_at == null && item.read !== true);
+    if (hasUnread) {
+      await markAllAsRead();
+    }
+
     setLoading(false);
-  }, []);
+  }, [markAllAsRead]);
 
   // Refetch quando la screen torna in focus (es: dopo login o dopo navigazioni)
   useFocusEffect(
@@ -185,6 +205,8 @@ export default function NotificationsScreen() {
         return (
           <Pressable
             onPress={() => {
+              void markAllAsRead();
+
               const p: any = item.payload ?? {};
 
               if (item.kind === "message" && typeof p.thread_id === "string") {
