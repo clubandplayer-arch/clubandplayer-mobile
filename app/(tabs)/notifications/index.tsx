@@ -1,6 +1,5 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
 
 import { fetchNotifications, postNotificationsMarkAllRead } from "../../../src/lib/api";
 import { setNotificationsBadgeCount } from "../../../src/lib/notificationsBadge";
@@ -31,12 +30,14 @@ function isEmailLike(v?: string | null) {
   return !!v && v.includes("@");
 }
 
-// ✅ Notifiche: preferiamo public_name (come da log server), poi full_name, poi display_name (non email)
 function getActorName(notification: NotificationItem): string {
-  const a = notification.actor;
-  if (a?.public_name) return a.public_name;
-  if (a?.full_name) return a.full_name;
-  if (a?.display_name && !isEmailLike(a.display_name)) return a.display_name;
+  // NOTIFICHE: preferiamo public_name (coerente con i log server)
+  if (notification.actor?.public_name) return notification.actor.public_name;
+  if (notification.actor?.full_name) return notification.actor.full_name;
+
+  const dn = notification.actor?.display_name ?? null;
+  if (dn && !isEmailLike(dn)) return dn;
+
   return "Utente";
 }
 
@@ -99,27 +100,27 @@ export default function NotificationsScreen() {
   const [errorText, setErrorText] = useState<string | null>(null);
   const router = useRouter();
 
-  // ✅ evita chiamate ripetute a mark-all
+  // ✅ evita loop: carichiamo SOLO una volta al mount
+  const didLoadRef = useRef(false);
+
+  // ✅ evita chiamate multiple a mark-all
   const markAllInFlightRef = useRef(false);
+  const didMarkOnOpenRef = useRef(false);
 
   const markAllAsReadOptimistic = useCallback(async () => {
     if (markAllInFlightRef.current) return;
 
     const hasUnread = notifications.some((n) => n.read_at == null && n.read !== true);
     if (!hasUnread) {
-      // se non ci sono unread, allineiamo comunque badge a 0 (non fa male)
       setNotificationsBadgeCount(0);
       return;
     }
 
     markAllInFlightRef.current = true;
-
     try {
       await postNotificationsMarkAllRead();
 
       const nowIso = new Date().toISOString();
-
-      // update ottimistico: NON rifetch, non toccare ordine, non svuotare nulla
       setNotifications((prev) =>
         prev.map((n) => ({
           ...n,
@@ -147,11 +148,6 @@ export default function NotificationsScreen() {
       items: res.data?.data?.length ?? 0,
     });
 
-    const kinds = (res.data?.data ?? []).map((n: any) => n.kind);
-    console.log("[notifications][kinds]", kinds);
-
-    console.log("[notifications][raw-data]", JSON.stringify(res.data, null, 2));
-
     if (!res.ok) {
       setNotifications([]);
       setErrorText(res.errorText || `Errore caricamento notifiche (HTTP ${res.status})`);
@@ -161,35 +157,26 @@ export default function NotificationsScreen() {
 
     const items = ((res.data?.data as NotificationItem[]) ?? []).map((n) => ({
       ...n,
-      // normalizziamo read in caso arrivi solo read_at
       read: n.read ?? (n.read_at != null),
     }));
 
     setNotifications(items);
     setLoading(false);
 
-    // ✅ mark-all-read appena apri la pagina (DOPO aver settato lista)
-    // lo facciamo in background (non await) per non bloccare UI
-    if (items.some((n) => n.read_at == null && n.read !== true)) {
+    // ✅ mark-all solo 1 volta quando entri (dopo load)
+    if (!didMarkOnOpenRef.current && items.some((n) => n.read_at == null && n.read !== true)) {
+      didMarkOnOpenRef.current = true;
       void markAllAsReadOptimistic();
     } else {
       setNotificationsBadgeCount(0);
     }
   }, [markAllAsReadOptimistic]);
 
-  // Refetch quando la screen torna in focus (es: dopo login o dopo navigazioni)
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      (async () => {
-        if (!active) return;
-        await load();
-      })();
-      return () => {
-        active = false;
-      };
-    }, [load])
-  );
+  useEffect(() => {
+    if (didLoadRef.current) return;
+    didLoadRef.current = true;
+    void load();
+  }, [load]);
 
   if (loading) {
     return (
