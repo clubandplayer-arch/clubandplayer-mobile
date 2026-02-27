@@ -1,159 +1,136 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
-
+import { useRouter } from "expo-router";
 import { fetchNotifications, postNotificationsMarkAllRead } from "../../../src/lib/api";
 import { setNotificationsBadgeCount } from "../../../src/lib/notificationsBadge";
 import { theme } from "../../../src/theme";
-import { useRouter } from "expo-router";
-
-type NotificationActor = {
-  id?: string;
-  display_name?: string | null;
-  full_name?: string | null;
-  public_name?: string | null;
-  avatar_url?: string | null;
-  account_type?: string | null;
-};
 
 type NotificationItem = {
-  id: string;
+  id: string | number;
   kind: string;
   payload: any;
   created_at: string;
-  read?: boolean;
-  read_at?: string | null;
-  actor_profile_id?: string | null;
-  actor?: NotificationActor | null;
+  read: boolean;
+  actor?: {
+    id: string;
+    account_type: string;
+    avatar_url?: string | null;
+    public_name?: string | null;
+    display_name?: string | null;
+    full_name?: string | null;
+  };
 };
 
-function getActorName(notification: NotificationItem): string {
-  return notification.actor?.display_name || notification.actor?.full_name || notification.actor?.public_name || "Utente";
+function isEmailLike(value?: string | null) {
+  return !!value && value.includes("@");
 }
 
-function getNotificationMessage(kind: string): string {
-  switch (kind) {
-    case "new_comment":
-      return "ha commentato un post";
-    case "new_reaction":
-      return "ha reagito a un post";
-    case "new_reaction": // (no, non duplicare: una sola volta)
-      return "ha reagito a un post";
-    case "follow":
-      return "ha iniziato a seguirti";
-    case "application_status_changed":
-      return "ha aggiornato una candidatura";
-    case "application_received":
-      return "nuova candidatura ricevuta";
-    case "new_application_received":
-      return "nuova candidatura ricevuta";
+function getActorName(item: NotificationItem): string {
+  // NOTIFICHE: il backend manda public_name come primario
+  if (item.actor?.public_name) return item.actor.public_name;
+
+  const fullName = item.actor?.full_name;
+  if (fullName) return fullName;
+
+  const displayName = item.actor?.display_name;
+  if (displayName && !isEmailLike(displayName)) return displayName;
+
+  return "Utente";
+}
+
+function getNotificationMessage(item: NotificationItem): string {
+  switch (item.kind) {
     case "message":
       return "ti ha scritto un messaggio";
+
+    case "new_comment":
+      return "ha commentato un post";
+
+    case "new_reaction":
+      return "ha reagito a un post";
+
+    case "application_status":
+      if (item.payload?.status === "accepted") {
+        return `ha accettato la tua candidatura`;
+      }
+      return `ha aggiornato lo stato della candidatura`;
+
     default:
-      return "nuova notifica";
+      return "Nuova notifica";
   }
-}
-
-function getInitial(name: string): string {
-  const trimmed = name.trim();
-  if (!trimmed) return "U";
-  return trimmed.charAt(0).toUpperCase();
-}
-
-function Avatar({ name, avatarUrl }: { name: string; avatarUrl?: string | null }) {
-  if (!avatarUrl) {
-    return (
-      <View
-        style={{
-          width: 42,
-          height: 42,
-          borderRadius: 21,
-          backgroundColor: theme.colors.neutral200,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Text style={{ color: theme.colors.text, fontWeight: "600" }}>{getInitial(name)}</Text>
-      </View>
-    );
-  }
-
-  return (
-    <Image
-      source={{ uri: avatarUrl }}
-      style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: theme.colors.neutral200 }}
-    />
-  );
 }
 
 export default function NotificationsScreen() {
-  const [loading, setLoading] = useState(true);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [errorText, setErrorText] = useState<string | null>(null);
   const router = useRouter();
-
-  const markAllAsRead = useCallback(async () => {
-    setNotifications((prev) =>
-      prev.map((item) => ({
-        ...item,
-        read: true,
-        read_at: item.read_at ?? new Date().toISOString(),
-      }))
-    );
-    setNotificationsBadgeCount(0);
-    await postNotificationsMarkAllRead();
-  }, []);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const markingRef = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setErrorText(null);
 
-    // IMPORTANT: all=1 per ottenere la lista completa (coerente col web che ha filtro unread separato)
-    const res = await fetchNotifications({ limit: 50 });
+    const res = await fetchNotifications();
+    if (res.ok && Array.isArray(res.data)) {
+      setNotifications(res.data);
 
-    console.log("[notifications][fetch]", {
-      ok: res.ok,
-      status: res.status,
-      errorText: res.errorText ?? null,
-      items: res.data?.data?.length ?? 0,
-    });
+      const unreadCount = res.data.filter((n) => !n.read).length;
 
-    const kinds = (res.data?.data ?? []).map((n: any) => n.kind);
-    console.log("[notifications][kinds]", kinds);
+      if (unreadCount > 0 && !markingRef.current) {
+        markingRef.current = true;
 
-    console.log("[notifications][raw-data]", JSON.stringify(res.data, null, 2));
+        await postNotificationsMarkAllRead();
 
-    if (!res.ok) {
-      setNotifications([]);
-      setErrorText(res.errorText || `Errore caricamento notifiche (HTTP ${res.status})`);
-      setLoading(false);
-      return;
-    }
+        setNotifications((prev) =>
+          prev.map((n) => ({
+            ...n,
+            read: true,
+          }))
+        );
 
-    const nextNotifications = (res.data?.data as NotificationItem[]) ?? [];
-    setNotifications(nextNotifications);
-
-    const hasUnread = nextNotifications.some((item) => item.read_at == null && item.read !== true);
-    if (hasUnread) {
-      await markAllAsRead();
+        setNotificationsBadgeCount(0);
+        markingRef.current = false;
+      }
     }
 
     setLoading(false);
-  }, [markAllAsRead]);
+  }, []);
 
-  // Refetch quando la screen torna in focus (es: dopo login o dopo navigazioni)
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      (async () => {
-        if (!active) return;
-        await load();
-      })();
-      return () => {
-        active = false;
-      };
-    }, [load])
-  );
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const handlePress = async (item: NotificationItem) => {
+    if (!item.read && !markingRef.current) {
+      markingRef.current = true;
+      await postNotificationsMarkAllRead();
+      setNotifications((prev) =>
+        prev.map((n) => ({
+          ...n,
+          read: true,
+        }))
+      );
+      setNotificationsBadgeCount(0);
+      markingRef.current = false;
+    }
+
+    if (item.kind === "new_comment" || item.kind === "new_reaction") {
+      if (item.payload?.post_id) {
+        router.push(`/posts/${item.payload.post_id}`);
+      }
+    }
+
+    if (item.kind === "message") {
+      if (item.payload?.thread_id) {
+        router.push(`/messages/${item.payload.thread_id}`);
+      }
+    }
+
+    if (item.kind === "application_status") {
+      if (item.payload?.opportunity_id) {
+        router.push(`/opportunities/${item.payload.opportunity_id}`);
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -163,94 +140,65 @@ export default function NotificationsScreen() {
     );
   }
 
-  if (errorText) {
-    return (
-      <View style={{ flex: 1, padding: 16 }}>
-        <Text style={{ color: theme.colors.text, fontWeight: "700", marginBottom: 8 }}>Errore</Text>
-        <Text style={{ color: theme.colors.text, marginBottom: 12 }}>{errorText}</Text>
-
-        <Pressable
-          onPress={() => void load()}
-          style={{
-            alignSelf: "flex-start",
-            paddingVertical: 10,
-            paddingHorizontal: 14,
-            borderRadius: 10,
-            backgroundColor: theme.colors.primary,
-          }}
-        >
-          <Text style={{ color: "white", fontWeight: "700" }}>Riprova</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
-  if (!notifications.length) {
-    return (
-      <View style={{ flex: 1, padding: 16 }}>
-        <Text style={{ color: theme.colors.text, fontWeight: "700", marginBottom: 8 }}>Notifiche</Text>
-        <Text style={{ color: theme.colors.text }}>Nessuna notifica da mostrare.</Text>
-      </View>
-    );
-  }
-
   return (
     <FlatList
       data={notifications}
-      keyExtractor={(item) => item.id}
+      keyExtractor={(item) => String(item.id)}
+      contentContainerStyle={{ padding: 16, gap: 12 }}
       renderItem={({ item }) => {
         const name = getActorName(item);
-        const unread = item.read_at == null && item.read !== true;
+        const message = getNotificationMessage(item);
 
         return (
           <Pressable
-            onPress={() => {
-              void markAllAsRead();
-
-              const p: any = item.payload ?? {};
-
-              if (item.kind === "message" && typeof p.thread_id === "string") {
-                router.push(`/messages/${p.thread_id}`);
-                return;
-              }
-
-              if ((item.kind === "new_comment" || item.kind === "new_reaction") && typeof p.post_id === "string") {
-                router.push(`/posts/${p.post_id}`);
-                return;
-              }
-
-              console.log("TODO PR-N2 deep link", item.id, item.kind);
-            }}
+            onPress={() => handlePress(item)}
             style={{
               flexDirection: "row",
-              paddingHorizontal: 16,
-              paddingVertical: 12,
+              alignItems: "center",
               gap: 12,
-              borderBottomWidth: 1,
-              borderBottomColor: theme.colors.neutral200,
-              backgroundColor: unread ? theme.colors.neutral100 : "transparent",
+              padding: 14,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: theme.colors.neutral200,
+              backgroundColor: theme.colors.background,
             }}
           >
-            <Avatar name={name} avatarUrl={item.actor?.avatar_url} />
+            {item.actor?.avatar_url ? (
+              <Image
+                source={{ uri: item.actor.avatar_url }}
+                style={{ width: 44, height: 44, borderRadius: 22 }}
+              />
+            ) : (
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: theme.colors.neutral200,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ fontWeight: "800", color: theme.colors.text }}>
+                  {name.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
 
             <View style={{ flex: 1 }}>
-              <Text style={{ color: theme.colors.text, fontWeight: unread ? "600" : "500" }}>{name}</Text>
-              <Text style={{ color: theme.colors.text, marginTop: 2 }}>
-                {getNotificationMessage(item.kind)}
+              <Text style={{ fontWeight: "800", color: theme.colors.text }}>
+                {name}
               </Text>
-              <Text style={{ color: theme.colors.muted, marginTop: 6, fontSize: 12 }}>
-                {new Date(item.created_at).toLocaleString()}
-              </Text>
+              <Text style={{ color: theme.colors.muted }}>{message}</Text>
             </View>
 
-            {unread ? (
+            {!item.read ? (
               <View
                 style={{
                   width: 10,
                   height: 10,
                   borderRadius: 5,
                   backgroundColor: theme.colors.primary,
-                  marginTop: 4,
                 }}
               />
             ) : null}
