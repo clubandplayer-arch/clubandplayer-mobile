@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -42,6 +43,7 @@ export default function DirectMessageThreadScreen() {
   const [sending, setSending] = useState(false);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const listRef = useRef<FlatList<DirectMessage>>(null);
   const insets = useSafeAreaInsets();
 
@@ -92,6 +94,20 @@ export default function DirectMessageThreadScreen() {
     if (!thread?.messages?.length) return;
     scrollToBottom();
   }, [scrollToBottom, thread?.messages?.length]);
+
+  useEffect(() => {
+  const showSub = Keyboard.addListener("keyboardDidShow", (e) => {
+    setKeyboardHeight(e.endCoordinates?.height ?? 0);
+  });
+  const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+    setKeyboardHeight(0);
+  });
+
+  return () => {
+    showSub.remove();
+    hideSub.remove();
+  };
+}, []);
 
 const sendMessage = useCallback(async () => {
   const content = input.trim();
@@ -185,7 +201,7 @@ const sendMessage = useCallback(async () => {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={["top", "bottom"]}>
       <KeyboardAvoidingView
         style={{ flex: 1, backgroundColor: theme.colors.background }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : "padding"}
         keyboardVerticalOffset={0}
       >
         <View
@@ -241,7 +257,10 @@ const sendMessage = useCallback(async () => {
           data={thread?.messages || []}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          contentContainerStyle={{ paddingVertical: 8, paddingBottom: composerMinHeight + Math.max(insets.bottom, 12) }}
+          contentContainerStyle={{
+          paddingVertical: 8,
+          paddingBottom: composerMinHeight + Math.max(insets.bottom, 12) + keyboardHeight,
+        }}
           keyboardShouldPersistTaps="handled"
         />
 
@@ -252,6 +271,7 @@ const sendMessage = useCallback(async () => {
             paddingTop: 12,
             paddingHorizontal: 12,
             paddingBottom: Math.max(insets.bottom, 12),
+            marginBottom: keyboardHeight, // ✅ spinge il composer sopra la tastiera (Android)
             flexDirection: "row",
             gap: 8,
             alignItems: "flex-end",
