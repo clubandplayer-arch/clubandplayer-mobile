@@ -13,12 +13,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import {
-  fetchDirectMessageThread,
-  postDirectMessage,
-  postDirectMessageMarkRead,
-} from "../../../src/lib/api";
-import { emit } from "../../../src/lib/events/appEvents";
+import { fetchDirectMessageThread, postDirectMessage } from "../../../src/lib/api";
 import type { DirectMessage, DirectThreadResponse } from "../../../src/types/directMessages";
 import { theme } from "../../../src/theme";
 
@@ -82,10 +77,6 @@ export default function DirectMessageThreadScreen() {
     (async () => {
       try {
         await loadThread();
-        const markReadResponse = await postDirectMessageMarkRead(profileId);
-        if (markReadResponse.ok) {
-          emit("app:direct-messages-updated");
-        }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -123,7 +114,6 @@ export default function DirectMessageThreadScreen() {
           messages: [...(prev.messages || []), response.data.message],
         };
       });
-      emit("app:direct-messages-updated");
       scrollToBottom();
     } finally {
       setSending(false);
