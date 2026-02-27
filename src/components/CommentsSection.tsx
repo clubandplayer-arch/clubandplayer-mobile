@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, Text, TextInput, View } from "react-native";
 import { createComment, deleteComment, editComment, fetchComments, type FeedComment } from "../lib/api";
 import { theme } from "../theme";
 
@@ -13,10 +13,61 @@ type CommentsSectionProps = {
 
 const EDIT_WINDOW_MS = 60 * 1000;
 
+function isEmailLike(candidate: unknown): boolean {
+  return typeof candidate === "string" && candidate.includes("@");
+}
+
+/**
+ * ✅ WEB parity:
+ * full_name → display_name (solo se NON email) → fallback
+ */
 function getDisplayName(comment: FeedComment): string {
-  const name = comment.author?.display_name || comment.author?.full_name;
-  if (name && String(name).trim()) return String(name).trim();
+  const fullName = typeof comment.author?.full_name === "string" ? comment.author.full_name.trim() : "";
+  if (fullName) return fullName;
+
+  const displayName = typeof comment.author?.display_name === "string" ? comment.author.display_name.trim() : "";
+  if (displayName && !isEmailLike(displayName)) return displayName;
+
   return "Utente";
+}
+
+function getAvatarUrl(comment: FeedComment): string | null {
+  const url = typeof comment.author?.avatar_url === "string" ? comment.author.avatar_url.trim() : "";
+  return url ? url : null;
+}
+
+function Avatar({ url, size = 34, name }: { url?: string | null; size?: number; name?: string }) {
+  if (!url) {
+    const initial = name?.trim().charAt(0).toUpperCase() || "U";
+    return (
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: theme.colors.neutral200,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Text style={{ fontSize: Math.max(12, Math.floor(size * 0.38)), fontWeight: "800", color: theme.colors.text }}>
+          {initial}
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri: url }}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: theme.colors.neutral200,
+      }}
+    />
+  );
 }
 
 function canEditComment(comment: FeedComment, currentUserId: string | null): boolean {
@@ -189,13 +240,20 @@ export function CommentsSection({
       </View>
 
       {!expanded && hasLoaded && previewComments.length > 0 ? (
-        <View style={{ gap: 10 }}>
-          {previewComments.map((comment) => (
-            <View key={comment.id} style={{ gap: 4 }}>
-              <Text style={{ fontSize: 13, fontWeight: "700", color: theme.colors.text }}>{getDisplayName(comment)}</Text>
-              <Text style={{ color: theme.colors.text }}>{comment.body}</Text>
-            </View>
-          ))}
+        <View style={{ gap: 12 }}>
+          {previewComments.map((comment) => {
+            const name = getDisplayName(comment);
+            const avatarUrl = getAvatarUrl(comment);
+            return (
+              <View key={comment.id} style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
+                <Avatar url={avatarUrl} size={30} name={name} />
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Text style={{ fontSize: 13, fontWeight: "800", color: theme.colors.text }}>{name}</Text>
+                  <Text style={{ color: theme.colors.text }}>{comment.body}</Text>
+                </View>
+              </View>
+            );
+          })}
         </View>
       ) : null}
 
@@ -216,53 +274,75 @@ export function CommentsSection({
                 const canEdit = canEditComment(comment, currentUserId);
                 const canDelete = canDeleteComment(comment, currentUserId);
 
+                const name = getDisplayName(comment);
+                const avatarUrl = getAvatarUrl(comment);
+
                 return (
-                  <View key={comment.id} style={{ gap: 6, borderBottomWidth: 1, borderBottomColor: theme.colors.neutral100, paddingBottom: 10 }}>
-                    <Text style={{ fontSize: 13, fontWeight: "700", color: theme.colors.text }}>{getDisplayName(comment)}</Text>
+                  <View
+                    key={comment.id}
+                    style={{
+                      gap: 8,
+                      borderBottomWidth: 1,
+                      borderBottomColor: theme.colors.neutral100,
+                      paddingBottom: 12,
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
+                      <Avatar url={avatarUrl} size={32} name={name} />
+                      <View style={{ flex: 1, gap: 6 }}>
+                        <Text style={{ fontSize: 13, fontWeight: "800", color: theme.colors.text }}>{name}</Text>
 
-                    {isEditing ? (
-                      <View style={{ gap: 8 }}>
-                        <TextInput
-                          value={editDraft}
-                          onChangeText={setEditDraft}
-                          multiline
-                          placeholder="Modifica commento"
-                          style={{
-                            borderWidth: 1,
-                            borderColor: theme.colors.neutral200,
-                            borderRadius: 10,
-                            padding: 10,
-                            minHeight: 44,
-                            color: theme.colors.text,
-                          }}
-                        />
-                        <View style={{ flexDirection: "row", gap: 12 }}>
-                          <Pressable onPress={onSaveEdit} disabled={isBusy || !editDraft.trim()}>
-                            <Text style={{ color: isBusy ? theme.colors.muted : theme.colors.text, fontWeight: "700" }}>Salva</Text>
-                          </Pressable>
-                          <Pressable onPress={onCancelEdit} disabled={isBusy}>
-                            <Text style={{ color: theme.colors.muted, fontWeight: "700" }}>Annulla</Text>
-                          </Pressable>
-                        </View>
-                      </View>
-                    ) : (
-                      <Text style={{ color: theme.colors.text }}>{comment.body}</Text>
-                    )}
+                        {isEditing ? (
+                          <View style={{ gap: 8 }}>
+                            <TextInput
+                              value={editDraft}
+                              onChangeText={setEditDraft}
+                              multiline
+                              placeholder="Modifica commento"
+                              style={{
+                                borderWidth: 1,
+                                borderColor: theme.colors.neutral200,
+                                borderRadius: 10,
+                                padding: 10,
+                                minHeight: 44,
+                                color: theme.colors.text,
+                              }}
+                            />
+                            <View style={{ flexDirection: "row", gap: 12 }}>
+                              <Pressable onPress={onSaveEdit} disabled={isBusy || !editDraft.trim()}>
+                                <Text style={{ color: isBusy ? theme.colors.muted : theme.colors.text, fontWeight: "700" }}>
+                                  Salva
+                                </Text>
+                              </Pressable>
+                              <Pressable onPress={onCancelEdit} disabled={isBusy}>
+                                <Text style={{ color: theme.colors.muted, fontWeight: "700" }}>Annulla</Text>
+                              </Pressable>
+                            </View>
+                          </View>
+                        ) : (
+                          <Text style={{ color: theme.colors.text }}>{comment.body}</Text>
+                        )}
 
-                    {!isEditing && (canEdit || canDelete) ? (
-                      <View style={{ flexDirection: "row", gap: 14 }}>
-                        {canEdit ? (
-                          <Pressable onPress={() => onStartEdit(comment)} disabled={isBusy}>
-                            <Text style={{ color: isBusy ? theme.colors.muted : theme.colors.text, fontWeight: "700" }}>Modifica</Text>
-                          </Pressable>
-                        ) : null}
-                        {canDelete ? (
-                          <Pressable onPress={() => onDelete(comment.id)} disabled={isBusy}>
-                            <Text style={{ color: isBusy ? theme.colors.muted : theme.colors.danger, fontWeight: "700" }}>Elimina</Text>
-                          </Pressable>
+                        {!isEditing && (canEdit || canDelete) ? (
+                          <View style={{ flexDirection: "row", gap: 14 }}>
+                            {canEdit ? (
+                              <Pressable onPress={() => onStartEdit(comment)} disabled={isBusy}>
+                                <Text style={{ color: isBusy ? theme.colors.muted : theme.colors.text, fontWeight: "700" }}>
+                                  Modifica
+                                </Text>
+                              </Pressable>
+                            ) : null}
+                            {canDelete ? (
+                              <Pressable onPress={() => onDelete(comment.id)} disabled={isBusy}>
+                                <Text style={{ color: isBusy ? theme.colors.muted : theme.colors.danger, fontWeight: "700" }}>
+                                  Elimina
+                                </Text>
+                              </Pressable>
+                            ) : null}
+                          </View>
                         ) : null}
                       </View>
-                    ) : null}
+                    </View>
                   </View>
                 );
               })}
