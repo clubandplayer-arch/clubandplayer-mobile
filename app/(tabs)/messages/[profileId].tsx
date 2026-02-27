@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -10,8 +11,8 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import BrandHeader from "../../../src/components/brand/BrandHeader";
 import {
   fetchDirectMessageThread,
   postDirectMessage,
@@ -46,6 +47,9 @@ export default function DirectMessageThreadScreen() {
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<FlatList<DirectMessage>>(null);
+  const insets = useSafeAreaInsets();
+
+  const composerMinHeight = 76;
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
@@ -130,6 +134,8 @@ export default function DirectMessageThreadScreen() {
     () => thread?.peer?.full_name || thread?.peer?.display_name || "Messaggi",
     [thread?.peer?.display_name, thread?.peer?.full_name],
   );
+  const peerSubLabel = useMemo(() => thread?.peer?.display_name || "Club And Player", [thread?.peer?.display_name]);
+  const avatarUri = thread?.peer?.avatar_url?.trim();
 
   const renderItem = useCallback(
     ({ item }: { item: DirectMessage }) => {
@@ -170,77 +176,102 @@ export default function DirectMessageThreadScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
-      behavior={Platform.select({ ios: "padding", default: undefined })}
-    >
-      <View
-        style={{
-          paddingHorizontal: 16,
-          paddingBottom: 12,
-          borderBottomWidth: 1,
-          borderBottomColor: theme.colors.neutral100,
-          backgroundColor: theme.colors.background,
-          gap: 8,
-        }}
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={["top", "bottom"]}>
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: theme.colors.background }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <BrandHeader
-          subtitle="Messaggi"
-          leftAction={{ label: "←", onPress: () => router.back(), color: theme.colors.text }}
-        />
-        <Text style={{ fontSize: 20, fontWeight: "700", color: theme.colors.text }}>{peerName}</Text>
-        {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
-      </View>
-
-      <FlatList
-        ref={listRef}
-        data={thread?.messages || []}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={{ paddingVertical: 8 }}
-      />
-
-      <View
-        style={{
-          borderTopWidth: 1,
-          borderTopColor: theme.colors.neutral100,
-          padding: 12,
-          flexDirection: "row",
-          gap: 8,
-          alignItems: "flex-end",
-        }}
-      >
-        <TextInput
-          value={input}
-          onChangeText={setInput}
-          placeholder="Scrivi un messaggio"
-          multiline
+        <View
           style={{
-            flex: 1,
-            minHeight: 40,
-            maxHeight: 120,
-            borderWidth: 1,
-            borderColor: theme.colors.neutral200,
-            borderRadius: 12,
-            paddingHorizontal: 12,
-            paddingVertical: 10,
+            paddingHorizontal: 16,
+            paddingBottom: 12,
+            borderBottomWidth: 1,
+            borderBottomColor: theme.colors.neutral100,
             backgroundColor: theme.colors.background,
-          }}
-        />
-        <Pressable
-          onPress={sendMessage}
-          disabled={sending || !input.trim()}
-          style={{
-            backgroundColor: theme.colors.primary,
-            borderRadius: 10,
-            paddingHorizontal: 14,
-            paddingVertical: 10,
-            opacity: sending || !input.trim() ? 0.6 : 1,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
           }}
         >
-          <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Invia</Text>
-        </Pressable>
-      </View>
-    </KeyboardAvoidingView>
+          <Pressable onPress={() => router.back()} hitSlop={8}>
+            <Text style={{ fontSize: 20, color: theme.colors.text }}>←</Text>
+          </Pressable>
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+          ) : (
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: theme.colors.neutral200,
+              }}
+            >
+              <Text style={{ color: theme.colors.text, fontWeight: "700" }}>{peerName.slice(0, 1).toUpperCase()}</Text>
+            </View>
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: theme.colors.text }}>{peerName}</Text>
+            <Text style={{ fontSize: 13, color: theme.colors.muted }}>{peerSubLabel}</Text>
+            {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
+          </View>
+        </View>
+
+        <FlatList
+          ref={listRef}
+          data={thread?.messages || []}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={{ paddingVertical: 8, paddingBottom: composerMinHeight + Math.max(insets.bottom, 12) }}
+        />
+
+        <View
+          style={{
+            borderTopWidth: 1,
+            borderTopColor: theme.colors.neutral100,
+            paddingTop: 12,
+            paddingHorizontal: 12,
+            paddingBottom: Math.max(insets.bottom, 12),
+            flexDirection: "row",
+            gap: 8,
+            alignItems: "flex-end",
+            minHeight: composerMinHeight,
+          }}
+        >
+          <TextInput
+            value={input}
+            onChangeText={setInput}
+            placeholder="Scrivi un messaggio"
+            multiline
+            style={{
+              flex: 1,
+              minHeight: 40,
+              maxHeight: 120,
+              borderWidth: 1,
+              borderColor: theme.colors.neutral200,
+              borderRadius: 12,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              backgroundColor: theme.colors.background,
+            }}
+          />
+          <Pressable
+            onPress={sendMessage}
+            disabled={sending || !input.trim()}
+            style={{
+              backgroundColor: theme.colors.primary,
+              borderRadius: 10,
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              opacity: sending || !input.trim() ? 0.6 : 1,
+            }}
+          >
+            <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Invia</Text>
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
