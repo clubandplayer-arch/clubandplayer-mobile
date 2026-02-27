@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
-
-import { fetchNotifications, postNotificationsMarkAllRead } from "../../../src/lib/api";
-import { setNotificationsBadgeCount } from "../../../src/lib/notificationsBadge";
-import { theme } from "../../../src/theme";
 import { useRouter } from "expo-router";
+
+import { fetchNotifications } from "../../../src/lib/api";
+import { theme } from "../../../src/theme";
 
 type NotificationActor = {
   id?: string;
@@ -23,6 +22,7 @@ type NotificationItem = {
   read?: boolean;
   read_at?: string | null;
   actor_profile_id?: string | null;
+  recipient_profile_id?: string | null;
   actor?: NotificationActor | null;
 };
 
@@ -30,12 +30,12 @@ function isEmailLike(v?: string | null) {
   return !!v && v.includes("@");
 }
 
-function getActorName(notification: NotificationItem): string {
-  // NOTIFICHE: preferiamo public_name (coerente con i log server)
-  if (notification.actor?.public_name) return notification.actor.public_name;
-  if (notification.actor?.full_name) return notification.actor.full_name;
+// Notifiche: preferiamo public_name (coerente con backend), poi full_name, poi display_name (non email)
+function getActorName(n: NotificationItem): string {
+  if (n.actor?.public_name) return n.actor.public_name;
+  if (n.actor?.full_name) return n.actor.full_name;
 
-  const dn = notification.actor?.display_name ?? null;
+  const dn = n.actor?.display_name ?? null;
   if (dn && !isEmailLike(dn)) return dn;
 
   return "Utente";
@@ -52,7 +52,6 @@ function getNotificationMessage(kind: string): string {
     case "application_status_changed":
       return "ha aggiornato una candidatura";
     case "application_received":
-      return "nuova candidatura ricevuta";
     case "new_application_received":
       return "nuova candidatura ricevuta";
     case "message":
@@ -63,9 +62,8 @@ function getNotificationMessage(kind: string): string {
 }
 
 function getInitial(name: string): string {
-  const trimmed = name.trim();
-  if (!trimmed) return "U";
-  return trimmed.charAt(0).toUpperCase();
+  const t = name.trim();
+  return t ? t.charAt(0).toUpperCase() : "U";
 }
 
 function Avatar({ name, avatarUrl }: { name: string; avatarUrl?: string | null }) {
@@ -100,40 +98,8 @@ export default function NotificationsScreen() {
   const [errorText, setErrorText] = useState<string | null>(null);
   const router = useRouter();
 
-  // ✅ evita loop: carichiamo SOLO una volta al mount
+  // ✅ evita reload loop: carichiamo una volta al mount
   const didLoadRef = useRef(false);
-
-  // ✅ evita chiamate multiple a mark-all
-  const markAllInFlightRef = useRef(false);
-  const didMarkOnOpenRef = useRef(false);
-
-  const markAllAsReadOptimistic = useCallback(async () => {
-    if (markAllInFlightRef.current) return;
-
-    const hasUnread = notifications.some((n) => n.read_at == null && n.read !== true);
-    if (!hasUnread) {
-      setNotificationsBadgeCount(0);
-      return;
-    }
-
-    markAllInFlightRef.current = true;
-    try {
-      await postNotificationsMarkAllRead();
-
-      const nowIso = new Date().toISOString();
-      setNotifications((prev) =>
-        prev.map((n) => ({
-          ...n,
-          read: true,
-          read_at: n.read_at ?? nowIso,
-        }))
-      );
-
-      setNotificationsBadgeCount(0);
-    } finally {
-      markAllInFlightRef.current = false;
-    }
-  }, [notifications]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -160,33 +126,60 @@ export default function NotificationsScreen() {
       read: n.read ?? (n.read_at != null),
     }));
 
-    console.log(
-      "[notifications][debug][first-message]",
-      JSON.stringify(items.filter((n) => n.kind === "message").slice(0, 1), null, 2)
-    );
-
-    console.log(
-      "[notifications][debug][first-message-or-comment]",
-      JSON.stringify(items.filter((n) => n.kind === "message" || n.kind === "new_comment").slice(0, 2), null, 2)
-    );
-
     setNotifications(items);
     setLoading(false);
-
-    // ✅ mark-all solo 1 volta quando entri (dopo load)
-    if (!didMarkOnOpenRef.current && items.some((n) => n.read_at == null && n.read !== true)) {
-      didMarkOnOpenRef.current = true;
-      void markAllAsReadOptimistic();
-    } else {
-      setNotificationsBadgeCount(0);
-    }
-  }, [markAllAsReadOptimistic]);
+  }, []);
 
   useEffect(() => {
     if (didLoadRef.current) return;
     didLoadRef.current = true;
     void load();
   }, [load]);
+
+  // ✅ Segna LETTA SOLO la notifica cliccata (NON mark-all)
+  const markOneReadLocal = (id: string | number) => {
+    const nowIso = new Date().toISOString();
+    setNotifications((prev) =>
+      prev.map((n) =>
+        String(n.id) === String(id)
+          ? { ...n, read: true, read_at: n.read_at ?? nowIso }
+          : n
+      )
+    );
+  };
+
+  const handlePress = (item: NotificationItem) => {
+    // 1) UX: quella cliccata diventa letta, le altre restano NON lette
+    markOneReadLocal(item.id);
+
+    const p: any = item.payload ?? {};
+
+    // 2) Deep link: COMMENT/REACTION → post
+    if ((item.kind === "new_comment" || item.kind === "new_reaction") && typeof p.post_id === "string") {
+      router.push(`/posts/${p.post_id}`);
+      return;
+    }
+
+    // 3) Deep link: MESSAGE → la tua route è /messages/[profileId]
+    //    quindi apriamo la chat col profilo dell'attore (mittente)
+    if (item.kind === "message") {
+      const peerProfileId =
+        (typeof item.actor_profile_id === "string" && item.actor_profile_id) ||
+        (typeof p.sender_profile_id === "string" && p.sender_profile_id) ||
+        null;
+
+      if (peerProfileId) {
+        router.push(`/messages/${peerProfileId}`);
+        return;
+      }
+
+      console.log("[notifications] message deep link missing peer id", item.id, p);
+      return;
+    }
+
+    // 4) Altri tipi: per ora non deep-linkiamo (evita rotture)
+    console.log("TODO notifications deep link", item.id, item.kind, p);
+  };
 
   if (loading) {
     return (
@@ -237,24 +230,7 @@ export default function NotificationsScreen() {
 
         return (
           <Pressable
-            onPress={() => {
-              // UX: quando tocchi una notifica, spariscono subito i pallini (mark-all)
-              void markAllAsReadOptimistic();
-
-              const p: any = item.payload ?? {};
-
-              if (item.kind === "message" && typeof p.thread_id === "string") {
-                router.push(`/messages/${p.thread_id}`);
-                return;
-              }
-
-              if ((item.kind === "new_comment" || item.kind === "new_reaction") && typeof p.post_id === "string") {
-                router.push(`/posts/${p.post_id}`);
-                return;
-              }
-
-              console.log("TODO PR-N2 deep link", item.id, item.kind);
-            }}
+            onPress={() => handlePress(item)}
             style={{
               flexDirection: "row",
               paddingHorizontal: 16,
