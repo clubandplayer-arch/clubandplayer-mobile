@@ -93,43 +93,54 @@ export default function DirectMessageThreadScreen() {
     scrollToBottom();
   }, [scrollToBottom, thread?.messages?.length]);
 
-  const sendMessage = useCallback(async () => {
-    const content = input.trim();
-    if (!content || !profileId) return;
+const sendMessage = useCallback(async () => {
+  const content = input.trim();
+  if (!content || !profileId) return;
 
-    setSending(true);
-    setError(null);
+  setSending(true);
+  setError(null);
 
-    try {
-      const response = await postDirectMessage(profileId, content);
-      if (!response.ok || !response.data?.message) {
-        setError(response.errorText || "Invio non riuscito");
-        return;
-      }
-
-      setInput("");
-      setThread((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          messages: [...(prev.messages || []), response.data.message],
-        };
-      });
-
-      emit("app:direct-messages-updated");
-      scrollToBottom();
-    } catch (e) {
-      setError("Invio non riuscito");
-    } finally {
-      setSending(false);
+  try {
+    const response = await postDirectMessage(profileId, content);
+    if (!response.ok || !response.data?.message) {
+      setError(response.errorText || "Invio non riuscito");
+      return;
     }
-  }, [input, profileId, scrollToBottom]);
 
-  const peerName = useMemo(
-    () => thread?.peer?.full_name || thread?.peer?.display_name || "Messaggi",
-    [thread?.peer?.display_name, thread?.peer?.full_name],
-  );
-  const peerSubLabel = useMemo(() => thread?.peer?.display_name || "Club And Player", [thread?.peer?.display_name]);
+    setInput("");
+    setThread((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        messages: [...(prev.messages || []), response.data.message],
+      };
+    });
+
+    emit("app:direct-messages-updated");
+    scrollToBottom();
+  } catch (e) {
+    setError("Invio non riuscito");
+  } finally {
+    setSending(false);
+  }
+}, [input, profileId, scrollToBottom]);
+
+    const peerName = useMemo(() => {
+      const full = thread?.peer?.full_name?.trim();
+      const display = thread?.peer?.display_name?.trim();
+      return full || display || "Messaggi";
+    }, [thread?.peer?.display_name, thread?.peer?.full_name]);
+
+    const peerSubLabel = useMemo(() => {
+      const full = thread?.peer?.full_name?.trim();
+      const display = thread?.peer?.display_name?.trim();
+
+      // mostra la seconda riga solo se è diversa dal titolo
+      if (display && full && display !== full) return display;
+
+      // altrimenti non mostrare nulla
+      return undefined;
+    }, [thread?.peer?.display_name, thread?.peer?.full_name]);
   const avatarUri = thread?.peer?.avatar_url?.trim();
 
   const renderItem = useCallback(
@@ -175,6 +186,7 @@ export default function DirectMessageThreadScreen() {
       <KeyboardAvoidingView
         style={{ flex: 1, backgroundColor: theme.colors.background }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={0}
       >
         <View
           style={{
@@ -208,9 +220,19 @@ export default function DirectMessageThreadScreen() {
             </View>
           )}
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 18, fontWeight: "700", color: theme.colors.text }}>{peerName}</Text>
-            <Text style={{ fontSize: 13, color: theme.colors.muted }}>{peerSubLabel}</Text>
-            {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
+            <Text style={{ fontSize: 18, fontWeight: "700", color: theme.colors.text }}>
+              {peerName}
+            </Text>
+
+            {peerSubLabel ? (
+              <Text style={{ fontSize: 13, color: theme.colors.muted }}>
+                {peerSubLabel}
+              </Text>
+            ) : null}
+
+            {error ? (
+              <Text style={{ color: theme.colors.danger }}>{error}</Text>
+            ) : null}
           </View>
         </View>
 
@@ -220,6 +242,7 @@ export default function DirectMessageThreadScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={{ paddingVertical: 8, paddingBottom: composerMinHeight + Math.max(insets.bottom, 12) }}
+          keyboardShouldPersistTaps="handled"
         />
 
         <View
