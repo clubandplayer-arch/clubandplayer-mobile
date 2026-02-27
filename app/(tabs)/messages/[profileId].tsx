@@ -16,6 +16,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { fetchDirectMessageThread, postDirectMessage } from "../../../src/lib/api";
 import type { DirectMessage, DirectThreadResponse } from "../../../src/types/directMessages";
 import { theme } from "../../../src/theme";
+import { emit } from "../../../src/lib/events/appEvents";
 
 function resolveProfileId(raw: string | string[] | undefined): string {
   if (Array.isArray(raw)) return raw[0] ?? "";
@@ -114,7 +115,11 @@ export default function DirectMessageThreadScreen() {
           messages: [...(prev.messages || []), response.data.message],
         };
       });
+
+      emit("app:direct-messages-updated");
       scrollToBottom();
+    } catch (e) {
+      setError("Invio non riuscito");
     } finally {
       setSending(false);
     }
