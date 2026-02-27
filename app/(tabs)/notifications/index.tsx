@@ -160,6 +160,16 @@ export default function NotificationsScreen() {
       read: n.read ?? (n.read_at != null),
     }));
 
+    console.log(
+      "[notifications][debug][first-message]",
+      JSON.stringify(items.filter((n) => n.kind === "message").slice(0, 1), null, 2)
+    );
+
+    console.log(
+      "[notifications][debug][first-message-or-comment]",
+      JSON.stringify(items.filter((n) => n.kind === "message" || n.kind === "new_comment").slice(0, 2), null, 2)
+    );
+
     setNotifications(items);
     setLoading(false);
 
