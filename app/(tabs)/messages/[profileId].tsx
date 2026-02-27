@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -10,16 +12,12 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import BrandHeader from "../../../src/components/brand/BrandHeader";
-import {
-  fetchDirectMessageThread,
-  postDirectMessage,
-  postDirectMessageMarkRead,
-} from "../../../src/lib/api";
-import { emit } from "../../../src/lib/events/appEvents";
+import { fetchDirectMessageThread, postDirectMessage } from "../../../src/lib/api";
 import type { DirectMessage, DirectThreadResponse } from "../../../src/types/directMessages";
 import { theme } from "../../../src/theme";
+import { emit } from "../../../src/lib/events/appEvents";
 
 function resolveProfileId(raw: string | string[] | undefined): string {
   if (Array.isArray(raw)) return raw[0] ?? "";
@@ -45,7 +43,14 @@ export default function DirectMessageThreadScreen() {
   const [sending, setSending] = useState(false);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  // Android only: we manually shift the composer above the keyboard.
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
   const listRef = useRef<FlatList<DirectMessage>>(null);
+  const insets = useSafeAreaInsets();
+
+  const composerMinHeight = 76;
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
@@ -78,10 +83,6 @@ export default function DirectMessageThreadScreen() {
     (async () => {
       try {
         await loadThread();
-        const markReadResponse = await postDirectMessageMarkRead(profileId);
-        if (markReadResponse.ok) {
-          emit("app:direct-messages-updated");
-        }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -90,12 +91,31 @@ export default function DirectMessageThreadScreen() {
     return () => {
       mounted = false;
     };
-  }, [loadThread, profileId]);
+  }, [loadThread]);
 
   useEffect(() => {
     if (!thread?.messages?.length) return;
     scrollToBottom();
   }, [scrollToBottom, thread?.messages?.length]);
+
+  // ✅ IMPORTANT:
+  // - iOS: KeyboardAvoidingView handles layout
+  // - Android: DO NOT use KeyboardAvoidingView (to avoid double offsets/gaps)
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+
+    const showSub = Keyboard.addListener("keyboardDidShow", (e) => {
+      setKeyboardHeight(e.endCoordinates?.height ?? 0);
+    });
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const sendMessage = useCallback(async () => {
     const content = input.trim();
@@ -119,17 +139,34 @@ export default function DirectMessageThreadScreen() {
           messages: [...(prev.messages || []), response.data.message],
         };
       });
+
       emit("app:direct-messages-updated");
       scrollToBottom();
+    } catch {
+      setError("Invio non riuscito");
     } finally {
       setSending(false);
     }
   }, [input, profileId, scrollToBottom]);
 
-  const peerName = useMemo(
-    () => thread?.peer?.full_name || thread?.peer?.display_name || "Messaggi",
-    [thread?.peer?.display_name, thread?.peer?.full_name],
-  );
+  const peerName = useMemo(() => {
+    const full = thread?.peer?.full_name?.trim();
+    const display = thread?.peer?.display_name?.trim();
+    return full || display || "Messaggi";
+  }, [thread?.peer?.display_name, thread?.peer?.full_name]);
+
+  const peerSubLabel = useMemo(() => {
+    const full = thread?.peer?.full_name?.trim();
+    const display = thread?.peer?.display_name?.trim();
+
+    // mostra la seconda riga solo se è diversa dal titolo
+    if (display && full && display !== full) return display;
+
+    // altrimenti non mostrare nulla
+    return undefined;
+  }, [thread?.peer?.display_name, thread?.peer?.full_name]);
+
+  const avatarUri = thread?.peer?.avatar_url?.trim();
 
   const renderItem = useCallback(
     ({ item }: { item: DirectMessage }) => {
@@ -152,14 +189,27 @@ export default function DirectMessageThreadScreen() {
               backgroundColor: mine ? theme.colors.primary : theme.colors.neutral200,
             }}
           >
-            <Text style={{ color: mine ? theme.colors.background : theme.colors.text }}>{item.content}</Text>
+            <Text style={{ color: mine ? theme.colors.background : theme.colors.text }}>
+              {item.content}
+            </Text>
           </View>
-          <Text style={{ fontSize: 11, color: theme.colors.muted, marginTop: 2 }}>{formatWhen(item.created_at)}</Text>
+          <Text style={{ fontSize: 11, color: theme.colors.muted, marginTop: 2 }}>
+            {formatWhen(item.created_at)}
+          </Text>
         </View>
       );
     },
     [thread?.currentProfileId],
   );
+
+  const composerBottomPadding =
+    Platform.OS === "android" && keyboardHeight > 0 ? 12 : Math.max(insets.bottom, 12);
+
+  const listBottomPadding =
+    composerMinHeight +
+    composerBottomPadding +
+    8 +
+    (Platform.OS === "android" ? keyboardHeight : 0);
 
   if (loading) {
     return (
@@ -169,11 +219,8 @@ export default function DirectMessageThreadScreen() {
     );
   }
 
-  return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
-      behavior={Platform.select({ ios: "padding", default: undefined })}
-    >
+  const Content = (
+    <>
       <View
         style={{
           paddingHorizontal: 16,
@@ -181,15 +228,43 @@ export default function DirectMessageThreadScreen() {
           borderBottomWidth: 1,
           borderBottomColor: theme.colors.neutral100,
           backgroundColor: theme.colors.background,
-          gap: 8,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
         }}
       >
-        <BrandHeader
-          subtitle="Messaggi"
-          leftAction={{ label: "←", onPress: () => router.back(), color: theme.colors.text }}
-        />
-        <Text style={{ fontSize: 20, fontWeight: "700", color: theme.colors.text }}>{peerName}</Text>
-        {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
+        <Pressable onPress={() => router.back()} hitSlop={8}>
+          <Text style={{ fontSize: 20, color: theme.colors.text }}>←</Text>
+        </Pressable>
+
+        {avatarUri ? (
+          <Image source={{ uri: avatarUri }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+        ) : (
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: theme.colors.neutral200,
+            }}
+          >
+            <Text style={{ color: theme.colors.text, fontWeight: "700" }}>
+              {peerName.slice(0, 1).toUpperCase()}
+            </Text>
+          </View>
+        )}
+
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 18, fontWeight: "700", color: theme.colors.text }}>{peerName}</Text>
+
+          {peerSubLabel ? (
+            <Text style={{ fontSize: 13, color: theme.colors.muted }}>{peerSubLabel}</Text>
+          ) : null}
+
+          {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
+        </View>
       </View>
 
       <FlatList
@@ -197,17 +272,29 @@ export default function DirectMessageThreadScreen() {
         data={thread?.messages || []}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        contentContainerStyle={{ paddingVertical: 8 }}
+        contentContainerStyle={{
+          paddingVertical: 8,
+          paddingBottom: listBottomPadding,
+        }}
+        keyboardShouldPersistTaps="handled"
       />
 
       <View
         style={{
           borderTopWidth: 1,
           borderTopColor: theme.colors.neutral100,
-          padding: 12,
+          paddingTop: 12,
+          paddingHorizontal: 12,
+          paddingBottom: composerBottomPadding,
+
+          // ✅ Android: push composer exactly above keyboard (NO KeyboardAvoidingView on Android)
+          marginBottom: Platform.OS === "android" ? keyboardHeight : 0,
+
           flexDirection: "row",
           gap: 8,
           alignItems: "flex-end",
+          minHeight: composerMinHeight,
+          backgroundColor: theme.colors.background,
         }}
       >
         <TextInput
@@ -225,6 +312,7 @@ export default function DirectMessageThreadScreen() {
             paddingHorizontal: 12,
             paddingVertical: 10,
             backgroundColor: theme.colors.background,
+            color: theme.colors.text,
           }}
         />
         <Pressable
@@ -241,6 +329,22 @@ export default function DirectMessageThreadScreen() {
           <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Invia</Text>
         </Pressable>
       </View>
-    </KeyboardAvoidingView>
+    </>
+  );
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={["top", "bottom"]}>
+      {Platform.OS === "ios" ? (
+        <KeyboardAvoidingView
+          style={{ flex: 1, backgroundColor: theme.colors.background }}
+          behavior="padding"
+          keyboardVerticalOffset={0}
+        >
+          {Content}
+        </KeyboardAvoidingView>
+      ) : (
+        <View style={{ flex: 1, backgroundColor: theme.colors.background }}>{Content}</View>
+      )}
+    </SafeAreaView>
   );
 }
