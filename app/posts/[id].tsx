@@ -128,8 +128,7 @@ function Avatar({ url, size = 44, name }: { url?: string | null; size?: number; 
 
 function getAccountType(author: any): "club" | "athlete" | null {
   const a = typeof author?.account_type === "string" ? author.account_type : null;
-  const t = typeof author?.type === "string" ? author.type : null;
-  const candidate = (a || t || "").toLowerCase();
+  const candidate = (a || "").toLowerCase();
 
   if (candidate === "club") return "club";
   if (candidate === "athlete") return "athlete";
@@ -148,22 +147,38 @@ function getCanonicalProfileRoute(author: FeedAuthor | null): string | null {
   return `/profile/${author.id}`;
 }
 
+// ✅ IMPORTANT: tolto "type" dalla select (può non esistere) + fallback anche in caso di error
+const PROFILE_SELECT =
+  "id, user_id, full_name, display_name, public_name, avatar_url, account_type";
+
 async function fetchAuthorProfile(authorId: string | null): Promise<FeedAuthor | null> {
   if (!authorId) return null;
 
+  // 1) prova user_id = posts.author_id (web canonical)
   const primary = await supabase
     .from("profiles")
-    .select("id, user_id, full_name, display_name, public_name, avatar_url, account_type, type")
+    .select(PROFILE_SELECT)
     .eq("user_id", authorId)
     .maybeSingle();
 
+  if (primary.error) {
+    // non blocchiamo: proviamo fallback su id
+    devWarn("fetchAuthorProfile primary failed", primary.error);
+  }
+
   let data = primary.data;
-  if (!data && !primary.error) {
+
+  // 2) fallback: id = authorId (se authorId è già profileId)
+  if (!data) {
     const fallback = await supabase
       .from("profiles")
-      .select("id, user_id, full_name, display_name, public_name, avatar_url, account_type, type")
+      .select(PROFILE_SELECT)
       .eq("id", authorId)
       .maybeSingle();
+
+    if (fallback.error) {
+      devWarn("fetchAuthorProfile fallback failed", fallback.error);
+    }
     data = fallback.data;
   }
 
@@ -174,11 +189,9 @@ async function fetchAuthorProfile(authorId: string | null): Promise<FeedAuthor |
     user_id: asString((data as any).user_id) ?? null,
     full_name: typeof (data as any).full_name === "string" ? (data as any).full_name : null,
     display_name: typeof (data as any).display_name === "string" ? (data as any).display_name : null,
-    // NOTE: public_name è mantenuto nel payload, ma NON usato per il display (parity web)
     public_name: typeof (data as any).public_name === "string" ? (data as any).public_name : null,
     avatar_url: typeof (data as any).avatar_url === "string" ? (data as any).avatar_url : null,
     account_type: typeof (data as any).account_type === "string" ? (data as any).account_type : null,
-    type: typeof (data as any).type === "string" ? (data as any).type : null,
   } as any;
 }
 
@@ -205,7 +218,6 @@ async function fetchPostCore(postId: string): Promise<PostDetail | null> {
 
 function PostVideo({ uri }: { uri: string }) {
   const player = useVideoPlayer({ uri }, (p) => {
-    // Detail view: show controls, no autoplay (do not call play()).
     p.muted = false;
     p.loop = false;
   });
@@ -240,7 +252,6 @@ function PostCard({ post, title }: { post: PostDetail; title?: string }) {
       return;
     }
 
-    // fallback estrema (dovrebbe quasi mai accadere)
     const fallbackId = post.author?.id ?? post.author_id;
     if (fallbackId) {
       router.push(`/profile/${fallbackId}`);
@@ -423,7 +434,6 @@ export default function PostDetailScreen() {
     const nextHasLiked = !social.viewerHasLiked;
 
     try {
-      // ✅ WEB parity: unlike = reaction null
       const res = await setPostReaction(postId, nextHasLiked ? "like" : null);
       if (!res.ok) throw new Error(res.errorText ?? `Toggle HTTP ${res.status}`);
 
