@@ -10,9 +10,12 @@ import {
   Text,
   TextInput,
   View,
+  AppState,
+  type AppStateStatus,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 
 import { fetchDirectMessageThread, postDirectMessage } from "../../../src/lib/api";
 import type { DirectMessage, DirectThreadResponse } from "../../../src/types/directMessages";
@@ -52,31 +55,48 @@ export default function DirectMessageThreadScreen() {
 
   const composerMinHeight = 76;
 
+  // ✅ anti-overlap: evita fetch concorrenti e polling “a raffica”
+  const inflightRef = useRef(false);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
       listRef.current?.scrollToEnd({ animated: true });
     });
   }, []);
 
-  const loadThread = useCallback(async () => {
-    if (!profileId) {
-      setThread(null);
-      setError("Profilo non valido");
-      return;
-    }
+  const loadThread = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!profileId) {
+        setThread(null);
+        setError("Profilo non valido");
+        return;
+      }
 
-    setError(null);
-    const response = await fetchDirectMessageThread(profileId);
-    if (!response.ok || !response.data) {
-      setThread(null);
-      setError(response.errorText || "Impossibile caricare la conversazione");
-      return;
-    }
+      if (inflightRef.current) return;
+      inflightRef.current = true;
 
-    const messages = Array.isArray(response.data.messages) ? response.data.messages : [];
-    setThread({ ...response.data, messages });
-  }, [profileId]);
+      if (!opts?.silent) setError(null);
 
+      try {
+        const response = await fetchDirectMessageThread(profileId);
+        if (!response.ok || !response.data) {
+          setThread(null);
+          setError(response.errorText || "Impossibile caricare la conversazione");
+          return;
+        }
+
+        const messages = Array.isArray(response.data.messages) ? response.data.messages : [];
+        setThread({ ...response.data, messages });
+      } finally {
+        inflightRef.current = false;
+      }
+    },
+    [profileId],
+  );
+
+  // ✅ load iniziale
   useEffect(() => {
     let mounted = true;
 
@@ -93,6 +113,7 @@ export default function DirectMessageThreadScreen() {
     };
   }, [loadThread]);
 
+  // ✅ scroll quando cambia il numero messaggi
   useEffect(() => {
     if (!thread?.messages?.length) return;
     scrollToBottom();
@@ -117,6 +138,51 @@ export default function DirectMessageThreadScreen() {
     };
   }, []);
 
+  // ✅ refresh quando entri/torni in focus (certezze: serve per vedere messaggi arrivati “nel mentre”)
+  useFocusEffect(
+    useCallback(() => {
+      void loadThread({ silent: true });
+
+      return () => {
+        // niente
+      };
+    }, [loadThread]),
+  );
+
+  // ✅ polling leggero mentre la screen è visibile (solo se app foreground)
+  const stopPolling = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }, []);
+
+  const startPolling = useCallback(() => {
+    stopPolling();
+
+    // ogni 3s è abbastanza “rapido” senza stressare rete
+    pollTimerRef.current = setInterval(() => {
+      if (appStateRef.current !== "active") return;
+      void loadThread({ silent: true });
+    }, 3000);
+  }, [loadThread, stopPolling]);
+
+  useFocusEffect(
+    useCallback(() => {
+      startPolling();
+      return () => stopPolling();
+    }, [startPolling, stopPolling]),
+  );
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (next) => {
+      appStateRef.current = next;
+      // quando torni active, fai un refresh immediato
+      if (next === "active") void loadThread({ silent: true });
+    });
+    return () => sub.remove();
+  }, [loadThread]);
+
   const sendMessage = useCallback(async () => {
     const content = input.trim();
     if (!content || !profileId) return;
@@ -132,6 +198,8 @@ export default function DirectMessageThreadScreen() {
       }
 
       setInput("");
+
+      // ✅ optimistic append (istantaneo)
       setThread((prev) => {
         if (!prev) return prev;
         return {
@@ -142,12 +210,16 @@ export default function DirectMessageThreadScreen() {
 
       emit("app:direct-messages-updated");
       scrollToBottom();
+
+      // ✅ riallinea con server (certezze: evita “messaggio non arriva / ordine sbagliato / altri messaggi mancanti”)
+      await loadThread({ silent: true });
+      scrollToBottom();
     } catch {
       setError("Invio non riuscito");
     } finally {
       setSending(false);
     }
-  }, [input, profileId, scrollToBottom]);
+  }, [input, profileId, scrollToBottom, loadThread]);
 
   const peerName = useMemo(() => {
     const full = thread?.peer?.full_name?.trim();
