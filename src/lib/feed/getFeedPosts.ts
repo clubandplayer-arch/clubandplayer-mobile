@@ -14,6 +14,7 @@ export type FeedAuthor = {
   user_id?: string;
   full_name?: string | null;
   display_name?: string | null;
+  public_name?: string | null;
   avatar_url?: string | null;
   type?: string | null;
   account_type?: string | null;
@@ -91,6 +92,7 @@ function extractAuthor(item: any): FeedAuthor | null {
     user_id: asString(candidate?.user_id) ?? undefined,
     full_name: typeof candidate?.full_name === "string" ? candidate.full_name : null,
     display_name: typeof candidate?.display_name === "string" ? candidate.display_name : null,
+    public_name: typeof candidate?.public_name === "string" ? candidate.public_name : null,
     avatar_url: typeof candidate?.avatar_url === "string" ? candidate.avatar_url : null,
     type: typeof candidate?.type === "string" ? candidate.type : null,
     account_type: typeof candidate?.account_type === "string" ? candidate.account_type : null,
@@ -221,10 +223,10 @@ function isEmailLike(value: string): boolean {
 }
 
 export function getAuthorName(author?: FeedAuthor | null): string {
-  const fullName = author?.full_name?.trim() ?? "";
-  if (fullName && !isEmailLike(fullName)) return fullName;
+  const candidates = [author?.display_name, author?.full_name, author?.public_name]
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter(Boolean)
+    .filter((value) => !isEmailLike(value));
 
-  const displayName = author?.display_name?.trim() ?? "";
-  const name = displayName && !isEmailLike(displayName) ? displayName : "";
-  return name || "Utente";
+  return candidates[0] || "Utente";
 }

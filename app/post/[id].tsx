@@ -171,6 +171,7 @@ export default function PostDetailScreen() {
               user_id: resolved.user_id ?? undefined,
               full_name: resolved.full_name,
               display_name: resolved.display_name,
+              public_name: resolved.public_name,
               avatar_url: resolved.avatar_url,
               type: resolved.type,
               account_type: resolved.account_type,
@@ -229,6 +230,7 @@ export default function PostDetailScreen() {
           user_id: profile.user_id ?? undefined,
           full_name: profile.full_name,
           display_name: profile.display_name,
+          public_name: profile.public_name,
           avatar_url: profile.avatar_url,
           type: profile.type,
           account_type: profile.account_type,
@@ -539,7 +541,7 @@ export default function PostDetailScreen() {
                     key={comment.id}
                     style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}
                   >
-                    <Avatar url={comment.author?.avatar_url ?? null} size={36} />
+                    <Avatar url={comment.author?.avatar_url ?? null} size={36} name={commentAuthorName} />
                     <View style={{ flex: 1, gap: 4 }}>
                       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>

@@ -59,6 +59,7 @@ function mapToFeedAuthor(
     user_id: profile.user_id ?? undefined,
     full_name: profile.full_name,
     display_name: profile.display_name,
+    public_name: profile.public_name,
     avatar_url: profile.avatar_url,
     type: profile.type,
     account_type: profile.account_type,
