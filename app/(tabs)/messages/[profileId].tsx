@@ -259,7 +259,7 @@ const sendMessage = useCallback(async () => {
           renderItem={renderItem}
           contentContainerStyle={{
           paddingVertical: 8,
-          paddingBottom: composerMinHeight + Math.max(insets.bottom, 12) + keyboardHeight,
+          paddingBottom: composerMinHeight + Math.max(insets.bottom, 12),
         }}
           keyboardShouldPersistTaps="handled"
         />
