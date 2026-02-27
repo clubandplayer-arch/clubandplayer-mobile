@@ -13,9 +13,21 @@ type CommentsSectionProps = {
 
 const EDIT_WINDOW_MS = 60 * 1000;
 
+function isEmailLike(candidate: unknown): boolean {
+  return typeof candidate === "string" && candidate.includes("@");
+}
+
+/**
+ * ✅ WEB parity:
+ * full_name → display_name (solo se NON email) → fallback
+ */
 function getDisplayName(comment: FeedComment): string {
-  const name = comment.author?.display_name || comment.author?.full_name;
-  if (name && String(name).trim()) return String(name).trim();
+  const fullName = typeof comment.author?.full_name === "string" ? comment.author.full_name.trim() : "";
+  if (fullName) return fullName;
+
+  const displayName = typeof comment.author?.display_name === "string" ? comment.author.display_name.trim() : "";
+  if (displayName && !isEmailLike(displayName)) return displayName;
+
   return "Utente";
 }
 
