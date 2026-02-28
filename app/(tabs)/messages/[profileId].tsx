@@ -21,7 +21,6 @@ import { fetchDirectMessageThread, fetchNotifications, patchNotificationsMarkRea
 import type { DirectMessage, DirectThreadResponse } from "../../../src/types/directMessages";
 import { theme } from "../../../src/theme";
 import { emit } from "../../../src/lib/events/appEvents";
-import { setNotificationsBadgeCount } from "../../../src/lib/notificationsBadge";
 
 function resolveProfileId(raw: string | string[] | undefined): string {
   if (Array.isArray(raw)) return raw[0] ?? "";
@@ -118,7 +117,7 @@ export default function DirectMessageThreadScreen() {
     if (messageNotificationIds.length === 0) return;
 
     await patchNotificationsMarkRead({ ids: messageNotificationIds });
-    setNotificationsBadgeCount(0);
+    emit("app:direct-messages-updated");
   }, [profileId]);
 
   // ✅ load iniziale
