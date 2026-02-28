@@ -17,7 +17,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 
-import { fetchDirectMessageThread, postDirectMessage } from "../../../src/lib/api";
+import { fetchDirectMessageThread, postDirectMessage, postDirectMessageMarkRead } from "../../../src/lib/api";
 import type { DirectMessage, DirectThreadResponse } from "../../../src/types/directMessages";
 import { theme } from "../../../src/theme";
 import { emit } from "../../../src/lib/events/appEvents";
@@ -142,11 +142,14 @@ export default function DirectMessageThreadScreen() {
   useFocusEffect(
     useCallback(() => {
       void loadThread({ silent: true });
+      void (async () => {
+        if (!profileId) return;
+        await postDirectMessageMarkRead(profileId);
+        emit("app:direct-messages-updated");
+      })();
 
-      return () => {
-        // niente
-      };
-    }, [loadThread]),
+      return () => {};
+    }, [loadThread, profileId]),
   );
 
   // ✅ polling leggero mentre la screen è visibile (solo se app foreground)

@@ -26,6 +26,9 @@ type NotificationItem = {
   actor?: NotificationActor | null;
 };
 
+const isChatMessageKind = (kind?: string | null) =>
+  kind === "message" || kind === "new_message";
+
 function getActorName(notification: NotificationItem): string {
   return notification.actor?.display_name || notification.actor?.full_name || notification.actor?.public_name || "Utente";
 }
@@ -35,8 +38,6 @@ function getNotificationMessage(kind: string): string {
     case "new_comment":
       return "ha commentato un post";
     case "new_reaction":
-      return "ha reagito a un post";
-    case "new_reaction": // (no, non duplicare: una sola volta)
       return "ha reagito a un post";
     case "follow":
       return "ha iniziato a seguirti";
@@ -165,7 +166,9 @@ export default function NotificationsScreen() {
     );
   }
 
-  if (!notifications.length) {
+  const filteredNotifications = notifications.filter((n) => !isChatMessageKind(n.kind));
+
+  if (!filteredNotifications.length) {
     return (
       <View style={{ flex: 1, padding: 16 }}>
         <Text style={{ color: theme.colors.text, fontWeight: "700", marginBottom: 8 }}>Notifiche</Text>
@@ -176,7 +179,7 @@ export default function NotificationsScreen() {
 
   return (
     <FlatList
-      data={notifications}
+      data={filteredNotifications}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => {
         const name = getActorName(item);
@@ -187,10 +190,6 @@ export default function NotificationsScreen() {
             onPress={() => {
               const p: any = item.payload ?? {};
 
-              if (item.kind === "message" && typeof p.thread_id === "string") {
-                router.push(`/messages/${p.thread_id}`);
-                return;
-              }
 
               if ((item.kind === "new_comment" || item.kind === "new_reaction") && typeof p.post_id === "string") {
                 router.push(`/posts/${p.post_id}`);
