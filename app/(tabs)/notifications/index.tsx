@@ -39,8 +39,6 @@ function getNotificationMessage(kind: string): string {
       return "ha commentato un post";
     case "new_reaction":
       return "ha reagito a un post";
-    case "new_reaction": // (no, non duplicare: una sola volta)
-      return "ha reagito a un post";
     case "follow":
       return "ha iniziato a seguirti";
     case "application_status_changed":
@@ -192,10 +190,6 @@ export default function NotificationsScreen() {
             onPress={() => {
               const p: any = item.payload ?? {};
 
-              if (item.kind === "message" && typeof p.thread_id === "string") {
-                router.push(`/messages/${p.thread_id}`);
-                return;
-              }
 
               if ((item.kind === "new_comment" || item.kind === "new_reaction") && typeof p.post_id === "string") {
                 router.push(`/posts/${p.post_id}`);
