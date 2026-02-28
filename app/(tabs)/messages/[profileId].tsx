@@ -17,7 +17,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 
-import { fetchDirectMessageThread, postDirectMessage } from "../../../src/lib/api";
+import { fetchDirectMessageThread, postDirectMessage, postDirectMessageMarkRead } from "../../../src/lib/api";
 import type { DirectMessage, DirectThreadResponse } from "../../../src/types/directMessages";
 import { theme } from "../../../src/theme";
 import { emit } from "../../../src/lib/events/appEvents";
@@ -57,6 +57,7 @@ export default function DirectMessageThreadScreen() {
 
   // ✅ anti-overlap: evita fetch concorrenti e polling “a raffica”
   const inflightRef = useRef(false);
+  const didMarkThreadReadRef = useRef(false);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
@@ -95,6 +96,24 @@ export default function DirectMessageThreadScreen() {
     },
     [profileId],
   );
+
+  const markThreadRead = useCallback(async () => {
+    if (!profileId) return;
+    if (didMarkThreadReadRef.current) return;
+    didMarkThreadReadRef.current = true;
+
+    const res = await postDirectMessageMarkRead(profileId);
+    if (!res?.ok) {
+      didMarkThreadReadRef.current = false;
+      return;
+    }
+
+    emit("app:direct-messages-updated");
+  }, [profileId]);
+
+  useEffect(() => {
+    didMarkThreadReadRef.current = false;
+  }, [profileId]);
 
   // ✅ load iniziale
   useEffect(() => {
@@ -142,11 +161,12 @@ export default function DirectMessageThreadScreen() {
   useFocusEffect(
     useCallback(() => {
       void loadThread({ silent: true });
+      void markThreadRead();
 
       return () => {
         // niente
       };
-    }, [loadThread]),
+    }, [loadThread, markThreadRead]),
   );
 
   // ✅ polling leggero mentre la screen è visibile (solo se app foreground)
