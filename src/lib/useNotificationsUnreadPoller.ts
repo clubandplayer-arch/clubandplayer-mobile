@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { fetchNotificationsUnreadCount } from "./api";
+import { fetchNotifications } from "./api";
 import { setNotificationsBadgeCount } from "./notificationsBadge";
 
 export function useNotificationsUnreadPoller(options?: { enabled?: boolean }) {
@@ -12,10 +12,15 @@ export function useNotificationsUnreadPoller(options?: { enabled?: boolean }) {
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     async function tick() {
-      const res = await fetchNotificationsUnreadCount();
+      const res = await fetchNotifications({ unread: true, limit: 100 });
       if (!cancelled && res.ok) {
-        const next = typeof res.data?.count === "number" ? res.data.count : 0;
-        setNotificationsBadgeCount(next);
+        const items = res.data?.data ?? [];
+        const count = items
+          .filter((n) => !n.read_at && n.read !== true)
+          .filter((n) => n.kind !== "message" && n.kind !== "new_message")
+          .length;
+
+        setNotificationsBadgeCount(count);
       }
 
       if (cancelled) return;
