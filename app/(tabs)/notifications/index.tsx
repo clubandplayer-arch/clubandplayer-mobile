@@ -26,6 +26,9 @@ type NotificationItem = {
   actor?: NotificationActor | null;
 };
 
+const isChatMessageKind = (kind?: string | null) =>
+  kind === "message" || kind === "new_message";
+
 function getActorName(notification: NotificationItem): string {
   return notification.actor?.display_name || notification.actor?.full_name || notification.actor?.public_name || "Utente";
 }
@@ -165,7 +168,9 @@ export default function NotificationsScreen() {
     );
   }
 
-  if (!notifications.length) {
+  const filteredNotifications = notifications.filter((n) => !isChatMessageKind(n.kind));
+
+  if (!filteredNotifications.length) {
     return (
       <View style={{ flex: 1, padding: 16 }}>
         <Text style={{ color: theme.colors.text, fontWeight: "700", marginBottom: 8 }}>Notifiche</Text>
@@ -176,7 +181,7 @@ export default function NotificationsScreen() {
 
   return (
     <FlatList
-      data={notifications}
+      data={filteredNotifications}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => {
         const name = getActorName(item);
