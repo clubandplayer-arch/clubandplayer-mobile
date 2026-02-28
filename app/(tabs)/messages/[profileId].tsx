@@ -17,7 +17,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 
-import { fetchDirectMessageThread, fetchNotifications, patchNotificationsMarkRead, postDirectMessage } from "../../../src/lib/api";
+import { fetchDirectMessageThread, postDirectMessage, postDirectMessageMarkRead } from "../../../src/lib/api";
 import type { DirectMessage, DirectThreadResponse } from "../../../src/types/directMessages";
 import { theme } from "../../../src/theme";
 import { emit } from "../../../src/lib/events/appEvents";
@@ -96,30 +96,6 @@ export default function DirectMessageThreadScreen() {
     [profileId],
   );
 
-  const markThreadMessageNotificationsAsRead = useCallback(async () => {
-    if (!profileId) return;
-
-    const res = await fetchNotifications({ unread: true, limit: 100 });
-    if (!res.ok) return;
-
-    const items = res.data?.data ?? [];
-
-    const messageNotificationIds = items
-      .filter(
-        (n: any) =>
-          (n.kind === "message" || n.kind === "new_message") &&
-          n.payload?.thread_id === profileId &&
-          !n.read_at &&
-          n.read !== true,
-      )
-      .map((n: any) => n.id);
-
-    if (messageNotificationIds.length === 0) return;
-
-    await patchNotificationsMarkRead({ ids: messageNotificationIds });
-    emit("app:direct-messages-updated");
-  }, [profileId]);
-
   // ✅ load iniziale
   useEffect(() => {
     let mounted = true;
@@ -166,10 +142,14 @@ export default function DirectMessageThreadScreen() {
   useFocusEffect(
     useCallback(() => {
       void loadThread({ silent: true });
-      void markThreadMessageNotificationsAsRead();
+      void (async () => {
+        if (!profileId) return;
+        await postDirectMessageMarkRead(profileId);
+        emit("app:direct-messages-updated");
+      })();
 
       return () => {};
-    }, [loadThread, markThreadMessageNotificationsAsRead]),
+    }, [loadThread, profileId]),
   );
 
   // ✅ polling leggero mentre la screen è visibile (solo se app foreground)
