@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -303,6 +303,24 @@ export default function DirectMessageThreadScreen() {
     8 +
     (Platform.OS === "android" ? keyboardHeight : 0);
 
+  const messages = useMemo(() => {
+    const raw = thread?.messages ?? [];
+    if (raw.length <= 1) return raw;
+
+    const seen = new Set<string>();
+    const out: typeof raw = [];
+
+    for (const m of raw) {
+      const key = String(m?.id ?? "");
+      if (!key) continue;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(m);
+    }
+
+    return out;
+  }, [thread?.messages]);
+
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -361,7 +379,7 @@ export default function DirectMessageThreadScreen() {
 
       <FlatList
         ref={listRef}
-        data={thread?.messages || []}
+        data={messages}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={{
