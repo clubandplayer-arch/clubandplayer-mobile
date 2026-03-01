@@ -51,6 +51,7 @@ export default function DirectMessageThreadScreen() {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const listRef = useRef<FlatList<DirectMessage>>(null);
+  const didInitialScrollRef = useRef(false);
   const insets = useSafeAreaInsets();
 
   const composerMinHeight = 76;
@@ -61,9 +62,9 @@ export default function DirectMessageThreadScreen() {
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
-  const scrollToBottom = useCallback(() => {
+  const scrollToBottom = useCallback((animated = true) => {
     requestAnimationFrame(() => {
-      listRef.current?.scrollToEnd({ animated: true });
+      listRef.current?.scrollToEnd({ animated });
     });
   }, []);
 
@@ -131,12 +132,6 @@ export default function DirectMessageThreadScreen() {
       mounted = false;
     };
   }, [loadThread]);
-
-  // ✅ scroll quando cambia il numero messaggi
-  useEffect(() => {
-    if (!thread?.messages?.length) return;
-    scrollToBottom();
-  }, [scrollToBottom, thread?.messages?.length]);
 
   // ✅ IMPORTANT:
   // - iOS: KeyboardAvoidingView handles layout
@@ -300,8 +295,7 @@ export default function DirectMessageThreadScreen() {
   const listBottomPadding =
     composerMinHeight +
     composerBottomPadding +
-    8 +
-    (Platform.OS === "android" ? keyboardHeight : 0);
+    8;
 
   const messages = useMemo(() => {
     const raw = thread?.messages ?? [];
@@ -380,6 +374,14 @@ export default function DirectMessageThreadScreen() {
       <FlatList
         ref={listRef}
         data={messages}
+        onLayout={() => {
+          if (didInitialScrollRef.current) return;
+          didInitialScrollRef.current = true;
+          scrollToBottom(false);
+        }}
+        onContentSizeChange={() => {
+          scrollToBottom(true);
+        }}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={{
