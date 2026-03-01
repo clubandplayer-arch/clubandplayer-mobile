@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -17,7 +17,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 
-import { fetchDirectMessageThread, postDirectMessage } from "../../../src/lib/api";
+import { fetchDirectMessageThread, postDirectMessage, postDirectMessageMarkRead } from "../../../src/lib/api";
 import type { DirectMessage, DirectThreadResponse } from "../../../src/types/directMessages";
 import { theme } from "../../../src/theme";
 import { emit } from "../../../src/lib/events/appEvents";
@@ -51,18 +51,20 @@ export default function DirectMessageThreadScreen() {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const listRef = useRef<FlatList<DirectMessage>>(null);
+  const didInitialScrollRef = useRef(false);
   const insets = useSafeAreaInsets();
 
   const composerMinHeight = 76;
 
   // ✅ anti-overlap: evita fetch concorrenti e polling “a raffica”
   const inflightRef = useRef(false);
+  const didMarkThreadReadRef = useRef(false);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
-  const scrollToBottom = useCallback(() => {
+  const scrollToBottom = useCallback((animated = true) => {
     requestAnimationFrame(() => {
-      listRef.current?.scrollToEnd({ animated: true });
+      listRef.current?.scrollToEnd({ animated });
     });
   }, []);
 
@@ -96,6 +98,24 @@ export default function DirectMessageThreadScreen() {
     [profileId],
   );
 
+  const markThreadRead = useCallback(async () => {
+    if (!profileId) return;
+    if (didMarkThreadReadRef.current) return;
+    didMarkThreadReadRef.current = true;
+
+    const res = await postDirectMessageMarkRead(profileId);
+    if (!res?.ok) {
+      didMarkThreadReadRef.current = false;
+      return;
+    }
+
+    emit("app:direct-messages-updated");
+  }, [profileId]);
+
+  useEffect(() => {
+    didMarkThreadReadRef.current = false;
+  }, [profileId]);
+
   // ✅ load iniziale
   useEffect(() => {
     let mounted = true;
@@ -112,12 +132,6 @@ export default function DirectMessageThreadScreen() {
       mounted = false;
     };
   }, [loadThread]);
-
-  // ✅ scroll quando cambia il numero messaggi
-  useEffect(() => {
-    if (!thread?.messages?.length) return;
-    scrollToBottom();
-  }, [scrollToBottom, thread?.messages?.length]);
 
   // ✅ IMPORTANT:
   // - iOS: KeyboardAvoidingView handles layout
@@ -142,11 +156,12 @@ export default function DirectMessageThreadScreen() {
   useFocusEffect(
     useCallback(() => {
       void loadThread({ silent: true });
+      void markThreadRead();
 
       return () => {
         // niente
       };
-    }, [loadThread]),
+    }, [loadThread, markThreadRead]),
   );
 
   // ✅ polling leggero mentre la screen è visibile (solo se app foreground)
@@ -280,8 +295,25 @@ export default function DirectMessageThreadScreen() {
   const listBottomPadding =
     composerMinHeight +
     composerBottomPadding +
-    8 +
-    (Platform.OS === "android" ? keyboardHeight : 0);
+    8;
+
+  const messages = useMemo(() => {
+    const raw = thread?.messages ?? [];
+    if (raw.length <= 1) return raw;
+
+    const seen = new Set<string>();
+    const out: typeof raw = [];
+
+    for (const m of raw) {
+      const key = String(m?.id ?? "");
+      if (!key) continue;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(m);
+    }
+
+    return out;
+  }, [thread?.messages]);
 
   if (loading) {
     return (
@@ -341,7 +373,15 @@ export default function DirectMessageThreadScreen() {
 
       <FlatList
         ref={listRef}
-        data={thread?.messages || []}
+        data={messages}
+        onLayout={() => {
+          if (didInitialScrollRef.current) return;
+          didInitialScrollRef.current = true;
+          scrollToBottom(false);
+        }}
+        onContentSizeChange={() => {
+          scrollToBottom(true);
+        }}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={{
