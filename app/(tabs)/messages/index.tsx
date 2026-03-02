@@ -9,8 +9,10 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 
 import { fetchDirectMessageThreads } from "../../../src/lib/api";
+import { on } from "../../../src/lib/events/appEvents";
 import type { DirectThreadSummary } from "../../../src/types/directMessages";
 import { theme } from "../../../src/theme";
 
@@ -98,6 +100,26 @@ export default function MessagesInboxScreen() {
 
     return () => {
       mounted = false;
+    };
+  }, [load]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+
+      return () => {
+        // nothing
+      };
+    }, [load]),
+  );
+
+  useEffect(() => {
+    const unsubscribe = on("app:direct-messages-updated", () => {
+      void load();
+    });
+
+    return () => {
+      unsubscribe();
     };
   }, [load]);
 
