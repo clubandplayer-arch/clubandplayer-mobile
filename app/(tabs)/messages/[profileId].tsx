@@ -20,6 +20,7 @@ import { useFocusEffect } from "@react-navigation/native";
 
 import {
   deleteDirectMessageConversation,
+  fetchDirectMessageThreads,
   fetchDirectMessageThread,
   postDirectMessage,
   postDirectMessageMarkRead,
@@ -52,6 +53,7 @@ export default function DirectMessageThreadScreen() {
   const [sending, setSending] = useState(false);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [peerFullNameFromThreads, setPeerFullNameFromThreads] = useState<string | null>(null);
 
   // Android only: we manually shift the composer above the keyboard.
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -138,6 +140,37 @@ export default function DirectMessageThreadScreen() {
       mounted = false;
     };
   }, [loadThread]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      if (!profileId) {
+        if (mounted) setPeerFullNameFromThreads(null);
+        return;
+      }
+
+      const response = await fetchDirectMessageThreads();
+      if (!response.ok || !response.data?.threads || !mounted) {
+        setPeerFullNameFromThreads(null);
+        return;
+      }
+
+      const matchingThread = response.data.threads.find((raw) => {
+        const otherId = raw.otherProfileId || raw.other_profile_id || raw.other?.id || "";
+        return String(otherId) === profileId;
+      });
+
+      const fullName =
+        matchingThread?.otherFullName ?? matchingThread?.other_full_name ?? matchingThread?.other?.full_name ?? null;
+
+      setPeerFullNameFromThreads(typeof fullName === "string" ? fullName : null);
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [profileId]);
 
   // ✅ IMPORTANT:
   // - iOS: KeyboardAvoidingView handles layout
@@ -266,10 +299,10 @@ export default function DirectMessageThreadScreen() {
   }, [profileId, router]);
 
   const peerName = useMemo(() => {
-    const full = thread?.peer?.full_name?.trim();
-    const display = thread?.peer?.display_name?.trim();
-    return full || display || "Messaggi";
-  }, [thread?.peer?.display_name, thread?.peer?.full_name]);
+    const fullFromThreads = peerFullNameFromThreads?.trim();
+    const fullFromThread = thread?.peer?.full_name?.trim();
+    return fullFromThreads || fullFromThread || "Profilo";
+  }, [peerFullNameFromThreads, thread?.peer?.full_name]);
 
   const peerSubLabel = useMemo(() => {
     const full = thread?.peer?.full_name?.trim();
@@ -383,9 +416,7 @@ export default function DirectMessageThreadScreen() {
               backgroundColor: theme.colors.neutral200,
             }}
           >
-            <Text style={{ color: theme.colors.text, fontWeight: "700" }}>
-              {peerName.slice(0, 1).toUpperCase()}
-            </Text>
+            <Text style={{ color: theme.colors.text, fontWeight: "700" }}>{peerName.slice(0, 1).toUpperCase()}</Text>
           </View>
         )}
 
