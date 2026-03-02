@@ -372,6 +372,12 @@ export async function postDirectMessageMarkRead(profileId: string): Promise<ApiR
   });
 }
 
+export async function deleteDirectMessageConversation(profileId: string) {
+  return apiFetch(`/api/direct-messages/conversation/${encodeURIComponent(profileId)}`, {
+    method: "DELETE",
+  });
+}
+
 export async function fetchDirectMessagesUnreadCount(): Promise<ApiResponse<DirectMessagesUnreadCountResponse>> {
   return apiFetch<DirectMessagesUnreadCountResponse>("/api/direct-messages/unread-count", {
     method: "GET",
