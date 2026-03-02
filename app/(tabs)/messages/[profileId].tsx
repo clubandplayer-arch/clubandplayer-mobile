@@ -47,6 +47,22 @@ function looksLikeEmail(s?: string | null) {
   return s.includes("@");
 }
 
+function nameFromMaybeEmail(s?: string | null) {
+  const v = (s || "").trim();
+  if (!v) return "";
+  if (!v.includes("@")) return v;
+
+  // prendi solo la parte prima della @ e rendila "umana"
+  const local = v.split("@")[0] || "";
+  const cleaned = local.replace(/[._-]+/g, " ").trim();
+  if (!cleaned) return "";
+  return cleaned
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w.slice(0, 1).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
 export default function DirectMessageThreadScreen() {
   const params = useLocalSearchParams<{ profileId?: string | string[] }>();
   const profileId = resolveProfileId(params.profileId).trim();
@@ -278,7 +294,17 @@ export default function DirectMessageThreadScreen() {
     if (full && !looksLikeEmail(full)) return full;
     if (display && !looksLikeEmail(display)) return display;
     if (legacyName && !looksLikeEmail(legacyName)) return legacyName;
-    return "Messaggi";
+
+    const emailCandidate =
+      (thread?.peer as { email?: string | null } | undefined)?.email?.trim() ||
+      (display && looksLikeEmail(display) ? display : "") ||
+      (full && looksLikeEmail(full) ? full : "") ||
+      (legacyName && looksLikeEmail(legacyName) ? legacyName : "");
+
+    const emailName = nameFromMaybeEmail(emailCandidate);
+    if (emailName) return emailName;
+
+    return "Profilo";
   }, [thread?.peer]);
 
   const peerSubLabel = useMemo(() => {
