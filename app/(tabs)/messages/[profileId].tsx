@@ -53,7 +53,10 @@ export default function DirectMessageThreadScreen() {
   const [sending, setSending] = useState(false);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [peerFullNameFromThreads, setPeerFullNameFromThreads] = useState<string | null>(null);
+  const [peerFromThreads, setPeerFromThreads] = useState<{
+    profileId: string;
+    fullName: string;
+  } | null>(null);
 
   // Android only: we manually shift the composer above the keyboard.
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -145,26 +148,27 @@ export default function DirectMessageThreadScreen() {
     let mounted = true;
 
     (async () => {
-      if (!profileId) {
-        if (mounted) setPeerFullNameFromThreads(null);
-        return;
-      }
+      if (!profileId) return;
 
       const response = await fetchDirectMessageThreads();
-      if (!response.ok || !response.data?.threads || !mounted) {
-        setPeerFullNameFromThreads(null);
-        return;
-      }
+      if (!response.ok || !response.data?.threads || !mounted) return;
+
+      const currentProfileId = profileId;
 
       const matchingThread = response.data.threads.find((raw) => {
         const otherId = raw.otherProfileId || raw.other_profile_id || raw.other?.id || "";
-        return String(otherId) === profileId;
+        return String(otherId) === currentProfileId;
       });
 
       const fullName =
         matchingThread?.otherFullName ?? matchingThread?.other_full_name ?? matchingThread?.other?.full_name ?? null;
 
-      setPeerFullNameFromThreads(typeof fullName === "string" ? fullName : null);
+      if (typeof fullName !== "string") return;
+
+      setPeerFromThreads({
+        profileId: currentProfileId,
+        fullName,
+      });
     })();
 
     return () => {
@@ -299,10 +303,17 @@ export default function DirectMessageThreadScreen() {
   }, [profileId, router]);
 
   const peerName = useMemo(() => {
-    const fullFromThreads = peerFullNameFromThreads?.trim();
-    const fullFromThread = thread?.peer?.full_name?.trim();
-    return fullFromThreads || fullFromThread || "Profilo";
-  }, [peerFullNameFromThreads, thread?.peer?.full_name]);
+    if (!profileId) return "";
+
+    if (
+      peerFromThreads &&
+      peerFromThreads.profileId === profileId
+    ) {
+      return peerFromThreads.fullName;
+    }
+
+    return "";
+  }, [profileId, peerFromThreads]);
 
   const peerSubLabel = useMemo(() => {
     const full = thread?.peer?.full_name?.trim();
