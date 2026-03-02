@@ -42,6 +42,11 @@ function formatWhen(iso?: string | null): string {
   }
 }
 
+function looksLikeEmail(s?: string | null) {
+  if (!s) return false;
+  return s.includes("@");
+}
+
 export default function DirectMessageThreadScreen() {
   const params = useLocalSearchParams<{ profileId?: string | string[] }>();
   const profileId = resolveProfileId(params.profileId).trim();
@@ -268,12 +273,19 @@ export default function DirectMessageThreadScreen() {
   const peerName = useMemo(() => {
     const full = thread?.peer?.full_name?.trim();
     const display = thread?.peer?.display_name?.trim();
-    return full || display || "Messaggi";
-  }, [thread?.peer?.display_name, thread?.peer?.full_name]);
+    const legacyName = (thread?.peer as { name?: string | null } | undefined)?.name?.trim();
+
+    if (full && !looksLikeEmail(full)) return full;
+    if (display && !looksLikeEmail(display)) return display;
+    if (legacyName && !looksLikeEmail(legacyName)) return legacyName;
+    return "Messaggi";
+  }, [thread?.peer]);
 
   const peerSubLabel = useMemo(() => {
     const full = thread?.peer?.full_name?.trim();
     const display = thread?.peer?.display_name?.trim();
+
+    if ((display && looksLikeEmail(display)) || (full && looksLikeEmail(full))) return undefined;
 
     // mostra la seconda riga solo se è diversa dal titolo
     if (display && full && display !== full) return display;
