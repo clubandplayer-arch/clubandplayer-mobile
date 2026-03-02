@@ -587,6 +587,12 @@ export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
   return { ok: true, status, data: payload as ProfileMe };
 }
 
+export async function fetchProfileById(profileId: string): Promise<ApiResponse<ProfileMe>> {
+  return apiFetch<ProfileMe>(`/api/profiles/${encodeURIComponent(profileId)}`, {
+    method: "GET",
+  });
+}
+
 export async function fetchFeedPosts(params?: {
   scope?: "all" | "following";
   nextPage?: string;

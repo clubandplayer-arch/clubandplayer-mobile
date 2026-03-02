@@ -20,6 +20,7 @@ import { useFocusEffect } from "@react-navigation/native";
 
 import {
   deleteDirectMessageConversation,
+  fetchProfileById,
   fetchDirectMessageThread,
   postDirectMessage,
   postDirectMessageMarkRead,
@@ -73,6 +74,11 @@ export default function DirectMessageThreadScreen() {
   const [sending, setSending] = useState(false);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [peerProfile, setPeerProfile] = useState<{
+    full_name?: string | null;
+    display_name?: string | null;
+    avatar_url?: string | null;
+  } | null>(null);
 
   // Android only: we manually shift the composer above the keyboard.
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -94,6 +100,17 @@ export default function DirectMessageThreadScreen() {
       listRef.current?.scrollToEnd({ animated });
     });
   }, []);
+
+  const loadPeerProfile = useCallback(async () => {
+    if (!profileId) return;
+    const res = await fetchProfileById(profileId);
+    if (!res?.ok || !res.data) return;
+    setPeerProfile({
+      full_name: res.data.full_name ?? null,
+      display_name: res.data.display_name ?? null,
+      avatar_url: res.data.avatar_url ?? null,
+    });
+  }, [profileId]);
 
   const loadThread = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -118,11 +135,21 @@ export default function DirectMessageThreadScreen() {
 
         const messages = Array.isArray(response.data.messages) ? response.data.messages : [];
         setThread({ ...response.data, messages });
+
+        const threadFullName = response.data?.peer?.full_name?.trim();
+        const threadDisplayName = response.data?.peer?.display_name?.trim();
+        const fallbackFromThread =
+          (threadDisplayName && looksLikeEmail(threadDisplayName) ? threadDisplayName : "") ||
+          (threadFullName && looksLikeEmail(threadFullName) ? threadFullName : "");
+
+        if (!threadFullName || looksLikeEmail(threadFullName) || !!fallbackFromThread) {
+          void loadPeerProfile();
+        }
       } finally {
         inflightRef.current = false;
       }
     },
-    [profileId],
+    [loadPeerProfile, profileId],
   );
 
   const markThreadRead = useCallback(async () => {
@@ -141,6 +168,10 @@ export default function DirectMessageThreadScreen() {
 
   useEffect(() => {
     didMarkThreadReadRef.current = false;
+  }, [profileId]);
+
+  useEffect(() => {
+    setPeerProfile(null);
   }, [profileId]);
 
   // ✅ load iniziale
@@ -288,24 +319,30 @@ export default function DirectMessageThreadScreen() {
 
   const peerName = useMemo(() => {
     const full = thread?.peer?.full_name?.trim();
+    const profileFull = peerProfile?.full_name?.trim();
     const display = thread?.peer?.display_name?.trim();
+    const profileDisplay = peerProfile?.display_name?.trim();
     const legacyName = (thread?.peer as { name?: string | null } | undefined)?.name?.trim();
 
     if (full && !looksLikeEmail(full)) return full;
+    if (profileFull && !looksLikeEmail(profileFull)) return profileFull;
     if (display && !looksLikeEmail(display)) return display;
+    if (profileDisplay && !looksLikeEmail(profileDisplay)) return profileDisplay;
     if (legacyName && !looksLikeEmail(legacyName)) return legacyName;
 
     const emailCandidate =
       (thread?.peer as { email?: string | null } | undefined)?.email?.trim() ||
       (display && looksLikeEmail(display) ? display : "") ||
       (full && looksLikeEmail(full) ? full : "") ||
+      (profileDisplay && looksLikeEmail(profileDisplay) ? profileDisplay : "") ||
+      (profileFull && looksLikeEmail(profileFull) ? profileFull : "") ||
       (legacyName && looksLikeEmail(legacyName) ? legacyName : "");
 
     const emailName = nameFromMaybeEmail(emailCandidate);
     if (emailName) return emailName;
 
     return "Profilo";
-  }, [thread?.peer]);
+  }, [peerProfile?.display_name, peerProfile?.full_name, thread?.peer]);
 
   const peerSubLabel = useMemo(() => {
     const full = thread?.peer?.full_name?.trim();
@@ -320,7 +357,7 @@ export default function DirectMessageThreadScreen() {
     return undefined;
   }, [thread?.peer?.display_name, thread?.peer?.full_name]);
 
-  const avatarUri = thread?.peer?.avatar_url?.trim();
+  const avatarUri = thread?.peer?.avatar_url?.trim() || peerProfile?.avatar_url?.trim();
 
   const renderItem = useCallback(
     ({ item }: { item: DirectMessage }) => {
