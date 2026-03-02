@@ -56,6 +56,7 @@ export default function DirectMessageThreadScreen() {
   const [peerFromThreads, setPeerFromThreads] = useState<{
     profileId: string;
     fullName: string;
+    avatarUrl: string | null;
   } | null>(null);
 
   // Android only: we manually shift the composer above the keyboard.
@@ -127,6 +128,12 @@ export default function DirectMessageThreadScreen() {
     didMarkThreadReadRef.current = false;
   }, [profileId]);
 
+  useEffect(() => {
+    // reset immediato: evita che restino name/avatar del thread precedente
+    setPeerFromThreads(null);
+    setThread(null);
+  }, [profileId]);
+
   // ✅ load iniziale
   useEffect(() => {
     let mounted = true;
@@ -162,12 +169,18 @@ export default function DirectMessageThreadScreen() {
 
       const fullName =
         matchingThread?.otherFullName ?? matchingThread?.other_full_name ?? matchingThread?.other?.full_name ?? null;
+      const avatar =
+        matchingThread?.otherAvatarUrl ??
+        matchingThread?.other_avatar_url ??
+        matchingThread?.other?.avatar_url ??
+        null;
 
       if (typeof fullName !== "string") return;
 
       setPeerFromThreads({
         profileId: currentProfileId,
         fullName,
+        avatarUrl: typeof avatar === "string" ? avatar : null,
       });
     })();
 
@@ -303,16 +316,13 @@ export default function DirectMessageThreadScreen() {
   }, [profileId, router]);
 
   const peerName = useMemo(() => {
-    if (!profileId) return "";
+    if (!profileId) return "Profilo";
 
-    if (
-      peerFromThreads &&
-      peerFromThreads.profileId === profileId
-    ) {
+    if (peerFromThreads && peerFromThreads.profileId === profileId) {
       return peerFromThreads.fullName;
     }
 
-    return "";
+    return "Profilo";
   }, [profileId, peerFromThreads]);
 
   const peerSubLabel = useMemo(() => {
@@ -326,7 +336,15 @@ export default function DirectMessageThreadScreen() {
     return undefined;
   }, [thread?.peer?.display_name, thread?.peer?.full_name]);
 
-  const avatarUri = thread?.peer?.avatar_url?.trim();
+  const avatarUri = useMemo(() => {
+    if (!profileId) return undefined;
+
+    if (peerFromThreads && peerFromThreads.profileId === profileId) {
+      return peerFromThreads.avatarUrl?.trim() || undefined;
+    }
+
+    return undefined;
+  }, [profileId, peerFromThreads]);
 
   const renderItem = useCallback(
     ({ item }: { item: DirectMessage }) => {
