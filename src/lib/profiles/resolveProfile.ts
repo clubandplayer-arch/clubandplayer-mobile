@@ -6,6 +6,7 @@ export type Profile = {
   user_id: string | null;
   full_name: string | null;
   display_name: string | null;
+  public_name: string | null;
   avatar_url: string | null;
   bio: string | null;
   sport: string | null;
@@ -52,6 +53,7 @@ function normalizeProfile(row: any): Profile | null {
     user_id: asString(row?.user_id),
     full_name: asString(row?.full_name),
     display_name: asString(row?.display_name),
+    public_name: asString(row?.public_name),
     avatar_url: asString(row?.avatar_url),
     bio: asString(row?.bio),
     sport: asString(row?.sport),

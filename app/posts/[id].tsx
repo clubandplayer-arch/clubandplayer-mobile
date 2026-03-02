@@ -64,9 +64,22 @@ function formatWhen(iso?: string | null) {
   }
 }
 
-function getSafeAuthorName(author: any): string {
-  const name = author?.display_name || author?.full_name || author?.public_name;
-  if (typeof name === "string" && name.trim()) return name.trim();
+function isEmailLike(candidate: unknown): boolean {
+  return typeof candidate === "string" && candidate.includes("@");
+}
+
+/**
+ * ✅ WEB parity:
+ * full_name → display_name (solo se NON email) → fallback
+ * public_name: NON usato per post/comment author display
+ */
+function buildProfileDisplayNameWebParity(author: any): string {
+  const fullName = typeof author?.full_name === "string" ? author.full_name.trim() : "";
+  if (fullName) return fullName;
+
+  const displayName = typeof author?.display_name === "string" ? author.display_name.trim() : "";
+  if (displayName && !isEmailLike(displayName)) return displayName;
+
   return "Utente";
 }
 
@@ -113,22 +126,59 @@ function Avatar({ url, size = 44, name }: { url?: string | null; size?: number; 
   );
 }
 
+function getAccountType(author: any): "club" | "athlete" | null {
+  const a = typeof author?.account_type === "string" ? author.account_type : null;
+  const candidate = (a || "").toLowerCase();
+
+  if (candidate === "club") return "club";
+  if (candidate === "athlete") return "athlete";
+
+  return null;
+}
+
+function getCanonicalProfileRoute(author: FeedAuthor | null): string | null {
+  if (!author?.id) return null;
+
+  const accountType = getAccountType(author);
+  if (accountType === "club") return `/clubs/${author.id}`;
+  if (accountType === "athlete") return `/players/${author.id}`;
+
+  // fallback: se non sappiamo il tipo, proviamo route generica profile
+  return `/profile/${author.id}`;
+}
+
+// ✅ IMPORTANT: tolto "type" dalla select (può non esistere) + fallback anche in caso di error
+const PROFILE_SELECT =
+  "id, user_id, full_name, display_name, public_name, avatar_url, account_type";
+
 async function fetchAuthorProfile(authorId: string | null): Promise<FeedAuthor | null> {
   if (!authorId) return null;
 
+  // 1) prova user_id = posts.author_id (web canonical)
   const primary = await supabase
     .from("profiles")
-    .select("id, user_id, full_name, display_name, avatar_url, account_type, type")
+    .select(PROFILE_SELECT)
     .eq("user_id", authorId)
     .maybeSingle();
 
+  if (primary.error) {
+    // non blocchiamo: proviamo fallback su id
+    devWarn("fetchAuthorProfile primary failed", primary.error);
+  }
+
   let data = primary.data;
-  if (!data && !primary.error) {
+
+  // 2) fallback: id = authorId (se authorId è già profileId)
+  if (!data) {
     const fallback = await supabase
       .from("profiles")
-      .select("id, user_id, full_name, display_name, avatar_url, account_type, type")
+      .select(PROFILE_SELECT)
       .eq("id", authorId)
       .maybeSingle();
+
+    if (fallback.error) {
+      devWarn("fetchAuthorProfile fallback failed", fallback.error);
+    }
     data = fallback.data;
   }
 
@@ -139,10 +189,10 @@ async function fetchAuthorProfile(authorId: string | null): Promise<FeedAuthor |
     user_id: asString((data as any).user_id) ?? null,
     full_name: typeof (data as any).full_name === "string" ? (data as any).full_name : null,
     display_name: typeof (data as any).display_name === "string" ? (data as any).display_name : null,
+    public_name: typeof (data as any).public_name === "string" ? (data as any).public_name : null,
     avatar_url: typeof (data as any).avatar_url === "string" ? (data as any).avatar_url : null,
     account_type: typeof (data as any).account_type === "string" ? (data as any).account_type : null,
-    type: typeof (data as any).type === "string" ? (data as any).type : null,
-  };
+  } as any;
 }
 
 async function fetchPostCore(postId: string): Promise<PostDetail | null> {
@@ -168,7 +218,6 @@ async function fetchPostCore(postId: string): Promise<PostDetail | null> {
 
 function PostVideo({ uri }: { uri: string }) {
   const player = useVideoPlayer({ uri }, (p) => {
-    // Detail view: show controls, no autoplay (do not call play()).
     p.muted = false;
     p.loop = false;
   });
@@ -188,11 +237,26 @@ function PostVideo({ uri }: { uri: string }) {
 }
 
 function PostCard({ post, title }: { post: PostDetail; title?: string }) {
-  const authorName = getSafeAuthorName(post.author);
+  const router = useRouter();
+
+  const authorName = buildProfileDisplayNameWebParity(post.author);
   const when = formatWhen(post.created_at);
   const text = getPostText(post.raw);
   const mediaUrl = asString((post.raw as any)?.media_url);
   const mediaType = asString((post.raw as any)?.media_type);
+
+  const handleAuthorPress = () => {
+    const route = getCanonicalProfileRoute(post.author);
+    if (route) {
+      router.push(route);
+      return;
+    }
+
+    const fallbackId = post.author?.id ?? post.author_id;
+    if (fallbackId) {
+      router.push(`/profile/${fallbackId}`);
+    }
+  };
 
   return (
     <View
@@ -211,7 +275,7 @@ function PostCard({ post, title }: { post: PostDetail; title?: string }) {
         </Text>
       ) : null}
 
-      <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+      <Pressable onPress={handleAuthorPress} style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
         <Avatar url={post.author?.avatar_url ?? null} size={44} name={authorName} />
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 16, fontWeight: "800", color: theme.colors.text }}>
@@ -219,7 +283,7 @@ function PostCard({ post, title }: { post: PostDetail; title?: string }) {
           </Text>
           <Text style={{ fontSize: 12, color: theme.colors.muted }}>{when}</Text>
         </View>
-      </View>
+      </Pressable>
 
       {text ? (
         <Text style={{ fontSize: 15, lineHeight: 20, color: theme.colors.text }}>
@@ -370,7 +434,6 @@ export default function PostDetailScreen() {
     const nextHasLiked = !social.viewerHasLiked;
 
     try {
-      // ✅ WEB parity: unlike = reaction null
       const res = await setPostReaction(postId, nextHasLiked ? "like" : null);
       if (!res.ok) throw new Error(res.errorText ?? `Toggle HTTP ${res.status}`);
 
