@@ -315,15 +315,12 @@ export default function DirectMessageThreadScreen() {
     ]);
   }, [profileId, router]);
 
+  const peerReady = !!(profileId && peerFromThreads && peerFromThreads.profileId === profileId);
+
   const peerName = useMemo(() => {
-    if (!profileId) return "Profilo";
-
-    if (peerFromThreads && peerFromThreads.profileId === profileId) {
-      return peerFromThreads.fullName;
-    }
-
-    return "Profilo";
-  }, [profileId, peerFromThreads]);
+    if (!peerReady) return "";
+    return peerFromThreads!.fullName;
+  }, [peerReady, peerFromThreads]);
 
   const peerSubLabel = useMemo(() => {
     const full = thread?.peer?.full_name?.trim();
@@ -337,14 +334,9 @@ export default function DirectMessageThreadScreen() {
   }, [thread?.peer?.display_name, thread?.peer?.full_name]);
 
   const avatarUri = useMemo(() => {
-    if (!profileId) return undefined;
-
-    if (peerFromThreads && peerFromThreads.profileId === profileId) {
-      return peerFromThreads.avatarUrl?.trim() || undefined;
-    }
-
-    return undefined;
-  }, [profileId, peerFromThreads]);
+    if (!peerReady) return undefined;
+    return peerFromThreads!.avatarUrl?.trim() || undefined;
+  }, [peerReady, peerFromThreads]);
 
   const renderItem = useCallback(
     ({ item }: { item: DirectMessage }) => {
@@ -445,12 +437,20 @@ export default function DirectMessageThreadScreen() {
               backgroundColor: theme.colors.neutral200,
             }}
           >
-            <Text style={{ color: theme.colors.text, fontWeight: "700" }}>{peerName.slice(0, 1).toUpperCase()}</Text>
+            {peerReady && peerName ? (
+              <Text style={{ color: theme.colors.text, fontWeight: "700" }}>
+                {peerName.slice(0, 1).toUpperCase()}
+              </Text>
+            ) : null}
           </View>
         )}
 
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 18, fontWeight: "700", color: theme.colors.text }}>{peerName}</Text>
+          {peerName ? (
+            <Text style={{ fontSize: 18, fontWeight: "700", color: theme.colors.text }}>
+              {peerName}
+            </Text>
+          ) : null}
 
           {peerSubLabel ? (
             <Text style={{ fontSize: 13, color: theme.colors.muted }}>{peerSubLabel}</Text>
