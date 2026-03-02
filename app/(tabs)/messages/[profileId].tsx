@@ -55,6 +55,11 @@ export default function DirectMessageThreadScreen() {
   const [error, setError] = useState<string | null>(null);
   const [peerFullNameFromThreads, setPeerFullNameFromThreads] = useState<string | null>(null);
 
+  useEffect(() => {
+    // reset immediato per evitare flicker del nome precedente
+    setPeerFullNameFromThreads(null);
+  }, [profileId]);
+
   // Android only: we manually shift the composer above the keyboard.
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
@@ -143,28 +148,36 @@ export default function DirectMessageThreadScreen() {
 
   useEffect(() => {
     let mounted = true;
+    const currentProfileId = profileId;
 
     (async () => {
-      if (!profileId) {
+      if (!currentProfileId) {
         if (mounted) setPeerFullNameFromThreads(null);
         return;
       }
 
       const response = await fetchDirectMessageThreads();
-      if (!response.ok || !response.data?.threads || !mounted) {
-        setPeerFullNameFromThreads(null);
-        return;
-      }
+      if (!mounted || !response.ok || !response.data?.threads) return;
 
       const matchingThread = response.data.threads.find((raw) => {
-        const otherId = raw.otherProfileId || raw.other_profile_id || raw.other?.id || "";
-        return String(otherId) === profileId;
+        const otherId =
+          raw.otherProfileId ||
+          raw.other_profile_id ||
+          raw.other?.id ||
+          "";
+        return String(otherId) === currentProfileId;
       });
 
       const fullName =
-        matchingThread?.otherFullName ?? matchingThread?.other_full_name ?? matchingThread?.other?.full_name ?? null;
+        matchingThread?.otherFullName ??
+        matchingThread?.other_full_name ??
+        matchingThread?.other?.full_name ??
+        null;
 
-      setPeerFullNameFromThreads(typeof fullName === "string" ? fullName : null);
+      // importante: verifica che profileId non sia cambiato nel frattempo
+      if (mounted && currentProfileId === profileId) {
+        setPeerFullNameFromThreads(typeof fullName === "string" ? fullName : null);
+      }
     })();
 
     return () => {
@@ -299,10 +312,13 @@ export default function DirectMessageThreadScreen() {
   }, [profileId, router]);
 
   const peerName = useMemo(() => {
-    const fullFromThreads = peerFullNameFromThreads?.trim();
-    const fullFromThread = thread?.peer?.full_name?.trim();
-    return fullFromThreads || fullFromThread || "Profilo";
-  }, [peerFullNameFromThreads, thread?.peer?.full_name]);
+    if (!profileId) return "";
+
+    // se non abbiamo ancora il nome giusto, non mostrare quello precedente
+    if (!peerFullNameFromThreads) return "";
+
+    return peerFullNameFromThreads;
+  }, [profileId, peerFullNameFromThreads]);
 
   const peerSubLabel = useMemo(() => {
     const full = thread?.peer?.full_name?.trim();
