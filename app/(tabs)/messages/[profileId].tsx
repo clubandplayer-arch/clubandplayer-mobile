@@ -309,7 +309,7 @@ export default function DirectMessageThreadScreen() {
 
           setThread((prev) => (prev ? { ...prev, messages: [] } : prev));
           emit("app:direct-messages-updated");
-          router.back();
+          router.replace("/messages");
         },
       },
     ]);
