@@ -53,7 +53,11 @@ export default function DirectMessageThreadScreen() {
   const [sending, setSending] = useState(false);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [peerFullNameFromThreads, setPeerFullNameFromThreads] = useState<string | null>(null);
+  const [peerFromThreads, setPeerFromThreads] = useState<{
+    profileId: string;
+    fullName: string;
+    avatarUrl: string | null;
+  } | null>(null);
 
   // Android only: we manually shift the composer above the keyboard.
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -124,6 +128,12 @@ export default function DirectMessageThreadScreen() {
     didMarkThreadReadRef.current = false;
   }, [profileId]);
 
+  useEffect(() => {
+    // reset immediato: evita che restino name/avatar del thread precedente
+    setPeerFromThreads(null);
+    setThread(null);
+  }, [profileId]);
+
   // ✅ load iniziale
   useEffect(() => {
     let mounted = true;
@@ -145,26 +155,33 @@ export default function DirectMessageThreadScreen() {
     let mounted = true;
 
     (async () => {
-      if (!profileId) {
-        if (mounted) setPeerFullNameFromThreads(null);
-        return;
-      }
+      if (!profileId) return;
 
       const response = await fetchDirectMessageThreads();
-      if (!response.ok || !response.data?.threads || !mounted) {
-        setPeerFullNameFromThreads(null);
-        return;
-      }
+      if (!response.ok || !response.data?.threads || !mounted) return;
+
+      const currentProfileId = profileId;
 
       const matchingThread = response.data.threads.find((raw) => {
         const otherId = raw.otherProfileId || raw.other_profile_id || raw.other?.id || "";
-        return String(otherId) === profileId;
+        return String(otherId) === currentProfileId;
       });
 
       const fullName =
         matchingThread?.otherFullName ?? matchingThread?.other_full_name ?? matchingThread?.other?.full_name ?? null;
+      const avatar =
+        matchingThread?.otherAvatarUrl ??
+        matchingThread?.other_avatar_url ??
+        matchingThread?.other?.avatar_url ??
+        null;
 
-      setPeerFullNameFromThreads(typeof fullName === "string" ? fullName : null);
+      if (typeof fullName !== "string") return;
+
+      setPeerFromThreads({
+        profileId: currentProfileId,
+        fullName,
+        avatarUrl: typeof avatar === "string" ? avatar : null,
+      });
     })();
 
     return () => {
@@ -298,11 +315,12 @@ export default function DirectMessageThreadScreen() {
     ]);
   }, [profileId, router]);
 
+  const peerReady = !!(profileId && peerFromThreads && peerFromThreads.profileId === profileId);
+
   const peerName = useMemo(() => {
-    const fullFromThreads = peerFullNameFromThreads?.trim();
-    const fullFromThread = thread?.peer?.full_name?.trim();
-    return fullFromThreads || fullFromThread || "Profilo";
-  }, [peerFullNameFromThreads, thread?.peer?.full_name]);
+    if (!peerReady) return "";
+    return peerFromThreads!.fullName;
+  }, [peerReady, peerFromThreads]);
 
   const peerSubLabel = useMemo(() => {
     const full = thread?.peer?.full_name?.trim();
@@ -315,7 +333,10 @@ export default function DirectMessageThreadScreen() {
     return undefined;
   }, [thread?.peer?.display_name, thread?.peer?.full_name]);
 
-  const avatarUri = thread?.peer?.avatar_url?.trim();
+  const avatarUri = useMemo(() => {
+    if (!peerReady) return undefined;
+    return peerFromThreads!.avatarUrl?.trim() || undefined;
+  }, [peerReady, peerFromThreads]);
 
   const renderItem = useCallback(
     ({ item }: { item: DirectMessage }) => {
@@ -416,12 +437,20 @@ export default function DirectMessageThreadScreen() {
               backgroundColor: theme.colors.neutral200,
             }}
           >
-            <Text style={{ color: theme.colors.text, fontWeight: "700" }}>{peerName.slice(0, 1).toUpperCase()}</Text>
+            {peerReady && peerName ? (
+              <Text style={{ color: theme.colors.text, fontWeight: "700" }}>
+                {peerName.slice(0, 1).toUpperCase()}
+              </Text>
+            ) : null}
           </View>
         )}
 
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 18, fontWeight: "700", color: theme.colors.text }}>{peerName}</Text>
+          {peerName ? (
+            <Text style={{ fontSize: 18, fontWeight: "700", color: theme.colors.text }}>
+              {peerName}
+            </Text>
+          ) : null}
 
           {peerSubLabel ? (
             <Text style={{ fontSize: 13, color: theme.colors.muted }}>{peerSubLabel}</Text>
