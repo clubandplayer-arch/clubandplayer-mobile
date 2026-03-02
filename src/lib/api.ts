@@ -41,6 +41,7 @@ export type ProfileMe = {
   user_id?: string | null;
   full_name?: string | null;
   display_name?: string | null;
+  public_name?: string | null;
   avatar_url?: string | null;
   bio?: string | null;
   country?: string | null;
@@ -114,6 +115,7 @@ export type ClubRosterItem = {
   playerProfileId: string;
   full_name?: string | null;
   display_name?: string | null;
+  public_name?: string | null;
   avatar_url?: string | null;
   role?: string | null;
   sport?: string | null;
@@ -147,6 +149,7 @@ export type FeedCommentAuthor = {
   user_id?: string | null;
   full_name?: string | null;
   display_name?: string | null;
+  public_name?: string | null;
   avatar_url?: string | null;
   account_type?: string | null;
   status?: string | null;
@@ -598,7 +601,15 @@ export async function fetchProfileById(profileId: string): Promise<ApiResponse<P
     (raw && typeof raw === "object" && "data" in raw && (raw as any).data) ||
     raw;
 
-  return { ...res, data: normalized as ProfileMe };
+  const finalData = {
+    ...(normalized as any),
+    full_name:
+      (normalized as any)?.full_name ??
+      (normalized as any)?.public_name ??
+      null,
+  };
+
+  return { ...res, data: finalData as ProfileMe };
 }
 
 export async function fetchFeedPosts(params?: {
