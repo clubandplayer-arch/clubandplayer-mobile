@@ -378,6 +378,12 @@ export async function fetchDirectMessagesUnreadCount(): Promise<ApiResponse<Dire
   });
 }
 
+export async function deleteDirectMessageConversation(profileId: string) {
+  return apiFetch(`/api/direct-messages/conversation/${encodeURIComponent(profileId)}`, {
+    method: "DELETE",
+  });
+}
+
 export const PROFILE_PATCH_FIELDS = [
   "full_name",
   "display_name",

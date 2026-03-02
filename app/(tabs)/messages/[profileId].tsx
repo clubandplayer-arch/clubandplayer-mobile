@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   Keyboard,
@@ -17,7 +18,13 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 
-import { fetchDirectMessageThread, postDirectMessage, postDirectMessageMarkRead } from "../../../src/lib/api";
+import {
+  deleteDirectMessageConversation,
+  fetchDirectMessageThreads,
+  fetchDirectMessageThread,
+  postDirectMessage,
+  postDirectMessageMarkRead,
+} from "../../../src/lib/api";
 import type { DirectMessage, DirectThreadResponse } from "../../../src/types/directMessages";
 import { theme } from "../../../src/theme";
 import { emit } from "../../../src/lib/events/appEvents";
@@ -46,6 +53,7 @@ export default function DirectMessageThreadScreen() {
   const [sending, setSending] = useState(false);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [peerFullNameFromThreads, setPeerFullNameFromThreads] = useState<string | null>(null);
 
   // Android only: we manually shift the composer above the keyboard.
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -132,6 +140,37 @@ export default function DirectMessageThreadScreen() {
       mounted = false;
     };
   }, [loadThread]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      if (!profileId) {
+        if (mounted) setPeerFullNameFromThreads(null);
+        return;
+      }
+
+      const response = await fetchDirectMessageThreads();
+      if (!response.ok || !response.data?.threads || !mounted) {
+        setPeerFullNameFromThreads(null);
+        return;
+      }
+
+      const matchingThread = response.data.threads.find((raw) => {
+        const otherId = raw.otherProfileId || raw.other_profile_id || raw.other?.id || "";
+        return String(otherId) === profileId;
+      });
+
+      const fullName =
+        matchingThread?.otherFullName ?? matchingThread?.other_full_name ?? matchingThread?.other?.full_name ?? null;
+
+      setPeerFullNameFromThreads(typeof fullName === "string" ? fullName : null);
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [profileId]);
 
   // ✅ IMPORTANT:
   // - iOS: KeyboardAvoidingView handles layout
@@ -236,11 +275,34 @@ export default function DirectMessageThreadScreen() {
     }
   }, [input, profileId, scrollToBottom, loadThread]);
 
+  const handleDeleteConversation = useCallback(() => {
+    if (!profileId) return;
+
+    Alert.alert("Cancella chat", "Vuoi eliminare tutta la chat?", [
+      { text: "Annulla", style: "cancel" },
+      {
+        text: "Ok",
+        style: "destructive",
+        onPress: async () => {
+          const res = await deleteDirectMessageConversation(profileId);
+          if (!res?.ok) {
+            setError(res?.errorText || "Impossibile cancellare la chat");
+            return;
+          }
+
+          setThread((prev) => (prev ? { ...prev, messages: [] } : prev));
+          emit("app:direct-messages-updated");
+          router.back();
+        },
+      },
+    ]);
+  }, [profileId, router]);
+
   const peerName = useMemo(() => {
-    const full = thread?.peer?.full_name?.trim();
-    const display = thread?.peer?.display_name?.trim();
-    return full || display || "Messaggi";
-  }, [thread?.peer?.display_name, thread?.peer?.full_name]);
+    const fullFromThreads = peerFullNameFromThreads?.trim();
+    const fullFromThread = thread?.peer?.full_name?.trim();
+    return fullFromThreads || fullFromThread || "Profilo";
+  }, [peerFullNameFromThreads, thread?.peer?.full_name]);
 
   const peerSubLabel = useMemo(() => {
     const full = thread?.peer?.full_name?.trim();
@@ -354,9 +416,7 @@ export default function DirectMessageThreadScreen() {
               backgroundColor: theme.colors.neutral200,
             }}
           >
-            <Text style={{ color: theme.colors.text, fontWeight: "700" }}>
-              {peerName.slice(0, 1).toUpperCase()}
-            </Text>
+            <Text style={{ color: theme.colors.text, fontWeight: "700" }}>{peerName.slice(0, 1).toUpperCase()}</Text>
           </View>
         )}
 
@@ -369,6 +429,10 @@ export default function DirectMessageThreadScreen() {
 
           {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
         </View>
+
+        <Pressable onPress={handleDeleteConversation} hitSlop={8}>
+          <Text style={{ color: theme.colors.danger, fontWeight: "600" }}>Cancella chat</Text>
+        </Pressable>
       </View>
 
       <FlatList
