@@ -588,9 +588,17 @@ export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
 }
 
 export async function fetchProfileById(profileId: string): Promise<ApiResponse<ProfileMe>> {
-  return apiFetch<ProfileMe>(`/api/profiles/${encodeURIComponent(profileId)}`, {
-    method: "GET",
-  });
+  const res = await apiFetch<any>(`/api/profiles/${encodeURIComponent(profileId)}`, { method: "GET" });
+
+  if (!res.ok) return res as ApiResponse<ProfileMe>;
+  const raw = res.data;
+
+  const normalized =
+    (raw && typeof raw === "object" && "profile" in raw && (raw as any).profile) ||
+    (raw && typeof raw === "object" && "data" in raw && (raw as any).data) ||
+    raw;
+
+  return { ...res, data: normalized as ProfileMe };
 }
 
 export async function fetchFeedPosts(params?: {
