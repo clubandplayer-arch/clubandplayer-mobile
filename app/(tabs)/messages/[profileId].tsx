@@ -21,6 +21,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import {
   deleteDirectMessageConversation,
   fetchProfileById,
+  fetchDirectMessageThreads,
   fetchDirectMessageThread,
   postDirectMessage,
   postDirectMessageMarkRead,
@@ -75,6 +76,7 @@ export default function DirectMessageThreadScreen() {
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [peerProfile, setPeerProfile] = useState<any | null>(null);
+  const [peerFromThreads, setPeerFromThreads] = useState<any | null>(null);
 
   // Android only: we manually shift the composer above the keyboard.
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -102,6 +104,29 @@ export default function DirectMessageThreadScreen() {
     const res = await fetchProfileById(profileId);
     if (!res?.ok || !res.data) return;
     setPeerProfile(res.data);
+  }, [profileId]);
+
+
+  const loadPeerFromThreads = useCallback(async () => {
+    if (!profileId) return;
+    const res = await fetchDirectMessageThreads();
+    if (!res?.ok || !res.data) return;
+
+    const threads = (res.data as any).threads || (res.data as any).items || [];
+    const hit = Array.isArray(threads)
+      ? threads.find((t: any) => String(t?.other_profile_id || t?.otherProfileId || t?.peer_profile_id || "") === profileId)
+      : null;
+
+    if (!hit) return;
+
+    const peer =
+      hit.other_profile ||
+      hit.otherProfile ||
+      hit.peer ||
+      hit.profile ||
+      hit;
+
+    setPeerFromThreads(peer);
   }, [profileId]);
 
   const loadThread = useCallback(
@@ -164,6 +189,7 @@ export default function DirectMessageThreadScreen() {
 
   useEffect(() => {
     setPeerProfile(null);
+    setPeerFromThreads(null);
   }, [profileId]);
 
   // ✅ load iniziale
@@ -173,6 +199,7 @@ export default function DirectMessageThreadScreen() {
     (async () => {
       try {
         await loadThread();
+        void loadPeerFromThreads();
       } finally {
         if (mounted) setLoading(false);
       }
@@ -181,7 +208,7 @@ export default function DirectMessageThreadScreen() {
     return () => {
       mounted = false;
     };
-  }, [loadThread]);
+  }, [loadPeerFromThreads, loadThread]);
 
   // ✅ IMPORTANT:
   // - iOS: KeyboardAvoidingView handles layout
@@ -246,7 +273,7 @@ export default function DirectMessageThreadScreen() {
       if (next === "active") void loadThread({ silent: true });
     });
     return () => sub.remove();
-  }, [loadThread]);
+  }, [loadPeerFromThreads, loadThread]);
 
   const sendMessage = useCallback(async () => {
     const content = input.trim();
@@ -310,6 +337,10 @@ export default function DirectMessageThreadScreen() {
   }, [profileId, router]);
 
   const peerName = useMemo(() => {
+    const threadsFull = peerFromThreads?.full_name?.trim();
+    const threadsPublic = peerFromThreads?.public_name?.trim();
+    const threadsDisplay = peerFromThreads?.display_name?.trim();
+
     const full = thread?.peer?.full_name?.trim();
     const publicName = (thread?.peer as { public_name?: string | null } | undefined)?.public_name?.trim();
     const profileFull = peerProfile?.full_name?.trim();
@@ -318,18 +349,25 @@ export default function DirectMessageThreadScreen() {
     const profileDisplay = peerProfile?.display_name?.trim();
     const legacyName = (thread?.peer as { name?: string | null } | undefined)?.name?.trim();
 
+    if (threadsFull && !looksLikeEmail(threadsFull)) return threadsFull;
+    if (threadsPublic && !looksLikeEmail(threadsPublic)) return threadsPublic;
+    if (threadsDisplay && !looksLikeEmail(threadsDisplay)) return threadsDisplay;
+
     if (full && !looksLikeEmail(full)) return full;
     if (publicName && !looksLikeEmail(publicName)) return publicName;
+    if (display && !looksLikeEmail(display)) return display;
+
     if (profileFull && !looksLikeEmail(profileFull)) return profileFull;
     if (profilePublicName && !looksLikeEmail(profilePublicName)) return profilePublicName;
-    if (display && !looksLikeEmail(display)) return display;
     if (profileDisplay && !looksLikeEmail(profileDisplay)) return profileDisplay;
     if (legacyName && !looksLikeEmail(legacyName)) return legacyName;
 
     const emailCandidate =
       (thread?.peer as { email?: string | null } | undefined)?.email?.trim() ||
+      (threadsDisplay && looksLikeEmail(threadsDisplay) ? threadsDisplay : "") ||
       (display && looksLikeEmail(display) ? display : "") ||
       (full && looksLikeEmail(full) ? full : "") ||
+      (threadsPublic && looksLikeEmail(threadsPublic) ? threadsPublic : "") ||
       (publicName && looksLikeEmail(publicName) ? publicName : "") ||
       (profileDisplay && looksLikeEmail(profileDisplay) ? profileDisplay : "") ||
       (profileFull && looksLikeEmail(profileFull) ? profileFull : "") ||
@@ -340,7 +378,7 @@ export default function DirectMessageThreadScreen() {
     if (emailName) return emailName;
 
     return "Profilo";
-  }, [peerProfile, thread?.peer]);
+  }, [peerFromThreads, peerProfile, thread?.peer]);
 
   const peerSubLabel = useMemo(() => {
     const full = thread?.peer?.full_name?.trim();
@@ -355,7 +393,7 @@ export default function DirectMessageThreadScreen() {
     return undefined;
   }, [thread?.peer?.display_name, thread?.peer?.full_name]);
 
-  const avatarUri = thread?.peer?.avatar_url?.trim() || peerProfile?.avatar_url?.trim();
+  const avatarUri = thread?.peer?.avatar_url?.trim() || peerFromThreads?.avatar_url?.trim() || peerProfile?.avatar_url?.trim();
 
   const renderItem = useCallback(
     ({ item }: { item: DirectMessage }) => {
