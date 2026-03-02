@@ -399,7 +399,7 @@ export default function DirectMessageThreadScreen() {
           gap: 12,
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={8}>
+        <Pressable onPress={() => router.replace("/messages")} hitSlop={8}>
           <Text style={{ fontSize: 20, color: theme.colors.text }}>←</Text>
         </Pressable>
 
