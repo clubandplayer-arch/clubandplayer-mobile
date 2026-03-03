@@ -19,7 +19,7 @@ import {
 } from "../../../src/lib/feed/getFeedPosts";
 import { isCertifiedClub } from "../../../src/lib/profiles/certification";
 import { on } from "../../../src/lib/events/appEvents";
-import { clearSession, useWebSession, useWhoami } from "../../../src/lib/api";
+import { clearSession, isUuid, useWebSession, useWhoami } from "../../../src/lib/api";
 import FeedComposer from "../../../components/feed/FeedComposer";
 import FeedVideoPreview from "../../../components/feed/FeedVideoPreview";
 import LightboxModal from "../../../components/media/LightboxModal";
@@ -42,12 +42,6 @@ function formatWhen(iso?: string | null) {
   }
 }
 
-function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value,
-  );
-}
-
 function pickProfileIdUuid(input: Array<unknown>): string | null {
   for (const v of input) {
     if (typeof v !== "string") continue;
@@ -58,27 +52,21 @@ function pickProfileIdUuid(input: Array<unknown>): string | null {
   return null;
 }
 
-function resolveProfilePath(input: { author: any; author_id?: unknown }): string | null {
-  const author = input.author ?? null;
-
-  const profileId = pickProfileIdUuid([
-    author?.id,
-    author?.profile_id,
-    author?.profileId,
-    author?.profile?.id,
-    author?.raw?.id,
-    typeof input.author_id === "string" ? input.author_id : null,
+function resolveProfilePath(post: FeedPost): string | null {
+  const raw = post?.raw as any;
+  const authorId = pickProfileIdUuid([
+    raw?.author_profile?.id,
+    raw?.author_profile_id,
+    raw?.authorId,
+    raw?.author_id,
+    post?.author?.id,
+    (post as any)?.author_profile_id,
+    (post as any)?.authorId,
+    (post as any)?.author_id,
   ]);
 
-  if (!profileId) return null;
-
-  const kind = (author?.account_type ?? author?.type ?? "")
-    .toString()
-    .trim()
-    .toLowerCase();
-
-  if (kind === "club" || kind === "clubs") return `/clubs/${profileId}`;
-  return `/players/${profileId}`;
+  if (!authorId || !isUuid(authorId)) return null;
+  return `/profiles/${authorId}`;
 }
 
 function resolvePostPath(postId: string | null | undefined): string | null {
@@ -127,10 +115,7 @@ function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: strin
   const likeCount = typeof item.likeCount === "number" ? item.likeCount : 0;
   const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
 
-  const profilePath = resolveProfilePath({
-    author: item.author,
-    author_id: (item as any).author_id,
-  });
+  const profilePath = resolveProfilePath(item);
 
   const postPath = resolvePostPath(item.id);
 
