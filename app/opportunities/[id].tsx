@@ -165,7 +165,18 @@ export default function OpportunityDetailScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Opportunità" }} />
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          headerTitle: "Opportunità",
+          headerTitleStyle: {
+            fontSize: 20,
+            fontWeight: "800",
+            color: theme.colors.text,
+          },
+          headerTintColor: theme.colors.text,
+        }}
+      />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 16, paddingBottom: 40, gap: 14 }}>
       <View
         style={{
