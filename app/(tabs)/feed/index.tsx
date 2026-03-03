@@ -132,7 +132,7 @@ function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: strin
             return;
           }
 
-          router.push({ pathname: "/profiles/[id]", params: { id: authorUuid } } as any);
+          router.navigate(`/profiles/${authorUuid}`);
         }}
         style={{
           flexDirection: "row",
