@@ -19,7 +19,7 @@ import {
 } from "../../../src/lib/feed/getFeedPosts";
 import { isCertifiedClub } from "../../../src/lib/profiles/certification";
 import { on } from "../../../src/lib/events/appEvents";
-import { clearSession, useWebSession, useWhoami } from "../../../src/lib/api";
+import { clearSession, isUuid, useWebSession, useWhoami } from "../../../src/lib/api";
 import FeedComposer from "../../../components/feed/FeedComposer";
 import FeedVideoPreview from "../../../components/feed/FeedVideoPreview";
 import LightboxModal from "../../../components/media/LightboxModal";
@@ -40,45 +40,6 @@ function formatWhen(iso?: string | null) {
   } catch {
     return "";
   }
-}
-
-function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value,
-  );
-}
-
-function pickProfileIdUuid(input: Array<unknown>): string | null {
-  for (const v of input) {
-    if (typeof v !== "string") continue;
-    const t = v.trim();
-    if (!t) continue;
-    if (isUuid(t)) return t;
-  }
-  return null;
-}
-
-function resolveProfilePath(input: { author: any; author_id?: unknown }): string | null {
-  const author = input.author ?? null;
-
-  const profileId = pickProfileIdUuid([
-    author?.id,
-    author?.profile_id,
-    author?.profileId,
-    author?.profile?.id,
-    author?.raw?.id,
-    typeof input.author_id === "string" ? input.author_id : null,
-  ]);
-
-  if (!profileId) return null;
-
-  const kind = (author?.account_type ?? author?.type ?? "")
-    .toString()
-    .trim()
-    .toLowerCase();
-
-  if (kind === "club" || kind === "clubs") return `/clubs/${profileId}`;
-  return `/players/${profileId}`;
 }
 
 function resolvePostPath(postId: string | null | undefined): string | null {
@@ -127,10 +88,17 @@ function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: strin
   const likeCount = typeof item.likeCount === "number" ? item.likeCount : 0;
   const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
 
-  const profilePath = resolveProfilePath({
-    author: item.author,
-    author_id: (item as any).author_id,
-  });
+  const post = (item?.raw as any) ?? (item as any);
+  const authorIdRaw = post?.author_profile?.id ?? post?.author_profile_id ?? post?.authorId ?? post?.author_id ?? null;
+
+  const authorUuid =
+    (typeof post?.author_profile?.id_uuid === "string" ? post.author_profile.id_uuid : null) ??
+    (typeof (post as any)?.author_profile_id_uuid === "string" ? (post as any).author_profile_id_uuid : null) ??
+    authorIdRaw;
+
+  const authorRoleRaw = (post as any)?.author_role ?? (post as any)?.authorRole ?? null;
+  const authorRole = typeof authorRoleRaw === "string" ? authorRoleRaw.toLowerCase().trim() : null;
+  const isAuthorClub = authorRole === "club";
 
   const postPath = resolvePostPath(item.id);
 
@@ -155,16 +123,29 @@ function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: strin
       }}
     >
       <Pressable
-        disabled={!profilePath}
         onPress={() => {
-          if (!profilePath) return;
-          router.push(profilePath);
+          console.log("[PR-MOB.PROFILES.2.1][tap-author]", {
+            authorIdRaw,
+            authorUuid,
+            isUuid: authorUuid ? isUuid(authorUuid) : false,
+            postKeys: Object.keys(post ?? {}),
+          });
+
+          if (!authorUuid || !isUuid(authorUuid)) {
+            console.log("[PR-MOB.PROFILES.2.1][tap-author][skip]", "missing valid uuid");
+            return;
+          }
+
+          const target =
+            authorRole === null ? `/profiles/${authorUuid}` : isAuthorClub ? `/clubs/${authorUuid}` : `/players/${authorUuid}`;
+          console.log("[PR-MOB.PROFILES.2.2][tap-author][target]", { authorUuid, authorRole, target });
+          router.navigate(target);
         }}
         style={{
           flexDirection: "row",
           gap: 10,
           alignItems: "center",
-          opacity: profilePath ? 1 : 0.6,
+          opacity: authorUuid && isUuid(authorUuid) ? 1 : 0.6,
         }}
       >
         <Avatar url={item.author?.avatar_url ?? null} size={40} />

@@ -17,6 +17,8 @@ export default function ProfileResolverScreen() {
     return isUuid(v) ? v : null;
   }, [params.id]);
 
+  console.log("[PR-MOB.PROFILES.RESOLVER][mount]", { id });
+
   useEffect(() => {
     let mounted = true;
 
@@ -29,11 +31,20 @@ export default function ProfileResolverScreen() {
         .eq("id", id)
         .maybeSingle();
 
+      const { data, error } = res;
+      console.log("[PR-MOB.PROFILES.RESOLVER][supabase]", {
+        id,
+        ok: !error,
+        error: error?.message ?? null,
+        hasData: Boolean(data),
+      });
+
       if (!mounted) return;
 
-      const accountType = normalizeAccountType(res.data?.account_type ?? res.data?.type);
-      const destination = profileCanonicalHref(id, accountType ?? "player");
-      router.replace(destination);
+      const accountType = normalizeAccountType(data?.account_type ?? data?.type);
+      const href = profileCanonicalHref(id, accountType ?? "player");
+      console.log("[PR-MOB.PROFILES.RESOLVER][redirect]", { id, accountType, target: href });
+      router.replace(href);
     };
 
     void resolveAndRedirect();
