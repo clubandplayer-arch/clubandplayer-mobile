@@ -42,22 +42,6 @@ function formatWhen(iso?: string | null) {
   }
 }
 
-function pickProfileIdUuid(input: Array<unknown>): string | null {
-  for (const v of input) {
-    if (typeof v !== "string") continue;
-    const t = v.trim();
-    if (!t) continue;
-    if (isUuid(t)) return t;
-  }
-  return null;
-}
-
-function resolveProfileRoute(authorId: string | null | undefined) {
-  if (!authorId) return null;
-  if (!isUuid(authorId)) return null;
-  return { pathname: "/profiles/[id]", params: { id: authorId } } as const;
-}
-
 function resolvePostPath(postId: string | null | undefined): string | null {
   const id = (postId ?? "").toString().trim();
   if (!id) return null;
@@ -104,19 +88,13 @@ function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: strin
   const likeCount = typeof item.likeCount === "number" ? item.likeCount : 0;
   const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
 
-  const raw = item?.raw as any;
-  const authorId = pickProfileIdUuid([
-    raw?.author_profile?.id,
-    raw?.author_profile_id,
-    raw?.authorId,
-    raw?.author_id,
-    item?.author?.id,
-    (item as any)?.author_profile_id,
-    (item as any)?.authorId,
-    (item as any)?.author_id,
-  ]);
+  const post = (item?.raw as any) ?? (item as any);
+  const authorIdRaw = post?.author_profile?.id ?? post?.author_profile_id ?? post?.authorId ?? post?.author_id ?? null;
 
-  const profileRoute = resolveProfileRoute(authorId);
+  const authorUuid =
+    (typeof post?.author_profile?.id_uuid === "string" ? post.author_profile.id_uuid : null) ??
+    (typeof (post as any)?.author_profile_id_uuid === "string" ? (post as any).author_profile_id_uuid : null) ??
+    authorIdRaw;
 
   const postPath = resolvePostPath(item.id);
 
@@ -141,16 +119,26 @@ function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: strin
       }}
     >
       <Pressable
-        disabled={!profileRoute}
         onPress={() => {
-          if (!profileRoute) return;
-          router.push(profileRoute as any);
+          console.log("[PR-MOB.PROFILES.2.1][tap-author]", {
+            authorIdRaw,
+            authorUuid,
+            isUuid: authorUuid ? isUuid(authorUuid) : false,
+            postKeys: Object.keys(post ?? {}),
+          });
+
+          if (!authorUuid || !isUuid(authorUuid)) {
+            console.log("[PR-MOB.PROFILES.2.1][tap-author][skip]", "missing valid uuid");
+            return;
+          }
+
+          router.push({ pathname: "/profiles/[id]", params: { id: authorUuid } } as any);
         }}
         style={{
           flexDirection: "row",
           gap: 10,
           alignItems: "center",
-          opacity: profileRoute ? 1 : 0.6,
+          opacity: authorUuid && isUuid(authorUuid) ? 1 : 0.6,
         }}
       >
         <Avatar url={item.author?.avatar_url ?? null} size={40} />
