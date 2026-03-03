@@ -165,21 +165,7 @@ export default function OpportunityDetailScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: "Opportunità",
-          headerShown: true,
-          // @ts-expect-error native-stack option available at runtime, missing in current type bundle
-          headerBackTitleVisible: false,
-          headerShadowVisible: false,
-          headerTintColor: theme.colors.text,
-          headerTitleStyle: {
-            fontSize: 20,
-            fontWeight: "800",
-            color: theme.colors.text,
-          },
-        }}
-      />
+      <Stack.Screen options={{ headerShown: true, title: "Opportunità" }} />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 16, paddingBottom: 40, gap: 14 }}>
       <View
         style={{
