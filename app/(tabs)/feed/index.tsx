@@ -96,6 +96,10 @@ function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: strin
     (typeof (post as any)?.author_profile_id_uuid === "string" ? (post as any).author_profile_id_uuid : null) ??
     authorIdRaw;
 
+  const authorRoleRaw = (post as any)?.author_role ?? (post as any)?.authorRole ?? null;
+  const authorRole = typeof authorRoleRaw === "string" ? authorRoleRaw.toLowerCase().trim() : null;
+  const isAuthorClub = authorRole === "club";
+
   const postPath = resolvePostPath(item.id);
 
   const handleShare = async () => {
@@ -132,7 +136,10 @@ function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: strin
             return;
           }
 
-          router.navigate(`/profiles/${authorUuid}`);
+          const target =
+            authorRole === null ? `/profiles/${authorUuid}` : isAuthorClub ? `/clubs/${authorUuid}` : `/players/${authorUuid}`;
+          console.log("[PR-MOB.PROFILES.2.2][tap-author][target]", { authorUuid, authorRole, target });
+          router.navigate(target);
         }}
         style={{
           flexDirection: "row",
