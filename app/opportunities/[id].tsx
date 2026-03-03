@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 
 import { applyToOpportunity, fetchMyApplications, fetchOpportunityById, useWebSession, useWhoami } from "../../src/lib/api";
 import type { OpportunityDetail } from "../../src/types/opportunity";
@@ -164,16 +164,9 @@ export default function OpportunityDetailScreen() {
   const location = formatLocation(item);
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 12, paddingBottom: 40, gap: 14 }}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 8, paddingBottom: 6 }}>
-        <Pressable onPress={() => router.back()} style={{ padding: 6 }}>
-          <Text style={{ fontSize: 18, fontWeight: "900", color: theme.colors.text }}>←</Text>
-        </Pressable>
-        <Text style={{ fontSize: 22, fontWeight: "900", color: theme.colors.text }}>Opportunità</Text>
-      </View>
-
-      <View style={{ height: 6 }} />
-
+    <>
+      <Stack.Screen options={{ title: "Opportunità" }} />
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 16, paddingBottom: 40, gap: 14 }}>
       <View
         style={{
           borderWidth: 1,
@@ -271,6 +264,7 @@ export default function OpportunityDetailScreen() {
         <Text style={{ fontSize: 18, fontWeight: "700" }}>Descrizione</Text>
         <Text style={{ color: theme.colors.text, lineHeight: 22 }}>{item.description || "Nessuna descrizione disponibile."}</Text>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </>
   );
 }
