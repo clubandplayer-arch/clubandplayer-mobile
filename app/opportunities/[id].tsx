@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { applyToOpportunity, fetchMyApplications, fetchOpportunityById, useWebSession, useWhoami } from "../../src/lib/api";
 import type { OpportunityDetail } from "../../src/types/opportunity";
@@ -55,6 +56,7 @@ export default function OpportunityDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const id = asSingleValue(params.id).trim();
+  const insets = useSafeAreaInsets();
 
   const web = useWebSession();
   const whoami = useWhoami(web.ready);
@@ -165,7 +167,15 @@ export default function OpportunityDetailScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: true, title: "Opportunità" }} />
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: "Opportunità",
+          // FIX: su Android forza l’inset top dell’header per evitare titolo troppo in alto
+          // @ts-expect-error native-stack option available at runtime, missing in current type bundle
+          headerStatusBarHeight: Platform.OS === "android" ? insets.top : undefined,
+        }}
+      />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 16, paddingBottom: 40, gap: 14 }}>
       <View
         style={{
