@@ -67,6 +67,7 @@ export default function OpportunityDetailScreen() {
   const [alreadyApplied, setAlreadyApplied] = useState(false);
   const [checkingApplied, setCheckingApplied] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const isLoading = loading || web.loading || whoami.loading;
 
   const clubProfileId = useMemo(() => (item ? getClubProfileId(item) : null), [item]);
 
@@ -140,15 +141,7 @@ export default function OpportunityDetailScreen() {
     setIsApplying(false);
   }, [alreadyApplied, id, isPlayer]);
 
-  if (loading || web.loading || whoami.loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator />
-      </View>
-    );
-  }
-
-  if (error || !item) {
+  if (!isLoading && (error || !item)) {
     return (
       <View style={{ flex: 1, padding: 20, justifyContent: "center", gap: 12 }}>
         <Text style={{ fontSize: 22, fontWeight: "800" }}>Dettaglio opportunità</Text>
@@ -160,8 +153,13 @@ export default function OpportunityDetailScreen() {
     );
   }
 
-  const ageRange = formatAgeRange(item.age_min, item.age_max);
-  const location = formatLocation(item);
+  const ageRange = item ? formatAgeRange(item.age_min, item.age_max) : null;
+  const location = item ? formatLocation(item) : "";
+  const safeTitle = item?.title ?? "Caricamento…";
+  const safeDesc = item?.description ?? "";
+  const statusLine = isLoading
+    ? "..."
+    : `${(item?.status || "-").toUpperCase()} · Pubblicata il ${formatDate(item?.created_at)}`;
 
   return (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 16, paddingBottom: 40, gap: 14 }}>
@@ -176,22 +174,20 @@ export default function OpportunityDetailScreen() {
           gap: 12,
         }}
       >
-        <Text style={{ color: theme.colors.text, opacity: 0.7, fontSize: 13, fontWeight: "700", marginTop: 2 }}>
-          {(item.status || "-").toUpperCase()} · Pubblicata il {formatDate(item.created_at)}
-        </Text>
+        <Text style={{ color: theme.colors.text, opacity: 0.7, fontSize: 13, fontWeight: "700", marginTop: 2 }}>{statusLine}</Text>
 
-        <Text style={{ fontSize: 24, fontWeight: "800", color: theme.colors.text }}>{item.title || "Opportunità"}</Text>
+        <Text style={{ fontSize: 24, fontWeight: "800", color: theme.colors.text }}>{safeTitle}</Text>
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          {item.sport ? <Chip label={item.sport} /> : null}
-          {item.role ? <Chip label={item.role} /> : null}
+          {item?.sport ? <Chip label={item.sport} /> : null}
+          {item?.role ? <Chip label={item.role} /> : null}
           {ageRange ? <Chip label={ageRange} /> : null}
-          {item.gender ? <Chip label={item.gender} /> : null}
+          {item?.gender ? <Chip label={item.gender} /> : null}
           {location ? <Chip label={location} /> : null}
         </View>
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-          {clubProfileId ? (
+          {!isLoading && clubProfileId ? (
             <Pressable
               onPress={() => router.push(`/clubs/${String(clubProfileId)}`)}
               style={{
@@ -206,7 +202,7 @@ export default function OpportunityDetailScreen() {
             </Pressable>
           ) : null}
 
-          {isPlayer ? (
+          {!isLoading && isPlayer ? (
             alreadyApplied ? (
               <View
                 style={{
@@ -261,7 +257,7 @@ export default function OpportunityDetailScreen() {
 
       <View style={{ gap: 8 }}>
         <Text style={{ fontSize: 18, fontWeight: "700" }}>Descrizione</Text>
-        <Text style={{ color: theme.colors.text, lineHeight: 22 }}>{item.description || "Nessuna descrizione disponibile."}</Text>
+        <Text style={{ color: theme.colors.text, lineHeight: 22 }}>{safeDesc || "Nessuna descrizione disponibile."}</Text>
       </View>
       </ScrollView>
   );

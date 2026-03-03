@@ -73,6 +73,7 @@ export default function ClubProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [opps, setOpps] = useState<OpportunityRow[]>([]);
   const [oppsLoading, setOppsLoading] = useState(false);
+  const isLoading = loading || web.loading || whoami.loading;
 
   useEffect(() => {
     let mounted = true;
@@ -136,8 +137,9 @@ export default function ClubProfileScreen() {
     };
   }, [id]);
 
-  const displayName =
-    getTextValue(profile?.full_name) || getTextValue(profile?.display_name) || "Club";
+  const displayName = isLoading
+    ? "Caricamento…"
+    : getTextValue(profile?.full_name) || getTextValue(profile?.display_name) || "Club";
   const avatarUrl = getTextValue(profile?.avatar_url);
   const sport = getTextValue(profile?.sport);
   const category =
@@ -159,15 +161,6 @@ export default function ClubProfileScreen() {
     profile?.verified === true ||
     profile?.certification === true ||
     (typeof profile?.certification === "string" && profile.certification.trim().length > 0);
-
-  if (web.loading || whoami.loading) {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10, padding: 24 }}>
-        <ActivityIndicator />
-        <Text style={{ color: theme.colors.muted }}>Caricamento…</Text>
-      </View>
-    );
-  }
 
   if (!id) {
     return (
@@ -388,10 +381,9 @@ export default function ClubProfileScreen() {
           : null}
       </View>
 
-      {loading ? (
+      {isLoading ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <ActivityIndicator size="small" />
-          <Text style={{ color: theme.colors.muted }}>Carico profilo…</Text>
+          <Text style={{ color: theme.colors.muted }}>Caricamento…</Text>
         </View>
       ) : null}
     </ScrollView>
