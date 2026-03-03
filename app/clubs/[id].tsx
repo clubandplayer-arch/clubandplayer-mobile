@@ -15,14 +15,19 @@ type ProfileRow = {
   type?: string | null;
   city?: string | null;
   country?: string | null;
+  club_country?: string | null;
   sport?: string | null;
   category?: string | null;
   level?: string | null;
+  club_league_category?: string | null;
+  club_category?: string | null;
   bio?: string | null;
   description?: string | null;
   facility_name?: string | null;
   facility_address?: string | null;
   address?: string | null;
+  club_stadium?: string | null;
+  club_stadium_address?: string | null;
   is_certified?: boolean | null;
   certified?: boolean | null;
   certification?: string | boolean | null;
@@ -82,14 +87,17 @@ export default function ClubProfileScreen() {
     getTextValue(profile?.full_name) || getTextValue(profile?.display_name) || "Club";
   const avatarUrl = getTextValue(profile?.avatar_url);
   const sport = getTextValue(profile?.sport);
-  const category = getTextValue(profile?.category) || getTextValue(profile?.level);
+  const category =
+    getTextValue(profile?.club_league_category) ||
+    getTextValue(profile?.club_category) ||
+    getTextValue(profile?.category) ||
+    getTextValue(profile?.level);
   const city = getTextValue(profile?.city);
-  const country = getTextValue(profile?.country);
-  const location = [country, city].filter(Boolean).join(" / ") || "—";
-  const facilityName = getTextValue(profile?.facility_name);
-  const facilityAddress =
-    getTextValue(profile?.facility_address) || getTextValue(profile?.address);
-  const facility = [facilityName, facilityAddress].filter(Boolean).join(" • ") || "—";
+  const clubCountry = getTextValue(profile?.club_country) || getTextValue(profile?.country);
+  const location = [clubCountry, city].filter(Boolean).join(" / ") || "—";
+  const stadium = getTextValue(profile?.club_stadium);
+  const stadiumAddress = getTextValue(profile?.club_stadium_address);
+  const facility = [stadium, stadiumAddress].filter(Boolean).join(" • ") || "—";
   const biography = getTextValue(profile?.bio) || getTextValue(profile?.description) || "—";
 
   const isCertified =
