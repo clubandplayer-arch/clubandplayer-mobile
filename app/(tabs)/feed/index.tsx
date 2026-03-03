@@ -52,21 +52,10 @@ function pickProfileIdUuid(input: Array<unknown>): string | null {
   return null;
 }
 
-function resolveProfilePath(post: FeedPost): string | null {
-  const raw = post?.raw as any;
-  const authorId = pickProfileIdUuid([
-    raw?.author_profile?.id,
-    raw?.author_profile_id,
-    raw?.authorId,
-    raw?.author_id,
-    post?.author?.id,
-    (post as any)?.author_profile_id,
-    (post as any)?.authorId,
-    (post as any)?.author_id,
-  ]);
-
-  if (!authorId || !isUuid(authorId)) return null;
-  return `/profiles/${authorId}`;
+function resolveProfileRoute(authorId: string | null | undefined) {
+  if (!authorId) return null;
+  if (!isUuid(authorId)) return null;
+  return { pathname: "/profiles/[id]", params: { id: authorId } } as const;
 }
 
 function resolvePostPath(postId: string | null | undefined): string | null {
@@ -115,7 +104,19 @@ function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: strin
   const likeCount = typeof item.likeCount === "number" ? item.likeCount : 0;
   const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
 
-  const profilePath = resolveProfilePath(item);
+  const raw = item?.raw as any;
+  const authorId = pickProfileIdUuid([
+    raw?.author_profile?.id,
+    raw?.author_profile_id,
+    raw?.authorId,
+    raw?.author_id,
+    item?.author?.id,
+    (item as any)?.author_profile_id,
+    (item as any)?.authorId,
+    (item as any)?.author_id,
+  ]);
+
+  const profileRoute = resolveProfileRoute(authorId);
 
   const postPath = resolvePostPath(item.id);
 
@@ -140,16 +141,16 @@ function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: strin
       }}
     >
       <Pressable
-        disabled={!profilePath}
+        disabled={!profileRoute}
         onPress={() => {
-          if (!profilePath) return;
-          router.push(profilePath);
+          if (!profileRoute) return;
+          router.push(profileRoute as any);
         }}
         style={{
           flexDirection: "row",
           gap: 10,
           alignItems: "center",
-          opacity: profilePath ? 1 : 0.6,
+          opacity: profileRoute ? 1 : 0.6,
         }}
       >
         <Avatar url={item.author?.avatar_url ?? null} size={40} />
