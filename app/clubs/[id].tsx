@@ -35,6 +35,20 @@ type ProfileRow = {
   [key: string]: unknown;
 };
 
+type OpportunityRow = {
+  id: string;
+  title?: string | null;
+  role?: string | null;
+  sport?: string | null;
+  city?: string | null;
+  province?: string | null;
+  region?: string | null;
+  country?: string | null;
+  created_at?: string | null;
+  status?: string | null;
+  category?: string | null;
+};
+
 const getTextValue = (value: unknown): string | null => {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -57,6 +71,8 @@ export default function ClubProfileScreen() {
 
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
+  const [opps, setOpps] = useState<OpportunityRow[]>([]);
+  const [oppsLoading, setOppsLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -77,6 +93,43 @@ export default function ClubProfileScreen() {
     };
 
     void load();
+
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadOpportunities = async () => {
+      if (!id) {
+        setOpps([]);
+        setOppsLoading(false);
+        return;
+      }
+
+      setOppsLoading(true);
+      const res = await supabase
+        .from("opportunities")
+        .select("id,title,role,sport,city,province,region,country,created_at,status,category")
+        .eq("club_id", id)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (!mounted) return;
+      if (res.error) {
+        if (__DEV__) console.log("[clubs] opportunities load error", res.error.message);
+        setOpps([]);
+        setOppsLoading(false);
+        return;
+      }
+
+      setOpps((res.data ?? []) as OpportunityRow[]);
+      setOppsLoading(false);
+    };
+
+    void loadOpportunities();
 
     return () => {
       mounted = false;
@@ -269,6 +322,70 @@ export default function ClubProfileScreen() {
       >
         <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Biografia</Text>
         <Text style={{ color: theme.colors.text, lineHeight: 20 }}>{biography}</Text>
+      </View>
+
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          backgroundColor: theme.colors.neutral50,
+          padding: 16,
+          gap: 10,
+        }}
+      >
+        <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>
+          Opportunità aperte
+        </Text>
+
+        {oppsLoading ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <ActivityIndicator size="small" />
+            <Text style={{ color: theme.colors.muted }}>Carico opportunità…</Text>
+          </View>
+        ) : null}
+
+        {!oppsLoading && opps.length === 0 ? (
+          <Text style={{ color: theme.colors.muted }}>Nessuna opportunità aperta</Text>
+        ) : null}
+
+        {!oppsLoading && opps.length > 0
+          ? opps.map((opp) => {
+              const title = getTextValue(opp.title) || getTextValue(opp.role) || "Opportunità";
+              const oppLocation =
+                [opp.city, opp.province, opp.region, opp.country]
+                  .map((value) => getTextValue(value))
+                  .filter(Boolean)
+                  .join(" • ") || "—";
+              const oppMeta = [getTextValue(opp.category), getTextValue(opp.sport)]
+                .filter(Boolean)
+                .join(" • ");
+              const publishedDate = getTextValue(opp.created_at)?.slice(0, 10) || "—";
+              const status = getTextValue(opp.status) || "—";
+
+              return (
+                <Pressable
+                  key={opp.id}
+                  onPress={() => router.push(`/opportunities/${opp.id}`)}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: theme.colors.neutral200,
+                    borderRadius: 10,
+                    padding: 12,
+                    gap: 4,
+                  }}
+                >
+                  <Text style={{ color: theme.colors.text, fontWeight: "700" }}>{title}</Text>
+                  <Text style={{ color: theme.colors.muted, fontSize: 12 }}>{oppLocation}</Text>
+                  {oppMeta ? <Text style={{ color: theme.colors.text, fontSize: 12 }}>{oppMeta}</Text> : null}
+                  <Text style={{ color: theme.colors.muted, fontSize: 12 }}>
+                    Pubblicato il {publishedDate}
+                  </Text>
+                  <Text style={{ color: theme.colors.muted, fontSize: 12 }}>Stato: {status}</Text>
+                </Pressable>
+              );
+            })
+          : null}
       </View>
 
       {loading ? (
