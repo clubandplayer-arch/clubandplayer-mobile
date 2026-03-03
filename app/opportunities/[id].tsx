@@ -164,7 +164,16 @@ export default function OpportunityDetailScreen() {
   const location = formatLocation(item);
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 24, paddingBottom: 40, gap: 14 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 12, paddingBottom: 40, gap: 14 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 8, paddingBottom: 6 }}>
+        <Pressable onPress={() => router.back()} style={{ padding: 6 }}>
+          <Text style={{ fontSize: 18, fontWeight: "900", color: theme.colors.text }}>←</Text>
+        </Pressable>
+        <Text style={{ fontSize: 22, fontWeight: "900", color: theme.colors.text }}>Opportunità</Text>
+      </View>
+
+      <View style={{ height: 6 }} />
+
       <View
         style={{
           borderWidth: 1,
@@ -209,15 +218,18 @@ export default function OpportunityDetailScreen() {
             alreadyApplied ? (
               <View
                 style={{
-                  borderWidth: 1,
-                  borderColor: theme.colors.neutral200,
-                  borderRadius: 10,
+                  paddingHorizontal: 14,
                   paddingVertical: 10,
-                  paddingHorizontal: 12,
-                  backgroundColor: theme.colors.neutral100,
+                  borderRadius: 10,
+                  backgroundColor: "#D1FAE5",
+                  borderWidth: 1,
+                  borderColor: "#34D399",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minWidth: 170,
                 }}
               >
-                <Text style={{ fontWeight: "700", color: theme.colors.text }}>Candidatura inviata</Text>
+                <Text style={{ color: "#065F46", fontWeight: "800" }}>Candidatura inviata</Text>
               </View>
             ) : (
               <Pressable
