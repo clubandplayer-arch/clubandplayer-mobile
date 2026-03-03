@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
-import { fetchOpportunityById } from "../../src/lib/api";
+import { applyToOpportunity, fetchMyApplications, fetchOpportunityById, useWebSession, useWhoami } from "../../src/lib/api";
 import type { OpportunityDetail } from "../../src/types/opportunity";
 import { theme } from "../../src/theme";
 
@@ -18,8 +18,17 @@ function formatDate(value?: string | null): string {
   return date.toLocaleDateString("it-IT");
 }
 
+function normalizeRole(role: unknown): string {
+  return String(role ?? "").trim().toLowerCase();
+}
+
 function getClubProfileId(data: OpportunityDetail): string | null {
-  const v = (data as any)?.club_profile_id ?? null;
+  const v =
+    (data as any)?.club_id ??
+    (data as any)?.club_profile_id ??
+    (data as any)?.created_by ??
+    (data as any)?.owner_id ??
+    null;
   return v ? String(v) : null;
 }
 
@@ -47,9 +56,18 @@ export default function OpportunityDetailScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const id = asSingleValue(params.id).trim();
 
+  const web = useWebSession();
+  const whoami = useWhoami(web.ready);
+  const role = normalizeRole((whoami.data as { role?: unknown } | null)?.role);
+  const isPlayer = role === "player" || role === "athlete";
+
   const [item, setItem] = useState<OpportunityDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [alreadyApplied, setAlreadyApplied] = useState(false);
+  const [checkingApplied, setCheckingApplied] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
+  const isLoading = loading || web.loading || whoami.loading;
 
   const clubProfileId = useMemo(() => (item ? getClubProfileId(item) : null), [item]);
 
@@ -69,7 +87,6 @@ export default function OpportunityDetailScreen() {
       return;
     }
 
-
     setItem(response.data);
     setError(null);
     setLoading(false);
@@ -79,15 +96,52 @@ export default function OpportunityDetailScreen() {
     void load();
   }, [load]);
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator />
-      </View>
-    );
-  }
+  useEffect(() => {
+    const opportunityId = String(item?.id ?? "").trim();
+    if (!opportunityId || !isPlayer || web.loading || whoami.loading) {
+      setAlreadyApplied(false);
+      return;
+    }
 
-  if (error || !item) {
+    let mounted = true;
+    const loadMyApplications = async () => {
+      setCheckingApplied(true);
+      const response = await fetchMyApplications({ status: "all" });
+
+      if (!mounted) return;
+      if (!response.ok || !response.data) {
+        if (__DEV__) console.log("[opportunity-detail] fetchMyApplications failed", response.errorText);
+        setAlreadyApplied(false);
+        setCheckingApplied(false);
+        return;
+      }
+
+      const applied = response.data.some((application) => String(application.opportunity_id ?? "").trim() === opportunityId);
+      setAlreadyApplied(applied);
+      setCheckingApplied(false);
+    };
+
+    void loadMyApplications();
+
+    return () => {
+      mounted = false;
+    };
+  }, [item?.id, isPlayer, web.loading, whoami.loading]);
+
+  const onApply = useCallback(async () => {
+    if (!id || alreadyApplied || !isPlayer) return;
+
+    setIsApplying(true);
+    const response = await applyToOpportunity(id);
+
+    if (response.ok || response.status === 409) {
+      setAlreadyApplied(true);
+    }
+
+    setIsApplying(false);
+  }, [alreadyApplied, id, isPlayer]);
+
+  if (!isLoading && (error || !item)) {
     return (
       <View style={{ flex: 1, padding: 20, justifyContent: "center", gap: 12 }}>
         <Text style={{ fontSize: 22, fontWeight: "800" }}>Dettaglio opportunità</Text>
@@ -99,39 +153,112 @@ export default function OpportunityDetailScreen() {
     );
   }
 
-  const ageRange = formatAgeRange(item.age_min, item.age_max);
-  const location = formatLocation(item);
+  const ageRange = item ? formatAgeRange(item.age_min, item.age_max) : null;
+  const location = item ? formatLocation(item) : "";
+  const safeTitle = item?.title ?? "Caricamento…";
+  const safeDesc = item?.description ?? "";
+  const statusLine = isLoading
+    ? "..."
+    : `${(item?.status || "-").toUpperCase()} · Pubblicata il ${formatDate(item?.created_at)}`;
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 14 }}>
-      <Text style={{ fontSize: 30, fontWeight: "800", color: theme.colors.text }}>{item.title || "Opportunità"}</Text>
-      <Text style={{ color: theme.colors.muted }}>
-        {(item.status || "-").toUpperCase()} · {formatDate(item.created_at)}
-      </Text>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 16, paddingBottom: 40, gap: 14 }}>
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          backgroundColor: theme.colors.neutral50,
+          padding: 16,
+          paddingTop: 18,
+          gap: 12,
+        }}
+      >
+        <Text style={{ color: theme.colors.text, opacity: 0.7, fontSize: 13, fontWeight: "700", marginTop: 2 }}>{statusLine}</Text>
 
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-        {item.sport ? <Chip label={item.sport} /> : null}
-        {item.role ? <Chip label={item.role} /> : null}
-        {ageRange ? <Chip label={ageRange} /> : null}
-        {item.gender ? <Chip label={item.gender} /> : null}
-        {location ? <Chip label={location} /> : null}
+        <Text style={{ fontSize: 24, fontWeight: "800", color: theme.colors.text }}>{safeTitle}</Text>
+
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          {item?.sport ? <Chip label={item.sport} /> : null}
+          {item?.role ? <Chip label={item.role} /> : null}
+          {ageRange ? <Chip label={ageRange} /> : null}
+          {item?.gender ? <Chip label={item.gender} /> : null}
+          {location ? <Chip label={location} /> : null}
+        </View>
+
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+          {!isLoading && clubProfileId ? (
+            <Pressable
+              onPress={() => router.push(`/clubs/${String(clubProfileId)}`)}
+              style={{
+                borderWidth: 1,
+                borderColor: theme.colors.neutral200,
+                borderRadius: 10,
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+              }}
+            >
+              <Text style={{ fontWeight: "700", color: theme.colors.primary }}>Visita club</Text>
+            </Pressable>
+          ) : null}
+
+          {!isLoading && isPlayer ? (
+            alreadyApplied ? (
+              <View
+                style={{
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  borderRadius: 10,
+                  backgroundColor: "#D1FAE5",
+                  borderWidth: 1,
+                  borderColor: "#34D399",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minWidth: 170,
+                }}
+              >
+                <Text style={{ color: "#065F46", fontWeight: "800" }}>Candidatura inviata</Text>
+              </View>
+            ) : (
+              <Pressable
+                disabled={isApplying || checkingApplied}
+                onPress={() => {
+                  void onApply();
+                }}
+                style={{
+                  borderRadius: 10,
+                  paddingVertical: 10,
+                  paddingHorizontal: 12,
+                  backgroundColor: theme.colors.primary,
+                  opacity: isApplying || checkingApplied ? 0.6 : 1,
+                }}
+              >
+                <Text style={{ fontWeight: "700", color: theme.colors.background }}>
+                  {isApplying ? "Invio..." : "Candidati"}
+                </Text>
+              </Pressable>
+            )
+          ) : (
+            <View
+              style={{
+                borderWidth: 1,
+                borderColor: theme.colors.neutral200,
+                borderRadius: 10,
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+                opacity: 0.7,
+              }}
+            >
+              <Text style={{ fontWeight: "700", color: theme.colors.text }}>Candidati</Text>
+            </View>
+          )}
+        </View>
       </View>
 
       <View style={{ gap: 8 }}>
         <Text style={{ fontSize: 18, fontWeight: "700" }}>Descrizione</Text>
-        <Text style={{ color: theme.colors.text, lineHeight: 22 }}>{item.description || "Nessuna descrizione disponibile."}</Text>
+        <Text style={{ color: theme.colors.text, lineHeight: 22 }}>{safeDesc || "Nessuna descrizione disponibile."}</Text>
       </View>
-
-      {clubProfileId ? (
-        <Pressable
-          onPress={() => router.push({ pathname: "/clubs/[id]", params: { id: String(clubProfileId) } })}
-          style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, padding: 14 }}
-        >
-          <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.primary }}>
-            Visita club · {item.club_display_name ?? item.club_name ?? "Club"}
-          </Text>
-        </Pressable>
-      ) : null}
-    </ScrollView>
+      </ScrollView>
   );
 }
