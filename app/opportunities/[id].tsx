@@ -59,7 +59,7 @@ export default function OpportunityDetailScreen() {
   const web = useWebSession();
   const whoami = useWhoami(web.ready);
   const role = normalizeRole((whoami.data as { role?: unknown } | null)?.role);
-  const isPlayer = role === "player";
+  const isPlayer = role === "player" || role === "athlete";
 
   const [item, setItem] = useState<OpportunityDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -164,7 +164,7 @@ export default function OpportunityDetailScreen() {
   const location = formatLocation(item);
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 14 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 24, paddingBottom: 40, gap: 14 }}>
       <View
         style={{
           borderWidth: 1,
@@ -175,11 +175,11 @@ export default function OpportunityDetailScreen() {
           gap: 12,
         }}
       >
-        <Text style={{ color: theme.colors.muted, fontSize: 12 }}>
-          {(item.status || "-").toUpperCase()} · {formatDate(item.created_at)}
+        <Text style={{ color: theme.colors.text, opacity: 0.7, fontSize: 13, fontWeight: "700" }}>
+          {(item.status || "-").toUpperCase()} · Pubblicata il {formatDate(item.created_at)}
         </Text>
 
-        <Text style={{ fontSize: 26, fontWeight: "800", color: theme.colors.text }}>{item.title || "Opportunità"}</Text>
+        <Text style={{ fontSize: 24, fontWeight: "800", color: theme.colors.text }}>{item.title || "Opportunità"}</Text>
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
           {item.sport ? <Chip label={item.sport} /> : null}
