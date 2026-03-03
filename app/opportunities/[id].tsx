@@ -167,14 +167,17 @@ export default function OpportunityDetailScreen() {
     <>
       <Stack.Screen
         options={{
+          title: "Opportunità",
           headerShown: true,
-          headerTitle: "Opportunità",
+          // @ts-expect-error native-stack option available at runtime, missing in current type bundle
+          headerBackTitleVisible: false,
+          headerShadowVisible: false,
+          headerTintColor: theme.colors.text,
           headerTitleStyle: {
             fontSize: 20,
             fontWeight: "800",
             color: theme.colors.text,
           },
-          headerTintColor: theme.colors.text,
         }}
       />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 16, paddingBottom: 40, gap: 14 }}>
@@ -185,10 +188,11 @@ export default function OpportunityDetailScreen() {
           borderRadius: 12,
           backgroundColor: theme.colors.neutral50,
           padding: 16,
+          paddingTop: 18,
           gap: 12,
         }}
       >
-        <Text style={{ color: theme.colors.text, opacity: 0.7, fontSize: 13, fontWeight: "700" }}>
+        <Text style={{ color: theme.colors.text, opacity: 0.7, fontSize: 13, fontWeight: "700", marginTop: 2 }}>
           {(item.status || "-").toUpperCase()} · Pubblicata il {formatDate(item.created_at)}
         </Text>
 
