@@ -5,6 +5,7 @@ import { supabase } from "../../src/lib/supabase";
 import FollowButton from "../../src/components/follow/FollowButton";
 import { isUuid, useWebSession, useWhoami } from "../../src/lib/api";
 import { theme } from "../../src/theme";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 type ProfileRow = {
   id: string;
@@ -44,6 +45,7 @@ const getNumberValue = (value: unknown): number | null => {
 export default function PlayerProfileScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
+  const insets = useSafeAreaInsets();
 
   const id = useMemo(() => {
     const raw = params.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : null;
@@ -136,10 +138,16 @@ export default function PlayerProfileScreen() {
   }
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
-      contentContainerStyle={{ padding: 16, paddingBottom: 56, gap: 16 }}
-    >
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <ScrollView
+        style={{ flex: 1, backgroundColor: theme.colors.background }}
+        contentContainerStyle={{
+          padding: 16,
+          gap: 16,
+          paddingBottom: 16 + (insets.bottom || 0),
+        }}
+        scrollIndicatorInsets={{ bottom: 16 + (insets.bottom || 0) }}
+      >
       <Pressable onPress={() => router.back()} style={{ alignSelf: "flex-start" }}>
         <Text style={{ fontWeight: "700", color: theme.colors.text }}>← Indietro</Text>
       </Pressable>
@@ -249,6 +257,7 @@ export default function PlayerProfileScreen() {
           <Text style={{ color: theme.colors.muted }}>Carico profilo…</Text>
         </View>
       ) : null}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
