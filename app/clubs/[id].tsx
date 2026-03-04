@@ -49,6 +49,25 @@ type OpportunityRow = {
   category?: string | null;
 };
 
+type ClubRosterMemberRow = {
+  club_profile_id: string;
+  player_profile_id: string;
+  status: string | null;
+  created_at: string | null;
+  club_sport: string | null;
+};
+
+type PlayerMiniProfileRow = {
+  id: string;
+  full_name?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  sport?: string | null;
+  role?: string | null;
+  city?: string | null;
+  country?: string | null;
+};
+
 const getTextValue = (value: unknown): string | null => {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -73,6 +92,9 @@ export default function ClubProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [opps, setOpps] = useState<OpportunityRow[]>([]);
   const [oppsLoading, setOppsLoading] = useState(false);
+  const [roster, setRoster] = useState<ClubRosterMemberRow[]>([]);
+  const [rosterPlayers, setRosterPlayers] = useState<Record<string, PlayerMiniProfileRow>>({});
+  const [rosterLoading, setRosterLoading] = useState(false);
   const isLoading = loading || web.loading || whoami.loading;
 
   useEffect(() => {
@@ -95,6 +117,74 @@ export default function ClubProfileScreen() {
 
     void load();
 
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadRoster = async () => {
+      if (!id) {
+        setRoster([]);
+        setRosterPlayers({});
+        setRosterLoading(false);
+        return;
+      }
+
+      setRosterLoading(true);
+      const res = await supabase
+        .from("club_roster_members")
+        .select("club_profile_id,player_profile_id,status,created_at,club_sport")
+        .eq("club_profile_id", id)
+        .eq("status", "active")
+        .order("created_at", { ascending: false });
+
+      if (!mounted) return;
+
+      if (res.error) {
+        if (__DEV__) console.log("[clubs] roster load error", res.error.message);
+        setRoster([]);
+        setRosterPlayers({});
+        setRosterLoading(false);
+        return;
+      }
+
+      const items = (res.data ?? []) as ClubRosterMemberRow[];
+      setRoster(items);
+
+      const playerIds = Array.from(new Set(items.map((x) => x.player_profile_id).filter(Boolean)));
+
+      if (playerIds.length === 0) {
+        setRosterPlayers({});
+        setRosterLoading(false);
+        return;
+      }
+
+      const resProfiles = await supabase
+        .from("profiles")
+        .select("id,full_name,display_name,avatar_url,sport,role,city,country")
+        .in("id", playerIds);
+
+      if (!mounted) return;
+
+      if (resProfiles.error) {
+        if (__DEV__) console.log("[clubs] roster profiles load error", resProfiles.error.message);
+        setRosterPlayers({});
+        setRosterLoading(false);
+        return;
+      }
+
+      const map: Record<string, PlayerMiniProfileRow> = {};
+      for (const p of (resProfiles.data ?? []) as PlayerMiniProfileRow[]) {
+        map[p.id] = p;
+      }
+      setRosterPlayers(map);
+      setRosterLoading(false);
+    };
+
+    void loadRoster();
     return () => {
       mounted = false;
     };
@@ -375,6 +465,92 @@ export default function ClubProfileScreen() {
                     Pubblicato il {publishedDate}
                   </Text>
                   <Text style={{ color: theme.colors.muted, fontSize: 12 }}>Stato: {status}</Text>
+                </Pressable>
+              );
+            })
+          : null}
+      </View>
+
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          backgroundColor: theme.colors.neutral50,
+          padding: 16,
+          gap: 10,
+        }}
+      >
+        <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Rosa</Text>
+        <Text style={{ color: theme.colors.muted, fontSize: 12 }}>Giocatori in rosa</Text>
+
+        {rosterLoading ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <ActivityIndicator size="small" />
+            <Text style={{ color: theme.colors.muted }}>Carico rosa…</Text>
+          </View>
+        ) : null}
+
+        {!rosterLoading && roster.length === 0 ? (
+          <Text style={{ color: theme.colors.muted }}>Nessun giocatore in rosa</Text>
+        ) : null}
+
+        {!rosterLoading && roster.length > 0
+          ? roster.map((member) => {
+              const player = rosterPlayers[member.player_profile_id];
+              const playerName =
+                getTextValue(player?.full_name) || getTextValue(player?.display_name) || "Player";
+              const playerAvatarUrl = getTextValue(player?.avatar_url);
+              const playerMeta = [player?.role, player?.sport, player?.country]
+                .map((value) => getTextValue(value))
+                .filter(Boolean)
+                .join(" • ");
+
+              return (
+                <Pressable
+                  key={`${member.player_profile_id}-${member.created_at ?? "na"}`}
+                  onPress={() => router.push(`/players/${member.player_profile_id}`)}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: theme.colors.neutral200,
+                    borderRadius: 10,
+                    padding: 12,
+                    gap: 8,
+                    flexDirection: "row",
+                    alignItems: "center",
+                  }}
+                >
+                  {playerAvatarUrl ? (
+                    <Image
+                      source={{ uri: playerAvatarUrl }}
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                        backgroundColor: theme.colors.neutral200,
+                      }}
+                    />
+                  ) : (
+                    <View
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                        backgroundColor: theme.colors.neutral200,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Text style={{ fontWeight: "800", color: theme.colors.muted }}>
+                        {playerName.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={{ color: theme.colors.text, fontWeight: "700" }}>{playerName}</Text>
+                    <Text style={{ color: theme.colors.muted, fontSize: 12 }}>{playerMeta || "—"}</Text>
+                  </View>
                 </Pressable>
               );
             })
