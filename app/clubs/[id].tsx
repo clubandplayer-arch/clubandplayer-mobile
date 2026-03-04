@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 import FollowButton from "../../src/components/follow/FollowButton";
 import { isUuid, useWebSession, useWhoami } from "../../src/lib/api";
+import { getFeedPosts, getPostText, type FeedPost } from "../../src/lib/feed/getFeedPosts";
 import { theme } from "../../src/theme";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -97,6 +98,8 @@ export default function ClubProfileScreen() {
   const [roster, setRoster] = useState<ClubRosterMemberRow[]>([]);
   const [rosterPlayers, setRosterPlayers] = useState<Record<string, PlayerMiniProfileRow>>({});
   const [rosterLoading, setRosterLoading] = useState(false);
+  const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
   const isLoading = loading || web.loading || whoami.loading;
 
   useEffect(() => {
@@ -118,6 +121,54 @@ export default function ClubProfileScreen() {
     };
 
     void load();
+
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadWallPosts = async () => {
+      if (!id) {
+        setPosts([]);
+        setPostsLoading(false);
+        return;
+      }
+
+      setPostsLoading(true);
+      try {
+        const res = await getFeedPosts({ scope: "all" });
+        if (!mounted) return;
+
+        const filtered = res.items
+          .filter((item) => {
+            const raw = item.raw ?? {};
+            const authorCandidates = [
+              raw?.author_profile_id,
+              raw?.authorId,
+              raw?.author_id,
+              raw?.author_profile?.id,
+              item.author_id,
+            ];
+            return authorCandidates.some((candidate) =>
+              typeof candidate === "string" ? candidate.trim() === id : false,
+            );
+          })
+          .slice(0, 10);
+
+        setPosts(filtered);
+      } catch (error) {
+        if (__DEV__) console.log("[clubs] wall posts load error", error);
+        if (!mounted) return;
+        setPosts([]);
+      } finally {
+        if (mounted) setPostsLoading(false);
+      }
+    };
+
+    void loadWallPosts();
 
     return () => {
       mounted = false;
@@ -556,6 +607,67 @@ export default function ClubProfileScreen() {
                     <Text style={{ color: theme.colors.muted, fontSize: 12 }}>{playerMeta || "—"}</Text>
                   </View>
                 </Pressable>
+              );
+            })
+          : null}
+      </View>
+
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          backgroundColor: theme.colors.neutral50,
+          padding: 16,
+          gap: 10,
+        }}
+      >
+        <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Bacheca</Text>
+
+        {postsLoading ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <ActivityIndicator size="small" />
+            <Text style={{ color: theme.colors.muted }}>Carico post…</Text>
+          </View>
+        ) : null}
+
+        {!postsLoading && posts.length === 0 ? (
+          <Text style={{ color: theme.colors.muted }}>Nessun post pubblicato</Text>
+        ) : null}
+
+        {!postsLoading && posts.length > 0
+          ? posts.map((post) => {
+              const content = getPostText(post.raw);
+              const publishedDate = getTextValue(post.created_at)?.slice(0, 10) || "—";
+              const firstMedia = post.media?.[0] ?? null;
+
+              return (
+                <View
+                  key={post.id}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: theme.colors.neutral200,
+                    borderRadius: 10,
+                    padding: 12,
+                    gap: 8,
+                  }}
+                >
+                  <Text style={{ color: theme.colors.text, lineHeight: 20 }}>{content || "—"}</Text>
+                  <Text style={{ color: theme.colors.muted, fontSize: 12 }}>Pubblicato il {publishedDate}</Text>
+
+                  {firstMedia?.url ? (
+                    <Image
+                      source={{ uri: firstMedia.poster_url || firstMedia.url }}
+                      style={{
+                        width: "100%",
+                        height: 180,
+                        borderRadius: 8,
+                        backgroundColor: theme.colors.neutral200,
+                      }}
+                      resizeMode="cover"
+                    />
+                  ) : null}
+                </View>
               );
             })
           : null}
