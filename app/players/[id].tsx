@@ -144,7 +144,7 @@ export default function PlayerProfileScreen() {
         contentContainerStyle={{
           padding: 16,
           gap: 16,
-          paddingBottom: 16 + (insets.bottom || 0),
+          paddingBottom: 16,
         }}
         scrollIndicatorInsets={{ bottom: 16 + (insets.bottom || 0) }}
       >
@@ -257,6 +257,7 @@ export default function PlayerProfileScreen() {
           <Text style={{ color: theme.colors.muted }}>Carico profilo…</Text>
         </View>
       ) : null}
+      <View style={{ height: 16 + (insets.bottom || 0) }} />
       </ScrollView>
     </SafeAreaView>
   );
