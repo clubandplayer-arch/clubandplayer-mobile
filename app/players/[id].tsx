@@ -200,6 +200,10 @@ export default function PlayerProfileScreen() {
         }}
         scrollIndicatorInsets={{ bottom: 16 + (insets.bottom || 0) }}
       >
+      <Pressable onPress={() => router.back()} style={{ alignSelf: "flex-start" }}>
+        <Text style={{ fontWeight: "700", color: theme.colors.text }}>← Indietro</Text>
+      </Pressable>
+
       <View
         style={{
           borderWidth: 1,
