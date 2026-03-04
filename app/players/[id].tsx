@@ -138,7 +138,7 @@ export default function PlayerProfileScreen() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.colors.background }}
-      contentContainerStyle={{ padding: 16, gap: 16 }}
+      contentContainerStyle={{ padding: 16, paddingBottom: 56, gap: 16 }}
     >
       <Pressable onPress={() => router.back()} style={{ alignSelf: "flex-start" }}>
         <Text style={{ fontWeight: "700", color: theme.colors.text }}>← Indietro</Text>
