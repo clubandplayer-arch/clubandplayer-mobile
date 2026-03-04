@@ -332,12 +332,14 @@ export default function ClubProfileScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <ScrollView
         style={{ flex: 1, backgroundColor: theme.colors.background }}
-        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 16 }}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingTop: 8,
+          gap: 16,
+          paddingBottom: 16,
+        }}
         scrollIndicatorInsets={{ bottom: 16 + (insets.bottom || 0) }}
       >
-      <Pressable onPress={() => router.back()} style={{ alignSelf: "flex-start" }}>
-        <Text style={{ fontWeight: "700", color: theme.colors.text }}>← Indietro</Text>
-      </Pressable>
 
       <View
         style={{
