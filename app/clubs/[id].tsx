@@ -5,6 +5,7 @@ import { supabase } from "../../src/lib/supabase";
 import FollowButton from "../../src/components/follow/FollowButton";
 import { isUuid, useWebSession, useWhoami } from "../../src/lib/api";
 import { getFeedPosts, type FeedPost } from "../../src/lib/feed/getFeedPosts";
+import { resolveDisplayName } from "../../src/lib/profiles/resolveDisplayName";
 import FeedCard from "../../src/components/feed/FeedCard";
 import { theme } from "../../src/theme";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -283,7 +284,11 @@ export default function ClubProfileScreen() {
 
   const displayName = isLoading
     ? "Caricamento…"
-    : getTextValue(profile?.full_name) || getTextValue(profile?.display_name) || "Club";
+    : resolveDisplayName({
+        full_name: profile?.full_name,
+        display_name: profile?.display_name,
+        fallback: "Club",
+      });
   const avatarUrl = getTextValue(profile?.avatar_url);
   const sport = getTextValue(profile?.sport);
   const category =
@@ -556,8 +561,11 @@ export default function ClubProfileScreen() {
         {!rosterLoading && roster.length > 0
           ? roster.map((member) => {
               const player = rosterPlayers[member.player_profile_id];
-              const playerName =
-                getTextValue(player?.full_name) || getTextValue(player?.display_name) || "Player";
+              const playerName = resolveDisplayName({
+                full_name: player?.full_name,
+                display_name: player?.display_name,
+                fallback: "Utente",
+              });
               const playerAvatarUrl = getTextValue(player?.avatar_url);
               const playerMeta = [player?.role, player?.sport, player?.country]
                 .map((value) => getTextValue(value))

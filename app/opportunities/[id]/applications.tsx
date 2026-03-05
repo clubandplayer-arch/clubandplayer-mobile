@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { theme } from "../../../src/theme";
+import { resolveDisplayName } from "../../../src/lib/profiles/resolveDisplayName";
 
 import {
   fetchOpportunityApplications,
@@ -34,7 +35,11 @@ function statusLabel(value?: string | null): string {
 }
 
 function athleteLabel(item: OpportunityApplicationItem): string {
-  return item.athlete?.full_name || item.athlete?.display_name || "Utente";
+  return resolveDisplayName({
+    full_name: item.athlete?.full_name,
+    display_name: item.athlete?.display_name,
+    fallback: "Utente",
+  });
 }
 
 function athleteProfileId(item: OpportunityApplicationItem): string | null {
