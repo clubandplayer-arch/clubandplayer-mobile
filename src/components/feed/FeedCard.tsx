@@ -62,7 +62,7 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
     index: 0,
   });
 
-  const authorName = getAuthorName(item.author);
+  const authorName = getAuthorName(item.author, item.raw);
   const text = getPostText(item.raw);
   const when = formatWhen(item.created_at);
   const firstMedia = item.media?.[0] ?? null;
