@@ -216,15 +216,20 @@ export function getPostText(raw: Record<string, any>): string {
   return (found ?? "").toString().trim();
 }
 
-function isEmailLike(value: string): boolean {
-  return value.includes("@");
-}
+export function getAuthorName(author?: any, raw?: any): string {
+  const full =
+    author?.full_name?.trim() ||
+    raw?.author_profile?.full_name?.trim();
 
-export function getAuthorName(author?: FeedAuthor | null): string {
-  const fullName = author?.full_name?.trim() ?? "";
-  if (fullName && !isEmailLike(fullName)) return fullName;
+  if (full) return full;
 
-  const displayName = author?.display_name?.trim() ?? "";
-  const name = displayName && !isEmailLike(displayName) ? displayName : "";
-  return name || "Utente";
+  const display =
+    author?.display_name?.trim() ||
+    raw?.author_profile?.display_name?.trim();
+
+  if (display && !display.includes("@")) {
+    return display;
+  }
+
+  return "Utente";
 }
