@@ -27,6 +27,7 @@ import {
 } from "../../../src/lib/api";
 import type { DirectMessage, DirectThreadResponse } from "../../../src/types/directMessages";
 import { theme } from "../../../src/theme";
+import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
 import { emit } from "../../../src/lib/events/appEvents";
 
 function resolveProfileId(raw: string | string[] | undefined): string {

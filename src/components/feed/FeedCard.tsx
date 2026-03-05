@@ -10,6 +10,8 @@ import LightboxModal from "../../../components/media/LightboxModal";
 import { sharePostById } from "../../lib/sharePost";
 import { devWarn } from "../../lib/debug/devLog";
 import { theme } from "../../theme";
+import { togglePostLike } from "../../lib/posts/togglePostLike";
+import { supabase } from "../../lib/supabase";
 
 function formatWhen(iso?: string | null) {
   if (!iso) return "";
@@ -64,7 +66,9 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
   const text = getPostText(item.raw);
   const when = formatWhen(item.created_at);
   const firstMedia = item.media?.[0] ?? null;
-  const likeCount = typeof item.likeCount === "number" ? item.likeCount : 0;
+  const [likeCount, setLikeCount] = useState(typeof item.likeCount === "number" ? item.likeCount : 0);
+  const [viewerHasLiked, setViewerHasLiked] = useState(Boolean(item.viewerHasLiked));
+  const [isLiking, setIsLiking] = useState(false);
   const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
 
   const post = (item?.raw as any) ?? (item as any);
@@ -81,6 +85,25 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
 
   const postPath = resolvePostPath(item.id);
 
+
+  const handleLikePress = async () => {
+    if (isLiking) return;
+    try {
+      setIsLiking(true);
+      const result = await togglePostLike({ postId: item.id, supabase });
+      setViewerHasLiked(result.liked);
+      setLikeCount((prev) => Math.max(0, prev + result.likeCountDelta));
+    } catch (error: any) {
+      onToast?.(error?.message ? String(error.message) : "Like non disponibile");
+    } finally {
+      setIsLiking(false);
+    }
+  };
+
+  const handleOpenComments = () => {
+    if (!postPath) return;
+    router.push(postPath);
+  };
   const handleShare = async () => {
     try {
       await sharePostById(item.id, onToast);
@@ -197,8 +220,12 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
       />
 
       <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
-        <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>👍 {likeCount}</Text>
-        <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>💬 {commentCount}</Text>
+        <Pressable onPress={handleLikePress} disabled={isLiking}>
+          <Text style={{ ...theme.typography.small, color: viewerHasLiked ? theme.colors.primary : theme.colors.muted }}>👍 {likeCount}</Text>
+        </Pressable>
+        <Pressable onPress={handleOpenComments} disabled={!postPath}>
+          <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>💬 {commentCount}</Text>
+        </Pressable>
         <Pressable onPress={handleShare}>
           <Text style={{ ...theme.typography.smallStrong, color: theme.colors.primary }}>Condividi</Text>
         </Pressable>

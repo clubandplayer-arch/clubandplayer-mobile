@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react
 import { useFocusEffect } from "@react-navigation/native";
 
 import { fetchNotifications } from "../../../src/lib/api";
+import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
 import { theme } from "../../../src/theme";
 import { useRouter } from "expo-router";
 
@@ -27,7 +28,7 @@ type NotificationItem = {
 };
 
 function getActorName(notification: NotificationItem): string {
-  return notification.actor?.display_name || notification.actor?.full_name || notification.actor?.public_name || "Utente";
+  return getProfileDisplayName(notification.actor ?? null);
 }
 
 const isChatMessageKind = (kind?: string | null) => kind === "message" || kind === "new_message";

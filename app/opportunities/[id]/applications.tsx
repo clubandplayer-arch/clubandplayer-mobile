@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { theme } from "../../../src/theme";
+import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
 
 import {
   fetchOpportunityApplications,
@@ -34,7 +35,7 @@ function statusLabel(value?: string | null): string {
 }
 
 function athleteLabel(item: OpportunityApplicationItem): string {
-  return item.athlete?.full_name || item.athlete?.display_name || "Utente";
+  return getProfileDisplayName({ ...(item.athlete ?? {}), account_type: "athlete" });
 }
 
 function athleteProfileId(item: OpportunityApplicationItem): string | null {

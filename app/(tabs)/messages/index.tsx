@@ -15,6 +15,7 @@ import { fetchDirectMessageThreads } from "../../../src/lib/api";
 import { on } from "../../../src/lib/events/appEvents";
 import type { DirectThreadSummary } from "../../../src/types/directMessages";
 import { theme } from "../../../src/theme";
+import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
 
 function formatWhen(value?: string | null): string {
   if (!value) return "";
@@ -134,7 +135,7 @@ export default function MessagesInboxScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: DirectThreadSummary }) => {
-      const displayName = item.otherFullName || item.otherDisplayName || "Profilo";
+      const displayName = getProfileDisplayName({ full_name: item.otherFullName, display_name: item.otherDisplayName });
       return (
         <Pressable
           onPress={() => router.push(`/messages/${encodeURIComponent(item.otherProfileId)}` as never)}
