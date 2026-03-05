@@ -8,6 +8,8 @@ import { isUuid } from "../../lib/api";
 import FeedVideoPreview from "../../../components/feed/FeedVideoPreview";
 import LightboxModal from "../../../components/media/LightboxModal";
 import { sharePostById } from "../../lib/sharePost";
+import { togglePostLike } from "../../lib/posts/togglePostLike";
+import { supabase } from "../../lib/supabase";
 import { devWarn } from "../../lib/debug/devLog";
 import { theme } from "../../theme";
 
@@ -80,6 +82,22 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
   const isAuthorClub = authorRole === "club";
 
   const postPath = resolvePostPath(item.id);
+
+  const onLikePress = async () => {
+    try {
+      await togglePostLike({ postId: item.id, supabase });
+
+      if (onToast) {
+        onToast("Like updated");
+      }
+    } catch (error) {
+      console.warn("togglePostLike failed", error);
+    }
+  };
+
+  const onCommentPress = () => {
+    router.push(`/posts/${item.id}`);
+  };
 
   const handleShare = async () => {
     try {
@@ -197,8 +215,12 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
       />
 
       <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
-        <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>👍 {likeCount}</Text>
-        <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>💬 {commentCount}</Text>
+        <Pressable onPress={onLikePress}>
+          <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>👍 {likeCount}</Text>
+        </Pressable>
+        <Pressable onPress={onCommentPress}>
+          <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>💬 {commentCount}</Text>
+        </Pressable>
         <Pressable onPress={handleShare}>
           <Text style={{ ...theme.typography.smallStrong, color: theme.colors.primary }}>Condividi</Text>
         </Pressable>
