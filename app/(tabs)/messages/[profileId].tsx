@@ -27,6 +27,7 @@ import {
 } from "../../../src/lib/api";
 import type { DirectMessage, DirectThreadResponse } from "../../../src/types/directMessages";
 import { theme } from "../../../src/theme";
+import { resolveDisplayName } from "../../../src/lib/profiles/resolveDisplayName";
 import { emit } from "../../../src/lib/events/appEvents";
 
 function resolveProfileId(raw: string | string[] | undefined): string {
@@ -323,13 +324,10 @@ export default function DirectMessageThreadScreen() {
   }, [peerReady, peerFromThreads]);
 
   const peerSubLabel = useMemo(() => {
-    const full = thread?.peer?.full_name?.trim();
-    const display = thread?.peer?.display_name?.trim();
+    const full = resolveDisplayName({ full_name: thread?.peer?.full_name, fallback: "" });
+    const display = resolveDisplayName({ display_name: thread?.peer?.display_name, fallback: "" });
 
-    // mostra la seconda riga solo se è diversa dal titolo
     if (display && full && display !== full) return display;
-
-    // altrimenti non mostrare nulla
     return undefined;
   }, [thread?.peer?.display_name, thread?.peer?.full_name]);
 

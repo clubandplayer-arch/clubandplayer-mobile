@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { theme } from "../../../src/theme";
 import { useWebSession } from "../../../src/lib/api";
+import { resolveDisplayName } from "../../../src/lib/profiles/resolveDisplayName";
 
 const WEB_BASE_URL =
   process.env.EXPO_PUBLIC_WEB_BASE_URL ?? "https://www.clubandplayer.com";
@@ -46,35 +47,12 @@ function isClubProfile(p: SuggestionItem) {
   return t === "club" || t === "clubs";
 }
 
-function looksLikeEmail(s: string) {
-  const v = s.trim();
-  return v.includes("@") && v.includes(".");
-}
-
-function pickNameCandidate(v: unknown) {
-  const s = (typeof v === "string" ? v : "").trim();
-  return s.length ? s : "";
-}
-
-// ✅ Regola coerente con feed/following:
-// 1) name (se presente) → 2) full_name → 3) display_name
-// e se sembra un'email, scarta e prova il successivo.
 function humanizeName(p: SuggestionItem) {
-  const name = pickNameCandidate((p as any).name);
-  const full = pickNameCandidate((p as any).full_name);
-  const display = pickNameCandidate((p as any).display_name);
-
-  if (name && !looksLikeEmail(name)) return name;
-  if (full && !looksLikeEmail(full)) return full;
-  if (display && !looksLikeEmail(display)) return display;
-
-  // fallback: se sono tutti email o vuoti, prova a rendere "umano" il migliore disponibile
-  const raw = name || full || display;
-  if (!raw) return isClubProfile(p) ? "Club" : "Player";
-
-  const local = raw.split("@")[0]?.trim() ?? "";
-  if (!local || local.length < 2) return isClubProfile(p) ? "Club" : "Player";
-  return local.charAt(0).toUpperCase() + local.slice(1);
+  return resolveDisplayName({
+    full_name: p.full_name,
+    display_name: p.display_name ?? p.name,
+    fallback: isClubProfile(p) ? "Club" : "Utente",
+  });
 }
 
 function compactParts(parts: Array<string | null | undefined>) {

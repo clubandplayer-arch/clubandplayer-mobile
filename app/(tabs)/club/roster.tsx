@@ -11,6 +11,7 @@ import {
 } from "react-native";
 
 import { fetchClubRoster, updateClubRoster, type ClubRosterItem } from "../../../src/lib/api";
+import { resolveDisplayName } from "../../../src/lib/profiles/resolveDisplayName";
 import { theme } from "../../../src/theme";
 
 function getApiErrorMessage(errorText: string | undefined, status: number): string {
@@ -109,7 +110,11 @@ export default function ClubRosterScreen() {
           renderItem={({ item }) => {
             const subtitle = [item.role, item.sport].filter(Boolean).join(" • ");
             const busy = removingId === item.playerProfileId;
-            const name = item.display_name ?? item.full_name ?? "Giocatore";
+            const name = resolveDisplayName({
+              full_name: item.full_name,
+              display_name: item.display_name,
+              fallback: "Giocatore",
+            });
 
             return (
               <View

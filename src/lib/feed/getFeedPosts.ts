@@ -6,6 +6,7 @@ import {
   type FeedReactionsGetResponse,
 } from "../api";
 import { asString, normalizeMediaRow, type NormalizedMediaItem } from "../media/normalizeMedia";
+import { resolveDisplayName } from "../profiles/resolveDisplayName";
 
 export type FeedMediaItem = NormalizedMediaItem;
 
@@ -36,6 +37,8 @@ export type FeedPost = {
   likeCount?: number;
   commentCount?: number;
   viewerHasLiked?: boolean;
+  reactionCountsByType?: Record<string, number>;
+  viewerReaction?: string | null;
 };
 
 type FeedScope = "all" | "following";
@@ -119,16 +122,28 @@ function buildCountsMaps(
   const likeCountByPost = new Map<string, number>();
   const viewerLikedSet = new Set<string>();
   const commentCountByPost = new Map<string, number>();
+  const reactionCountsByPost = new Map<string, Record<string, number>>();
+  const viewerReactionByPost = new Map<string, string>();
 
   if (reactions?.ok) {
     for (const row of reactions.counts || []) {
-      if (row?.reaction === "like" && row?.post_id) {
-        likeCountByPost.set(row.post_id, Number(row.count) || 0);
+      if (row?.post_id && row?.reaction) {
+        const count = Number(row.count) || 0;
+        const existing = reactionCountsByPost.get(row.post_id) ?? {};
+        existing[row.reaction] = count;
+        reactionCountsByPost.set(row.post_id, existing);
+
+        if (row.reaction === "like") {
+          likeCountByPost.set(row.post_id, count);
+        }
       }
     }
     for (const m of reactions.mine || []) {
-      if (m?.reaction === "like" && m?.post_id) {
-        viewerLikedSet.add(m.post_id);
+      if (m?.reaction && m?.post_id) {
+        viewerReactionByPost.set(m.post_id, m.reaction);
+        if (m.reaction === "like") {
+          viewerLikedSet.add(m.post_id);
+        }
       }
     }
   }
@@ -139,7 +154,13 @@ function buildCountsMaps(
     }
   }
 
-  return { likeCountByPost, viewerLikedSet, commentCountByPost };
+  return {
+    likeCountByPost,
+    viewerLikedSet,
+    commentCountByPost,
+    reactionCountsByPost,
+    viewerReactionByPost,
+  };
 }
 
 export async function getFeedPosts({
@@ -198,13 +219,16 @@ export async function getFeedPosts({
   const reactions = reactionsRes.ok ? (reactionsRes.data ?? null) : null;
   const comments = commentsRes.ok ? (commentsRes.data ?? null) : null;
 
-  const { likeCountByPost, viewerLikedSet, commentCountByPost } = buildCountsMaps(reactions, comments);
+  const { likeCountByPost, viewerLikedSet, commentCountByPost, reactionCountsByPost, viewerReactionByPost } =
+    buildCountsMaps(reactions, comments);
 
   const items = basePosts.map((p) => ({
     ...p,
     likeCount: likeCountByPost.get(p.id) ?? 0,
     commentCount: commentCountByPost.get(p.id) ?? 0,
     viewerHasLiked: viewerLikedSet.has(p.id),
+    reactionCountsByType: reactionCountsByPost.get(p.id) ?? {},
+    viewerReaction: viewerReactionByPost.get(p.id) ?? null,
   }));
 
   return { items, nextPage: nextPageToken };
@@ -216,15 +240,10 @@ export function getPostText(raw: Record<string, any>): string {
   return (found ?? "").toString().trim();
 }
 
-function isEmailLike(value: string): boolean {
-  return value.includes("@");
-}
-
 export function getAuthorName(author?: FeedAuthor | null): string {
-  const fullName = author?.full_name?.trim() ?? "";
-  if (fullName && !isEmailLike(fullName)) return fullName;
-
-  const displayName = author?.display_name?.trim() ?? "";
-  const name = displayName && !isEmailLike(displayName) ? displayName : "";
-  return name || "Utente";
+  return resolveDisplayName({
+    full_name: author?.full_name,
+    display_name: author?.display_name,
+    fallback: "Utente",
+  });
 }

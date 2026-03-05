@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } fr
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { theme } from "../../src/theme";
+import { resolveDisplayName } from "../../src/lib/profiles/resolveDisplayName";
 
 import {
   fetchClubApplicationsReceived,
@@ -33,7 +34,11 @@ function labelForStatus(status?: string | null): string {
 
 function athleteName(item: ReceivedApplicationItem): string {
   const athlete = item.athlete;
-  return athlete?.full_name || athlete?.display_name || "Utente";
+  return resolveDisplayName({
+    full_name: athlete?.full_name,
+    display_name: athlete?.display_name,
+    fallback: "Utente",
+  });
 }
 
 function athleteProfileId(item: ReceivedApplicationItem): string | null {

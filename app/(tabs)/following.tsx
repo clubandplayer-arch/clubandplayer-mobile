@@ -14,6 +14,7 @@ import {
 import { fetchClubRoster, fetchFollowingList, updateClubRoster, useWebSession } from "../../src/lib/api";
 import { supabase } from "../../src/lib/supabase";
 import { useIsClub } from "../../src/lib/useIsClub";
+import { resolveDisplayName } from "../../src/lib/profiles/resolveDisplayName";
 import { theme } from "../../src/theme";
 
 type FollowingItem = {
@@ -65,11 +66,11 @@ function normalizeFollowingItem(raw: unknown): FollowingItem | null {
 
   const accountType = normalizeAccountType(accountTypeRaw);
 
-  const name =
-    sanitizeName(pickString(item, ["name"])) ??
-    sanitizeName(pickString(item, ["display_name"])) ??
-    sanitizeName(pickString(item, ["full_name"])) ??
-    "Profilo";
+  const name = resolveDisplayName({
+    full_name: pickString(item, ["full_name"]),
+    display_name: pickString(item, ["display_name", "name"]),
+    fallback: "Utente",
+  });
 
   const avatarUrl = pickString(item, ["avatar_url", "avatarUrl"]);
 
