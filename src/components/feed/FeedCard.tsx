@@ -67,6 +67,7 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
   const when = formatWhen(item.created_at);
   const firstMedia = item.media?.[0] ?? null;
   const likeCount = typeof item.likeCount === "number" ? item.likeCount : 0;
+  const [likes, setLikes] = useState(likeCount);
   const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
 
   const post = (item?.raw as any) ?? (item as any);
@@ -86,6 +87,8 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
   const onLikePress = async () => {
     try {
       await togglePostLike({ postId: item.id, supabase });
+
+      setLikes((v) => v + 1);
 
       if (onToast) {
         onToast("Like updated");
@@ -136,7 +139,7 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
           const target =
             authorRole === null ? `/profiles/${authorUuid}` : isAuthorClub ? `/clubs/${authorUuid}` : `/players/${authorUuid}`;
           console.log("[PR-MOB.PROFILES.2.2][tap-author][target]", { authorUuid, authorRole, target });
-          router.navigate(target);
+          router.push(target);
         }}
         style={{
           flexDirection: "row",
@@ -216,7 +219,7 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
 
       <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
         <Pressable onPress={onLikePress}>
-          <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>👍 {likeCount}</Text>
+          <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>👍 {likes}</Text>
         </Pressable>
         <Pressable onPress={onCommentPress}>
           <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>💬 {commentCount}</Text>
