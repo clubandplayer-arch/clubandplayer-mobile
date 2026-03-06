@@ -25,7 +25,6 @@ export type FeedAuthor = {
   certification_status?: string | null;
   is_verified?: boolean | null;
   country?: string | null;
-  author_country?: string | null;
   interest_country?: string | null;
 };
 
@@ -106,7 +105,6 @@ function extractAuthor(item: any): FeedAuthor | null {
       typeof candidate?.certification_status === "string" ? candidate.certification_status : null,
     is_verified: typeof candidate?.is_verified === "boolean" ? candidate.is_verified : null,
     country: typeof candidate?.country === "string" ? candidate.country : null,
-    author_country: typeof candidate?.author_country === "string" ? candidate.author_country : null,
     interest_country: typeof candidate?.interest_country === "string" ? candidate.interest_country : null,
   };
 }
@@ -237,23 +235,17 @@ export function getFeedCountryCode(item: FeedPost): string | null {
     raw?.author_profile && typeof raw.author_profile === "object" ? raw.author_profile : null;
 
   return readCountryCodeFromCandidates([
-    item.author?.author_country,
     item.author?.country,
-    item.author?.interest_country,
-    raw?.author_country,
-    raw?.country,
-    raw?.interest_country,
-    rawAuthor?.author_country,
-    rawAuthor?.country,
-    rawAuthor?.interest_country,
-    rawProfile?.author_country,
-    rawProfile?.country,
-    rawProfile?.interest_country,
-    rawProfiles?.author_country,
-    rawProfiles?.country,
-    rawProfiles?.interest_country,
-    rawAuthorProfile?.author_country,
     rawAuthorProfile?.country,
+    rawAuthor?.country,
+    rawProfile?.country,
+    rawProfiles?.country,
+    raw?.country,
+    item.author?.interest_country,
     rawAuthorProfile?.interest_country,
+    rawAuthor?.interest_country,
+    rawProfile?.interest_country,
+    rawProfiles?.interest_country,
+    raw?.interest_country,
   ]);
 }

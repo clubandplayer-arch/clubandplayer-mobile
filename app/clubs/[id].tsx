@@ -6,6 +6,7 @@ import FollowButton from "../../src/components/follow/FollowButton";
 import { isUuid, useWebSession, useWhoami } from "../../src/lib/api";
 import { getFeedPosts, type FeedPost } from "../../src/lib/feed/getFeedPosts";
 import FeedCard from "../../src/components/feed/FeedCard";
+import { iso2ToFlagEmoji } from "../../src/lib/geo/countryFlag";
 import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
 import { theme } from "../../src/theme";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -292,7 +293,8 @@ export default function ClubProfileScreen() {
     getTextValue(profile?.level);
   const city = getTextValue(profile?.city);
   const clubCountry = getTextValue(profile?.club_country) || getTextValue(profile?.country);
-  const location = [clubCountry, city].filter(Boolean).join(" / ") || "—";
+  const clubCountryFlag = iso2ToFlagEmoji(clubCountry);
+  const location = [clubCountryFlag, clubCountry, city].filter(Boolean).join(" / ") || "—";
   const stadium = getTextValue(profile?.club_stadium);
   const stadiumAddress = getTextValue(profile?.club_stadium_address);
   const facility = [stadium, stadiumAddress].filter(Boolean).join(" • ") || "—";
