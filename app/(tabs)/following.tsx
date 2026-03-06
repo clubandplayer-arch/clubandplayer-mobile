@@ -13,6 +13,7 @@ import {
 
 import { fetchClubRoster, fetchFollowingList, updateClubRoster, useWebSession } from "../../src/lib/api";
 import { supabase } from "../../src/lib/supabase";
+import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
 import { useIsClub } from "../../src/lib/useIsClub";
 import { theme } from "../../src/theme";
 
@@ -37,10 +38,6 @@ function pickString(record: Record<string, unknown>, keys: string[]): string | n
   return null;
 }
 
-function sanitizeName(value: string | null): string | null {
-  if (!value) return null;
-  return value.includes("@") ? null : value;
-}
 
 function normalizeAccountType(value: unknown): "club" | "athlete" | "unknown" {
   if (value === "club") return "club";
@@ -65,11 +62,13 @@ function normalizeFollowingItem(raw: unknown): FollowingItem | null {
 
   const accountType = normalizeAccountType(accountTypeRaw);
 
-  const name =
-    sanitizeName(pickString(item, ["name"])) ??
-    sanitizeName(pickString(item, ["display_name"])) ??
-    sanitizeName(pickString(item, ["full_name"])) ??
-    "Profilo";
+  const name = getProfileDisplayName({
+    account_type: accountTypeRaw,
+    name: pickString(item, ["name"]),
+    display_name: pickString(item, ["display_name"]),
+    full_name: pickString(item, ["full_name"]),
+    username: pickString(item, ["username"]),
+  });
 
   const avatarUrl = pickString(item, ["avatar_url", "avatarUrl"]);
 

@@ -1,0 +1,5358 @@
+==================================================
+FILE: app/(tabs)/club/roster.tsx
+==================================================
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  Pressable,
+  RefreshControl,
+  Text,
+  View,
+} from "react-native";
+
+import { fetchClubRoster, updateClubRoster, type ClubRosterItem } from "../../../src/lib/api";
+import { theme } from "../../../src/theme";
+import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
+
+function getApiErrorMessage(errorText: string | undefined, status: number): string {
+  if (!errorText) return `Errore (${status})`;
+  try {
+    const parsed = JSON.parse(errorText) as { message?: string; error?: string };
+    if (typeof parsed.message === "string" && parsed.message.trim()) return parsed.message;
+    if (typeof parsed.error === "string" && parsed.error.trim()) return parsed.error;
+  } catch {
+    // noop
+  }
+  return errorText;
+}
+
+export default function ClubRosterScreen() {
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [items, setItems] = useState<ClubRosterItem[]>([]);
+
+  const loadRoster = useCallback(async (mode: "initial" | "refresh" = "initial") => {
+    if (mode === "initial") setLoading(true);
+    if (mode === "refresh") setRefreshing(true);
+    setError(null);
+
+    try {
+      const response = await fetchClubRoster();
+      if (!response.ok) {
+        setItems([]);
+        setError(getApiErrorMessage(response.errorText, response.status));
+        return;
+      }
+
+      const roster = Array.isArray(response.data?.roster) ? response.data.roster : [];
+      setItems(roster);
+    } catch (e: any) {
+      setItems([]);
+      setError(e?.message ? String(e.message) : "Errore caricamento rosa");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadRoster("initial");
+  }, [loadRoster]);
+
+  const onRemove = useCallback(
+    async (item: ClubRosterItem) => {
+      setRemovingId(item.playerProfileId);
+      const response = await updateClubRoster({
+        playerProfileId: item.playerProfileId,
+        inRoster: false,
+      });
+      setRemovingId(null);
+
+      if (!response.ok) {
+        if (response.status === 400 || response.status === 409) {
+          Alert.alert("Rosa", getApiErrorMessage(response.errorText, response.status));
+          return;
+        }
+        Alert.alert("Rosa", "Operazione non riuscita");
+        return;
+      }
+
+      await loadRoster("refresh");
+    },
+    [loadRoster],
+  );
+
+  const listHeader = useMemo(
+    () => (
+      <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 }}>
+        {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
+      </View>
+    ),
+    [error],
+  );
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.colors.background, paddingTop: 12 }}>
+      {loading ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator />
+        </View>
+      ) : (
+        <FlatList
+          style={{ flex: 1, backgroundColor: theme.colors.background }}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          data={error ? [] : items}
+          keyExtractor={(item) => item.playerProfileId}
+          ListHeaderComponent={listHeader}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadRoster("refresh")} />}
+          renderItem={({ item }) => {
+            const subtitle = [item.role, item.sport].filter(Boolean).join(" • ");
+            const busy = removingId === item.playerProfileId;
+            const name = getProfileDisplayName({ ...item, account_type: "athlete" });
+
+            return (
+              <View
+                style={{
+                  marginHorizontal: 16,
+                  marginBottom: 10,
+                  borderWidth: 1,
+                  borderColor: theme.colors.neutral100,
+                  borderRadius: 12,
+                  padding: 12,
+                  backgroundColor: theme.colors.background,
+                }}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  {item.avatar_url ? (
+                    <Image
+                      source={{ uri: item.avatar_url }}
+                      style={{ width: 40, height: 40, borderRadius: 999, backgroundColor: theme.colors.neutral100 }}
+                    />
+                  ) : null}
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: theme.colors.text, fontWeight: "700", fontSize: 16 }}>{name}</Text>
+                    {subtitle ? <Text style={{ marginTop: 4, color: theme.colors.muted }}>{subtitle}</Text> : null}
+                  </View>
+                </View>
+
+                <Pressable
+                  disabled={busy}
+                  onPress={() => void onRemove(item)}
+                  style={{
+                    marginTop: 10,
+                    alignSelf: "flex-start",
+                    borderWidth: 1,
+                    borderColor: theme.colors.danger,
+                    borderRadius: 999,
+                    paddingVertical: 6,
+                    paddingHorizontal: 12,
+                    opacity: busy ? 0.6 : 1,
+                  }}
+                >
+                  <Text style={{ color: theme.colors.danger, fontWeight: "700" }}>{busy ? "Rimozione..." : "Rimuovi"}</Text>
+                </Pressable>
+              </View>
+            );
+          }}
+          ListEmptyComponent={
+            <View style={{ paddingHorizontal: 16, paddingTop: 20 }}>
+              <Text style={{ color: theme.colors.muted }}>Nessun giocatore in rosa</Text>
+            </View>
+          }
+        />
+      )}
+    </View>
+  );
+}
+
+
+
+==================================================
+FILE: app/(tabs)/discover/index.tsx
+==================================================
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  Pressable,
+  ActivityIndicator,
+  FlatList,
+  Image,
+  Alert,
+} from "react-native";
+import { theme } from "../../../src/theme";
+import { useWebSession } from "../../../src/lib/api";
+import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
+
+const WEB_BASE_URL =
+  process.env.EXPO_PUBLIC_WEB_BASE_URL ?? "https://www.clubandplayer.com";
+
+type SuggestionItem = {
+  id: string;
+  display_name?: string | null;
+  full_name?: string | null;
+  avatar_url?: string | null;
+  account_type?: string | null;
+  type?: string | null;
+  name?: string | null;
+
+  country?: string | null;
+  region?: string | null;
+  province?: string | null;
+  city?: string | null;
+
+  sport?: string | null;
+  role?: string | null;
+};
+
+type SuggestionsResponse = {
+  items?: SuggestionItem[];
+  data?: SuggestionItem[];
+  nextCursor?: string | null;
+  ok?: boolean;
+  code?: string;
+  message?: string;
+};
+
+function isClubProfile(p: SuggestionItem) {
+  const t = (p.account_type ?? p.type ?? "").toString().toLowerCase().trim();
+  return t === "club" || t === "clubs";
+}
+
+function humanizeName(p: SuggestionItem) {
+  return getProfileDisplayName(p);
+}
+
+function compactParts(parts: Array<string | null | undefined>) {
+  return parts
+    .map((x) => (x ?? "").toString().trim())
+    .filter((x) => x.length > 0);
+}
+
+function formatMetaLine(p: SuggestionItem) {
+  const location = compactParts([p.city, p.province, p.region, p.country]).join(" • ");
+  const sportRole = compactParts([p.sport, p.role]).join(" • ");
+
+  if (sportRole && location) return `${sportRole}  —  ${location}`;
+  if (sportRole) return sportRole;
+  if (location) return location;
+  return "—";
+}
+
+function Avatar({ url, size = 44 }: { url?: string | null; size?: number }) {
+  if (!url) {
+    return (
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: theme.colors.neutral200,
+        }}
+      />
+    );
+  }
+  return (
+    <Image
+      source={{ uri: url }}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: theme.colors.neutral200,
+      }}
+    />
+  );
+}
+
+export default function DiscoverScreen() {
+  const web = useWebSession();
+
+  const [tab, setTab] = useState<"club" | "player">("club");
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [items, setItems] = useState<SuggestionItem[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [pendingIds, setPendingIds] = useState<Record<string, boolean>>({});
+
+  const mergeUnique = useCallback((prev: SuggestionItem[], next: SuggestionItem[]) => {
+    const seen = new Set(prev.map((x) => x.id));
+    const out = [...prev];
+    for (const it of next) {
+      if (!it?.id) continue;
+      if (seen.has(it.id)) continue;
+      seen.add(it.id);
+      out.push(it);
+    }
+    return out;
+  }, []);
+
+  const fetchSuggestions = useCallback(
+    async ({ reset }: { reset: boolean }) => {
+      if (!web.ready) return;
+
+      const cursor = reset ? null : nextCursor;
+
+      if (reset) {
+        setLoading(true);
+        setError(null);
+      } else {
+        if (!cursor) return;
+        setLoadingMore(true);
+      }
+
+      try {
+        const roleParam = tab === "club" ? "club" : "athlete";
+        const base = `${WEB_BASE_URL}/api/follows/suggestions?role=${encodeURIComponent(roleParam)}&limit=50`;
+
+        const url =
+          cursor ? `${base}&cursor=${encodeURIComponent(cursor)}`
+                 : base;
+
+        const res = await fetch(url, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        });
+
+        const json = (await res.json()) as SuggestionsResponse;
+
+        if (!res.ok) {
+          setError(json?.message ?? "Errore nel caricamento suggerimenti");
+          if (reset) setItems([]);
+          return;
+        }
+
+        const list = (json.items ?? json.data ?? []) as SuggestionItem[];
+        const safe = Array.isArray(list) ? list : [];
+        if (__DEV__) {
+          console.log("[discover][suggestions]", {
+            reset,
+            tab,
+            roleParam,
+            got: safe.length,
+            nextCursor: (json as any)?.nextCursor ?? null,
+            url,
+          });
+        }
+
+        setItems((prev) => (reset ? safe : mergeUnique(prev, safe)));
+        setNextCursor((json as any)?.nextCursor ?? null);
+      } catch (e: any) {
+        setError(e?.message ? String(e.message) : "Errore nel caricamento suggerimenti");
+        if (reset) setItems([]);
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [mergeUnique, nextCursor, web.ready, tab],
+  );
+
+  useEffect(() => {
+    if (!web.ready) return;
+    fetchSuggestions({ reset: true });
+  }, [fetchSuggestions, web.ready]);
+
+  const filtered = useMemo(() => {
+    return items.filter((p) => (tab === "club" ? isClubProfile(p) : !isClubProfile(p)));
+  }, [items, tab]);
+
+  const toggleFollow = useCallback(
+    async (targetProfileId: string) => {
+      if (!web.ready) return;
+      if (!targetProfileId) return;
+
+      setPendingIds((prev) => ({ ...prev, [targetProfileId]: true }));
+
+      try {
+        const res = await fetch(`${WEB_BASE_URL}/api/follows/toggle`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ targetProfileId }),
+        });
+
+        const json = await res.json().catch(() => null);
+
+        if (!res.ok) {
+          Alert.alert("Errore", json?.message ?? "Operazione non riuscita");
+          return;
+        }
+
+        // UX: dopo “Segui” togli il profilo dalla lista
+        setItems((prev) => prev.filter((x) => x.id !== targetProfileId));
+      } catch {
+        Alert.alert("Errore", "Operazione non riuscita");
+      } finally {
+        setPendingIds((prev) => {
+          const next = { ...prev };
+          delete next[targetProfileId];
+          return next;
+        });
+      }
+    },
+    [web.ready],
+  );
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      {/* Spacer TOP per non stare attaccati al divider della shell */}
+      <View style={{ paddingTop: 12 }} />
+
+      <View style={{ paddingHorizontal: theme.spacing.xl, gap: 10 }}>
+        <Text style={{ fontSize: 30, fontWeight: "900", color: "#00527a" }}>
+          Chi seguire
+        </Text>
+
+        {/* Toggle Club / Player */}
+        <View
+          style={{
+            flexDirection: "row",
+            borderWidth: 1,
+            borderColor: theme.colors.neutral200,
+            borderRadius: theme.radius.pill,
+            padding: 4,
+            gap: 6,
+            backgroundColor: theme.colors.neutral50,
+            alignSelf: "flex-start",
+          }}
+        >
+          <Pressable
+            onPress={() => setTab("club")}
+            style={{
+              paddingVertical: 6,
+              paddingHorizontal: 14,
+              borderRadius: theme.radius.pill,
+              backgroundColor: tab === "club" ? theme.colors.primary : "transparent",
+            }}
+          >
+            <Text
+              style={{
+                color: tab === "club" ? theme.colors.background : theme.colors.text,
+                fontWeight: "800",
+              }}
+            >
+              Club
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setTab("player")}
+            style={{
+              paddingVertical: 6,
+              paddingHorizontal: 14,
+              borderRadius: theme.radius.pill,
+              backgroundColor: tab === "player" ? theme.colors.primary : "transparent",
+            }}
+          >
+            <Text
+              style={{
+                color: tab === "player" ? theme.colors.background : theme.colors.text,
+                fontWeight: "800",
+              }}
+            >
+              Player
+            </Text>
+          </Pressable>
+        </View>
+
+        {!web.ready ? (
+          <View style={{ paddingVertical: 12, flexDirection: "row", gap: 10, alignItems: "center" }}>
+            <ActivityIndicator />
+            <Text style={{ color: theme.colors.muted }}>Verifico sessione…</Text>
+          </View>
+        ) : null}
+
+        {loading ? (
+          <View style={{ paddingVertical: 12, flexDirection: "row", gap: 10, alignItems: "center" }}>
+            <ActivityIndicator />
+            <Text style={{ color: theme.colors.muted }}>Caricamento…</Text>
+          </View>
+        ) : null}
+
+        {error ? (
+          <View
+            style={{
+              borderWidth: 1,
+              borderColor: theme.colors.dangerBorder,
+              backgroundColor: theme.colors.dangerBg,
+              borderRadius: theme.radius.md,
+              padding: 14,
+              gap: 8,
+            }}
+          >
+            <Text style={{ fontWeight: "900", color: theme.colors.danger }}>Errore</Text>
+            <Text style={{ color: theme.colors.danger }}>{error}</Text>
+            <Pressable onPress={() => fetchSuggestions({ reset: true })} style={{ alignSelf: "flex-start" }}>
+              <Text style={{ color: theme.colors.primary, fontWeight: "900" }}>Riprova</Text>
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
+
+      <FlatList
+        data={filtered}
+        keyExtractor={(it) => it.id}
+        contentContainerStyle={{
+          paddingHorizontal: theme.spacing.xl,
+          paddingTop: 14,
+          paddingBottom: 24,
+          gap: 10,
+        }}
+        onEndReachedThreshold={0.6}
+        onEndReached={() => {
+          if (loadingMore) return;
+          if (!nextCursor) return;
+          fetchSuggestions({ reset: false });
+        }}
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={{ paddingVertical: 16, alignItems: "center" }}>
+              <ActivityIndicator />
+              <Text style={{ marginTop: 8, color: theme.colors.muted }}>Carico altri profili…</Text>
+            </View>
+          ) : <View style={{ height: 8 }} />
+        }
+        renderItem={({ item }) => {
+          const name = humanizeName(item);
+          const meta = formatMetaLine(item);
+          const disabled = Boolean(pendingIds[item.id]);
+
+          return (
+            <View
+              style={{
+                borderWidth: 1,
+                borderColor: theme.colors.neutral200,
+                borderRadius: theme.radius.lg,
+                backgroundColor: theme.colors.background,
+                padding: 12,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+              }}
+            >
+              <Avatar url={item.avatar_url ?? null} size={44} />
+
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={{ fontSize: 16, fontWeight: "900", color: theme.colors.text }}>
+                  {name}
+                </Text>
+                <Text style={{ color: theme.colors.muted }}>{meta}</Text>
+              </View>
+
+              <Pressable
+                disabled={disabled}
+                onPress={() => toggleFollow(item.id)}
+                style={{
+                  paddingVertical: 8,
+                  paddingHorizontal: 14,
+                  borderWidth: 1,
+                  borderColor: theme.colors.neutral200,
+                  borderRadius: theme.radius.md,
+                  backgroundColor: theme.colors.background,
+                  opacity: disabled ? 0.6 : 1,
+                }}
+              >
+                <Text style={{ fontWeight: "900", color: theme.colors.text }}>
+                  {disabled ? "..." : "Segui"}
+                </Text>
+              </Pressable>
+            </View>
+          );
+        }}
+        ListEmptyComponent={
+          !loading && !error ? (
+            <View style={{ paddingTop: 16 }}>
+              <Text style={{ color: theme.colors.muted }}>Nessun suggerimento disponibile.</Text>
+            </View>
+          ) : null
+        }
+      />
+    </View>
+  );
+}
+
+
+==================================================
+FILE: app/(tabs)/following.tsx
+==================================================
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  Pressable,
+  RefreshControl,
+  Switch,
+  Text,
+  View,
+} from "react-native";
+
+import { fetchClubRoster, fetchFollowingList, updateClubRoster, useWebSession } from "../../src/lib/api";
+import { supabase } from "../../src/lib/supabase";
+import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
+import { useIsClub } from "../../src/lib/useIsClub";
+import { theme } from "../../src/theme";
+
+type FollowingItem = {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  accountType: "club" | "athlete" | "unknown";
+};
+
+type DecoratedFollowingItem = FollowingItem & {
+  isInRoster: boolean;
+};
+
+function pickString(record: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (trimmed) return trimmed;
+  }
+  return null;
+}
+
+
+function normalizeAccountType(value: unknown): "club" | "athlete" | "unknown" {
+  if (value === "club") return "club";
+  if (value === "athlete") return "athlete";
+  return "unknown";
+}
+
+function normalizeFollowingItem(raw: unknown): FollowingItem | null {
+  const item = (raw ?? {}) as Record<string, unknown>;
+
+  const id = typeof item.id === "string" ? item.id.trim() : "";
+  const accountTypeRaw = typeof item.account_type === "string" ? item.account_type.trim() : "";
+
+  if (!id || !accountTypeRaw) {
+    if (__DEV__) {
+      console.log("[following] dropped item: missing profile id", {
+        itemKeys: Object.keys(item),
+      });
+    }
+    return null;
+  }
+
+  const accountType = normalizeAccountType(accountTypeRaw);
+
+  const name = getProfileDisplayName({
+    account_type: accountTypeRaw,
+    name: pickString(item, ["name"]),
+    display_name: pickString(item, ["display_name"]),
+    full_name: pickString(item, ["full_name"]),
+    username: pickString(item, ["username"]),
+  });
+
+  const avatarUrl = pickString(item, ["avatar_url", "avatarUrl"]);
+
+  return {
+    id,
+    name,
+    avatarUrl,
+    accountType,
+  };
+}
+
+function resolveItemsPayload(responseData: unknown, responseRoot: unknown): unknown[] | null {
+  if (Array.isArray((responseData as { items?: unknown[] } | null)?.items)) {
+    return (responseData as { items: unknown[] }).items;
+  }
+
+  if (Array.isArray(responseData)) return responseData;
+
+  if (Array.isArray((responseRoot as { items?: unknown[] } | null)?.items)) {
+    return (responseRoot as { items: unknown[] }).items;
+  }
+
+  return null;
+}
+
+function Avatar({ uri }: { uri: string | null }) {
+  if (!uri) {
+    return (
+      <View
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: theme.colors.neutral200,
+        }}
+      />
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri }}
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: theme.colors.neutral200,
+      }}
+    />
+  );
+}
+
+function parseErrorCode(errorText?: string): string | null {
+  if (!errorText) return null;
+  try {
+    const parsed = JSON.parse(errorText) as { code?: unknown };
+    return typeof parsed.code === "string" ? parsed.code : null;
+  } catch {
+    return null;
+  }
+}
+
+export default function FollowingScreen() {
+  const web = useWebSession();
+  const [sessionPresent, setSessionPresent] = useState(false);
+  const { isClub, loading: isClubLoading } = useIsClub(sessionPresent);
+  const [rosterSet, setRosterSet] = useState<Set<string>>(new Set());
+  const [pendingRosterIds, setPendingRosterIds] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [items, setItems] = useState<FollowingItem[]>([]);
+  const [tab, setTab] = useState<"club" | "player">("club");
+
+  const PINK_SOFT = "#F7D6E6";
+  const PINK = "#E91E63";
+
+  useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      setSessionPresent(Boolean(data.session?.user?.id));
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSessionPresent(Boolean(session?.user?.id));
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  const loadRoster = useCallback(async () => {
+    const response = await fetchClubRoster();
+    if (!response.ok || !response.data) {
+      setRosterSet(new Set());
+      return;
+    }
+
+    const nextRosterSet = new Set(
+      response.data.roster
+        .map((row) => String(row.playerProfileId ?? "").trim())
+        .filter(Boolean),
+    );
+
+    if (__DEV__) {
+      console.log("[following][club] rosterSet size", nextRosterSet.size);
+    }
+
+    setRosterSet(nextRosterSet);
+  }, []);
+
+  useEffect(() => {
+    if (!web.ready) return;
+    if (isClubLoading) return;
+
+    if (!isClub) {
+      setRosterSet(new Set());
+      return;
+    }
+
+    void loadRoster();
+  }, [isClub, isClubLoading, loadRoster, web.ready]);
+
+  const load = useCallback(async () => {
+    if (!web.ready) return;
+
+    const response = await fetchFollowingList();
+
+    if (!response.ok) {
+      setItems([]);
+      setError(`Errore caricamento seguiti (${response.status})`);
+      setLoading(false);
+      return;
+    }
+
+    const rawItems = resolveItemsPayload(response.data, response as unknown);
+
+    if (!rawItems) {
+      setItems([]);
+      setError("Risposta inattesa dal server");
+      setLoading(false);
+      return;
+    }
+
+    setItems(rawItems.map(normalizeFollowingItem).filter((item): item is FollowingItem => item !== null));
+    setError(null);
+    setLoading(false);
+  }, [web.ready]);
+
+  useEffect(() => {
+    if (!web.ready) {
+      if (web.error) {
+        setLoading(false);
+        setError("Sessione web non disponibile");
+      }
+      return;
+    }
+
+    setLoading(true);
+    load();
+  }, [load, web.error, web.ready]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([load(), isClub && !isClubLoading ? loadRoster() : Promise.resolve()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [isClub, isClubLoading, load, loadRoster]);
+
+  const decoratedItems = useMemo<DecoratedFollowingItem[]>(() => {
+    const next = items.map((item) => ({
+      ...item,
+      isInRoster: isClub ? rosterSet.has(item.id) : false,
+    }));
+
+    if (__DEV__ && isClub) {
+      const marked = next.filter((item) => item.isInRoster).length;
+      console.log("[following][club] marked in roster", { marked, total: next.length });
+    }
+
+    return next;
+  }, [isClub, items, rosterSet]);
+
+  const onToggleRoster = useCallback(
+    async (item: DecoratedFollowingItem, nextInRoster: boolean) => {
+      if (!isClub) return;
+      if (item.accountType !== "athlete") return;
+      if (pendingRosterIds.has(item.id)) return;
+
+      const wasInRoster = rosterSet.has(item.id);
+
+      setPendingRosterIds((prev) => new Set(prev).add(item.id));
+
+      setRosterSet((prev) => {
+        const next = new Set(prev);
+        if (nextInRoster) next.add(item.id);
+        else next.delete(item.id);
+        return next;
+      });
+
+      try {
+        const response = await updateClubRoster({
+          playerProfileId: item.id,
+          inRoster: nextInRoster,
+        });
+
+        if (!response.ok) {
+          setRosterSet((prev) => {
+            const next = new Set(prev);
+            if (wasInRoster) next.add(item.id);
+            else next.delete(item.id);
+            return next;
+          });
+
+          const errorCode = parseErrorCode(response.errorText);
+
+          if (response.status === 400) {
+            Alert.alert("Devi seguire il player prima");
+          } else if (
+            response.status === 409 &&
+            (errorCode === "PLAYER_ALREADY_IN_ROSTER_SPORT" || errorCode === "PLAYER_ALREADY_IN_ROSTER")
+          ) {
+            Alert.alert("Player già in rosa di un altro club per questo sport. Deve essere rimosso prima.");
+          } else {
+            Alert.alert("Errore", "Operazione non riuscita. Riprova.");
+          }
+
+          if (__DEV__) {
+            console.log("[following][club] toggle error", {
+              status: response.status,
+              errorCode,
+              playerProfileId: item.id,
+              inRoster: nextInRoster,
+            });
+          }
+        } else {
+          try {
+            await loadRoster();
+          } catch (error) {
+            if (__DEV__) {
+              console.log("[following][club] loadRoster after toggle failed", {
+                playerProfileId: item.id,
+                inRoster: nextInRoster,
+                error: String(error),
+              });
+            }
+          }
+        }
+      } finally {
+        setPendingRosterIds((prev) => {
+          const next = new Set(prev);
+          next.delete(item.id);
+          return next;
+        });
+      }
+    },
+    [isClub, loadRoster, pendingRosterIds, rosterSet],
+  );
+
+  const filteredItems = useMemo(() =>
+    decoratedItems.filter((item) => (tab === "club" ? item.accountType === "club" : item.accountType === "athlete")),
+    [decoratedItems, tab],
+  );
+
+  const empty = useMemo(
+    () => !loading && !error && filteredItems.length === 0,
+    [error, filteredItems.length, loading],
+  );
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <View style={{ paddingTop: 12 }} />
+      <View style={{ paddingHorizontal: theme.spacing.xl, gap: 10, paddingBottom: 8 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            borderWidth: 1,
+            borderColor: theme.colors.neutral200,
+            borderRadius: theme.radius.pill,
+            padding: 4,
+            gap: 6,
+            backgroundColor: theme.colors.neutral50,
+            alignSelf: "flex-start",
+          }}
+        >
+          <Pressable
+            onPress={() => setTab("club")}
+            style={{
+              paddingVertical: 6,
+              paddingHorizontal: 14,
+              borderRadius: theme.radius.pill,
+              backgroundColor: tab === "club" ? theme.colors.primary : "transparent",
+            }}
+          >
+            <Text
+              style={{
+                color: tab === "club" ? theme.colors.background : theme.colors.text,
+                fontWeight: "800",
+              }}
+            >
+              Club
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setTab("player")}
+            style={{
+              paddingVertical: 6,
+              paddingHorizontal: 14,
+              borderRadius: theme.radius.pill,
+              backgroundColor: tab === "player" ? theme.colors.primary : "transparent",
+            }}
+          >
+            <Text
+              style={{
+                color: tab === "player" ? theme.colors.background : theme.colors.text,
+                fontWeight: "800",
+              }}
+            >
+              Player
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {loading ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
+          <ActivityIndicator />
+          <Text style={{ color: theme.colors.muted }}>Caricamento seguiti…</Text>
+        </View>
+      ) : error ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 24 }}>
+          <Text style={{ color: theme.colors.danger, textAlign: "center" }}>{error}</Text>
+          <Pressable onPress={load} style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
+            <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>Riprova</Text>
+          </Pressable>
+        </View>
+      ) : empty ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 24 }}>
+          <Text style={{ fontSize: 20, fontWeight: "800", color: theme.colors.text }}>Nessun profilo</Text>
+          <Text style={{ color: theme.colors.muted, textAlign: "center" }}>Non stai seguendo nessun profilo.</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredItems}
+          keyExtractor={(item) => item.id}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24, gap: 10 }}
+          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+          renderItem={({ item }) => {
+            const pending = pendingRosterIds.has(item.id);
+
+            return (
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderColor: theme.colors.neutral200,
+                  borderRadius: 12,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 10,
+                  backgroundColor: theme.colors.background,
+                }}
+              >
+                <Avatar uri={item.avatarUrl} />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.text }}>{item.name}</Text>
+                </View>
+                {isClub && item.accountType === "athlete" ? (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                      borderWidth: 1,
+                      borderColor: PINK,
+                      backgroundColor: PINK_SOFT,
+                      borderRadius: 999,
+                      paddingLeft: 10,
+                      paddingRight: 6,
+                      paddingVertical: 4,
+                    }}
+                  >
+                    <Text style={{ color: PINK, fontWeight: "700", fontSize: 12 }}>In Rosa</Text>
+                    <Switch
+                      value={item.isInRoster}
+                      disabled={pending}
+                      thumbColor={item.isInRoster ? PINK : "#FFFFFF"}
+                      trackColor={{
+                        false: (theme.colors as any).neutral300 ?? theme.colors.neutral200,
+                        true: PINK_SOFT,
+                      }}
+                      onValueChange={(nextValue) => {
+                        void onToggleRoster(item, nextValue);
+                      }}
+                    />
+                  </View>
+                ) : null}
+              </View>
+            );
+          }}
+        />
+      )}
+    </View>
+  );
+}
+
+
+
+==================================================
+FILE: app/(tabs)/messages/[profileId].tsx
+==================================================
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+  AppState,
+  type AppStateStatus,
+} from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
+
+import {
+  deleteDirectMessageConversation,
+  fetchDirectMessageThreads,
+  fetchDirectMessageThread,
+  postDirectMessage,
+  postDirectMessageMarkRead,
+} from "../../../src/lib/api";
+import type { DirectMessage, DirectThreadResponse } from "../../../src/types/directMessages";
+import { theme } from "../../../src/theme";
+import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
+import { emit } from "../../../src/lib/events/appEvents";
+
+function resolveProfileId(raw: string | string[] | undefined): string {
+  if (Array.isArray(raw)) return raw[0] ?? "";
+  return raw ?? "";
+}
+
+function formatWhen(iso?: string | null): string {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleTimeString();
+  } catch {
+    return "";
+  }
+}
+
+export default function DirectMessageThreadScreen() {
+  const params = useLocalSearchParams<{ profileId?: string | string[] }>();
+  const profileId = resolveProfileId(params.profileId).trim();
+  const router = useRouter();
+
+  const [thread, setThread] = useState<DirectThreadResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [input, setInput] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [peerFromThreads, setPeerFromThreads] = useState<{
+    profileId: string;
+    fullName: string;
+    avatarUrl: string | null;
+  } | null>(null);
+
+  // Android only: we manually shift the composer above the keyboard.
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  const listRef = useRef<FlatList<DirectMessage>>(null);
+  const didInitialScrollRef = useRef(false);
+  const insets = useSafeAreaInsets();
+
+  const composerMinHeight = 76;
+
+  // ✅ anti-overlap: evita fetch concorrenti e polling “a raffica”
+  const inflightRef = useRef(false);
+  const didMarkThreadReadRef = useRef(false);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+
+  const scrollToBottom = useCallback((animated = true) => {
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToEnd({ animated });
+    });
+  }, []);
+
+  const loadThread = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!profileId) {
+        setThread(null);
+        setError("Profilo non valido");
+        return;
+      }
+
+      if (inflightRef.current) return;
+      inflightRef.current = true;
+
+      if (!opts?.silent) setError(null);
+
+      try {
+        const response = await fetchDirectMessageThread(profileId);
+        if (!response.ok || !response.data) {
+          setThread(null);
+          setError(response.errorText || "Impossibile caricare la conversazione");
+          return;
+        }
+
+        const messages = Array.isArray(response.data.messages) ? response.data.messages : [];
+        setThread({ ...response.data, messages });
+      } finally {
+        inflightRef.current = false;
+      }
+    },
+    [profileId],
+  );
+
+  const markThreadRead = useCallback(async () => {
+    if (!profileId) return;
+    if (didMarkThreadReadRef.current) return;
+    didMarkThreadReadRef.current = true;
+
+    const res = await postDirectMessageMarkRead(profileId);
+    if (!res?.ok) {
+      didMarkThreadReadRef.current = false;
+      return;
+    }
+
+    emit("app:direct-messages-updated");
+  }, [profileId]);
+
+  useEffect(() => {
+    didMarkThreadReadRef.current = false;
+  }, [profileId]);
+
+  useEffect(() => {
+    // reset immediato: evita che restino name/avatar del thread precedente
+    setPeerFromThreads(null);
+    setThread(null);
+  }, [profileId]);
+
+  // ✅ load iniziale
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      try {
+        await loadThread();
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [loadThread]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      if (!profileId) return;
+
+      const response = await fetchDirectMessageThreads();
+      if (!response.ok || !response.data?.threads || !mounted) return;
+
+      const currentProfileId = profileId;
+
+      const matchingThread = response.data.threads.find((raw) => {
+        const otherId = raw.otherProfileId || raw.other_profile_id || raw.other?.id || "";
+        return String(otherId) === currentProfileId;
+      });
+
+      const fullName =
+        matchingThread?.otherFullName ?? matchingThread?.other_full_name ?? matchingThread?.other?.full_name ?? null;
+      const avatar =
+        matchingThread?.otherAvatarUrl ??
+        matchingThread?.other_avatar_url ??
+        matchingThread?.other?.avatar_url ??
+        null;
+
+      if (typeof fullName !== "string") return;
+
+      setPeerFromThreads({
+        profileId: currentProfileId,
+        fullName,
+        avatarUrl: typeof avatar === "string" ? avatar : null,
+      });
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [profileId]);
+
+  // ✅ IMPORTANT:
+  // - iOS: KeyboardAvoidingView handles layout
+  // - Android: DO NOT use KeyboardAvoidingView (to avoid double offsets/gaps)
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+
+    const showSub = Keyboard.addListener("keyboardDidShow", (e) => {
+      setKeyboardHeight(e.endCoordinates?.height ?? 0);
+    });
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  // ✅ refresh quando entri/torni in focus (certezze: serve per vedere messaggi arrivati “nel mentre”)
+  useFocusEffect(
+    useCallback(() => {
+      void loadThread({ silent: true });
+      void markThreadRead();
+
+      return () => {
+        // niente
+      };
+    }, [loadThread, markThreadRead]),
+  );
+
+  // ✅ polling leggero mentre la screen è visibile (solo se app foreground)
+  const stopPolling = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }, []);
+
+  const startPolling = useCallback(() => {
+    stopPolling();
+
+    // ogni 3s è abbastanza “rapido” senza stressare rete
+    pollTimerRef.current = setInterval(() => {
+      if (appStateRef.current !== "active") return;
+      void loadThread({ silent: true });
+    }, 3000);
+  }, [loadThread, stopPolling]);
+
+  useFocusEffect(
+    useCallback(() => {
+      startPolling();
+      return () => stopPolling();
+    }, [startPolling, stopPolling]),
+  );
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (next) => {
+      appStateRef.current = next;
+      // quando torni active, fai un refresh immediato
+      if (next === "active") void loadThread({ silent: true });
+    });
+    return () => sub.remove();
+  }, [loadThread]);
+
+  const sendMessage = useCallback(async () => {
+    const content = input.trim();
+    if (!content || !profileId) return;
+
+    setSending(true);
+    setError(null);
+
+    try {
+      const response = await postDirectMessage(profileId, content);
+      if (!response.ok || !response.data?.message) {
+        setError(response.errorText || "Invio non riuscito");
+        return;
+      }
+
+      setInput("");
+
+      // ✅ optimistic append (istantaneo)
+      setThread((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          messages: [...(prev.messages || []), response.data.message],
+        };
+      });
+
+      emit("app:direct-messages-updated");
+      scrollToBottom();
+
+      // ✅ riallinea con server (certezze: evita “messaggio non arriva / ordine sbagliato / altri messaggi mancanti”)
+      await loadThread({ silent: true });
+      scrollToBottom();
+    } catch {
+      setError("Invio non riuscito");
+    } finally {
+      setSending(false);
+    }
+  }, [input, profileId, scrollToBottom, loadThread]);
+
+  const handleDeleteConversation = useCallback(() => {
+    if (!profileId) return;
+
+    Alert.alert("Cancella chat", "Vuoi eliminare tutta la chat?", [
+      { text: "Annulla", style: "cancel" },
+      {
+        text: "Ok",
+        style: "destructive",
+        onPress: async () => {
+          const res = await deleteDirectMessageConversation(profileId);
+          if (!res?.ok) {
+            setError(res?.errorText || "Impossibile cancellare la chat");
+            return;
+          }
+
+          setThread((prev) => (prev ? { ...prev, messages: [] } : prev));
+          emit("app:direct-messages-updated");
+          router.replace("/messages");
+        },
+      },
+    ]);
+  }, [profileId, router]);
+
+  const peerReady = !!(profileId && peerFromThreads && peerFromThreads.profileId === profileId);
+
+  const peerName = useMemo(() => {
+    if (!peerReady) return "";
+    return peerFromThreads!.fullName;
+  }, [peerReady, peerFromThreads]);
+
+  const peerSubLabel = useMemo(() => {
+    const full = thread?.peer?.full_name?.trim();
+    const display = thread?.peer?.display_name?.trim();
+
+    // mostra la seconda riga solo se è diversa dal titolo
+    if (display && full && display !== full) return display;
+
+    // altrimenti non mostrare nulla
+    return undefined;
+  }, [thread?.peer?.display_name, thread?.peer?.full_name]);
+
+  const avatarUri = useMemo(() => {
+    if (!peerReady) return undefined;
+    return peerFromThreads!.avatarUrl?.trim() || undefined;
+  }, [peerReady, peerFromThreads]);
+
+  const renderItem = useCallback(
+    ({ item }: { item: DirectMessage }) => {
+      const mine = item.sender_profile_id === thread?.currentProfileId;
+
+      return (
+        <View
+          style={{
+            alignItems: mine ? "flex-end" : "flex-start",
+            paddingHorizontal: 12,
+            paddingVertical: 4,
+          }}
+        >
+          <View
+            style={{
+              maxWidth: "80%",
+              borderRadius: 12,
+              paddingVertical: 8,
+              paddingHorizontal: 12,
+              backgroundColor: mine ? theme.colors.primary : theme.colors.neutral200,
+            }}
+          >
+            <Text style={{ color: mine ? theme.colors.background : theme.colors.text }}>
+              {item.content}
+            </Text>
+          </View>
+          <Text style={{ fontSize: 11, color: theme.colors.muted, marginTop: 2 }}>
+            {formatWhen(item.created_at)}
+          </Text>
+        </View>
+      );
+    },
+    [thread?.currentProfileId],
+  );
+
+  const composerBottomPadding =
+    Platform.OS === "android" && keyboardHeight > 0 ? 12 : Math.max(insets.bottom, 12);
+
+  const listBottomPadding =
+    composerMinHeight +
+    composerBottomPadding +
+    8;
+
+  const messages = useMemo(() => {
+    const raw = thread?.messages ?? [];
+    if (raw.length <= 1) return raw;
+
+    const seen = new Set<string>();
+    const out: typeof raw = [];
+
+    for (const m of raw) {
+      const key = String(m?.id ?? "");
+      if (!key) continue;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(m);
+    }
+
+    return out;
+  }, [thread?.messages]);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  const Content = (
+    <>
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingBottom: 12,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.colors.neutral100,
+          backgroundColor: theme.colors.background,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+        }}
+      >
+        <Pressable onPress={() => router.replace("/messages")} hitSlop={8}>
+          <Text style={{ fontSize: 20, color: theme.colors.text }}>←</Text>
+        </Pressable>
+
+        {avatarUri ? (
+          <Image source={{ uri: avatarUri }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+        ) : (
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: theme.colors.neutral200,
+            }}
+          >
+            {peerReady && peerName ? (
+              <Text style={{ color: theme.colors.text, fontWeight: "700" }}>
+                {peerName.slice(0, 1).toUpperCase()}
+              </Text>
+            ) : null}
+          </View>
+        )}
+
+        <View style={{ flex: 1 }}>
+          {peerName ? (
+            <Text style={{ fontSize: 18, fontWeight: "700", color: theme.colors.text }}>
+              {peerName}
+            </Text>
+          ) : null}
+
+          {peerSubLabel ? (
+            <Text style={{ fontSize: 13, color: theme.colors.muted }}>{peerSubLabel}</Text>
+          ) : null}
+
+          {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
+        </View>
+
+        <Pressable onPress={handleDeleteConversation} hitSlop={8}>
+          <Text style={{ color: theme.colors.danger, fontWeight: "600" }}>Cancella chat</Text>
+        </Pressable>
+      </View>
+
+      <FlatList
+        ref={listRef}
+        data={messages}
+        onLayout={() => {
+          if (didInitialScrollRef.current) return;
+          didInitialScrollRef.current = true;
+          scrollToBottom(false);
+        }}
+        onContentSizeChange={() => {
+          scrollToBottom(true);
+        }}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        contentContainerStyle={{
+          paddingVertical: 8,
+          paddingBottom: listBottomPadding,
+        }}
+        keyboardShouldPersistTaps="handled"
+      />
+
+      <View
+        style={{
+          borderTopWidth: 1,
+          borderTopColor: theme.colors.neutral100,
+          paddingTop: 12,
+          paddingHorizontal: 12,
+          paddingBottom: composerBottomPadding,
+
+          // ✅ Android: push composer exactly above keyboard (NO KeyboardAvoidingView on Android)
+          marginBottom: Platform.OS === "android" ? keyboardHeight : 0,
+
+          flexDirection: "row",
+          gap: 8,
+          alignItems: "flex-end",
+          minHeight: composerMinHeight,
+          backgroundColor: theme.colors.background,
+        }}
+      >
+        <TextInput
+          value={input}
+          onChangeText={setInput}
+          placeholder="Scrivi un messaggio"
+          multiline
+          style={{
+            flex: 1,
+            minHeight: 40,
+            maxHeight: 120,
+            borderWidth: 1,
+            borderColor: theme.colors.neutral200,
+            borderRadius: 12,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            backgroundColor: theme.colors.background,
+            color: theme.colors.text,
+          }}
+        />
+        <Pressable
+          onPress={sendMessage}
+          disabled={sending || !input.trim()}
+          style={{
+            backgroundColor: theme.colors.primary,
+            borderRadius: 10,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            opacity: sending || !input.trim() ? 0.6 : 1,
+          }}
+        >
+          <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Invia</Text>
+        </Pressable>
+      </View>
+    </>
+  );
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={["top", "bottom"]}>
+      {Platform.OS === "ios" ? (
+        <KeyboardAvoidingView
+          style={{ flex: 1, backgroundColor: theme.colors.background }}
+          behavior="padding"
+          keyboardVerticalOffset={0}
+        >
+          {Content}
+        </KeyboardAvoidingView>
+      ) : (
+        <View style={{ flex: 1, backgroundColor: theme.colors.background }}>{Content}</View>
+      )}
+    </SafeAreaView>
+  );
+}
+
+
+
+==================================================
+FILE: app/(tabs)/messages/index.tsx
+==================================================
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  Pressable,
+  RefreshControl,
+  Text,
+  View,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
+
+import { fetchDirectMessageThreads } from "../../../src/lib/api";
+import { on } from "../../../src/lib/events/appEvents";
+import type { DirectThreadSummary } from "../../../src/types/directMessages";
+import { theme } from "../../../src/theme";
+import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
+
+function formatWhen(value?: string | null): string {
+  if (!value) return "";
+  try {
+    return new Date(value).toLocaleString();
+  } catch {
+    return "";
+  }
+}
+
+function normalizeThread(raw: DirectThreadSummary): DirectThreadSummary {
+  const other = raw.other ?? null;
+  return {
+    ...raw,
+    otherProfileId: raw.otherProfileId || raw.other_profile_id || other?.id || "",
+    otherFullName: raw.otherFullName ?? raw.other_full_name ?? other?.full_name,
+    otherDisplayName: raw.otherDisplayName ?? raw.other_display_name ?? other?.display_name,
+    otherAvatarUrl: raw.otherAvatarUrl ?? raw.other_avatar_url ?? other?.avatar_url,
+    hasUnread: raw.hasUnread ?? raw.has_unread ?? false,
+    lastMessage: raw.lastMessage ?? raw.last_message,
+    lastMessageAt: raw.lastMessageAt ?? raw.last_message_at,
+  };
+}
+
+function Avatar({ url }: { url?: string | null }) {
+  if (!url) {
+    return (
+      <View
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: theme.colors.neutral200,
+        }}
+      />
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri: url }}
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: theme.colors.neutral200,
+      }}
+    />
+  );
+}
+
+export default function MessagesInboxScreen() {
+  const router = useRouter();
+  const [threads, setThreads] = useState<DirectThreadSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setError(null);
+    const response = await fetchDirectMessageThreads();
+
+    if (!response.ok || !response.data) {
+      setThreads([]);
+      setError(response.errorText || "Impossibile caricare i messaggi");
+      return;
+    }
+
+    const items = Array.isArray(response.data.threads) ? response.data.threads.map(normalizeThread) : [];
+    setThreads(items.filter((item) => !!item.otherProfileId));
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      try {
+        await load();
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [load]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+
+      return () => {
+        // nothing
+      };
+    }, [load]),
+  );
+
+  useEffect(() => {
+    const unsubscribe = on("app:direct-messages-updated", () => {
+      void load();
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [load]);
+
+  const onRefresh = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [load]);
+
+  const renderItem = useCallback(
+    ({ item }: { item: DirectThreadSummary }) => {
+      const displayName = getProfileDisplayName({ full_name: item.otherFullName, display_name: item.otherDisplayName });
+      return (
+        <Pressable
+          onPress={() => router.push(`/messages/${encodeURIComponent(item.otherProfileId)}` as never)}
+          style={{
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            borderBottomWidth: 1,
+            borderBottomColor: theme.colors.neutral100,
+            backgroundColor: theme.colors.background,
+          }}
+        >
+          <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+            <Avatar url={item.otherAvatarUrl} />
+            <View style={{ flex: 1, gap: 3 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
+                <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "700", color: theme.colors.text, flex: 1 }}>
+                  {displayName}
+                </Text>
+                <Text style={{ fontSize: 12, color: theme.colors.muted }}>{formatWhen(item.lastMessageAt)}</Text>
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Text numberOfLines={1} style={{ color: theme.colors.text, flex: 1 }}>
+                  {item.lastMessage || ""}
+                </Text>
+                {item.hasUnread ? (
+                  <View
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor: theme.colors.primary,
+                    }}
+                  />
+                ) : null}
+              </View>
+            </View>
+          </View>
+        </Pressable>
+      );
+    },
+    [router],
+  );
+
+  const header = useMemo(
+    () => (
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingBottom: 12,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.colors.neutral100,
+          backgroundColor: theme.colors.background,
+          gap: 8,
+        }}
+      >
+        {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
+      </View>
+    ),
+    [error],
+  );
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  return (
+    <FlatList
+      data={threads}
+      keyExtractor={(item) => item.otherProfileId}
+      renderItem={renderItem}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      ListHeaderComponent={header}
+      ListEmptyComponent={
+        <View style={{ padding: 20 }}>
+          <Text style={{ color: theme.colors.muted }}>Nessun thread disponibile.</Text>
+        </View>
+      }
+    />
+  );
+}
+
+
+
+==================================================
+FILE: app/(tabs)/notifications/index.tsx
+==================================================
+import { useCallback, useState } from "react";
+import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+
+import { fetchNotifications } from "../../../src/lib/api";
+import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
+import { theme } from "../../../src/theme";
+import { useRouter } from "expo-router";
+
+type NotificationActor = {
+  id?: string;
+  display_name?: string | null;
+  full_name?: string | null;
+  public_name?: string | null;
+  avatar_url?: string | null;
+  account_type?: string | null;
+};
+
+type NotificationItem = {
+  id: string;
+  kind: string;
+  payload: any;
+  created_at: string;
+  read?: boolean;
+  read_at?: string | null;
+  actor_profile_id?: string | null;
+  actor?: NotificationActor | null;
+};
+
+function getActorName(notification: NotificationItem): string {
+  return getProfileDisplayName(notification.actor ?? null);
+}
+
+const isChatMessageKind = (kind?: string | null) => kind === "message" || kind === "new_message";
+
+function getNotificationMessage(kind: string): string {
+  switch (kind) {
+    case "new_comment":
+      return "ha commentato un post";
+    case "new_reaction":
+      return "ha reagito a un post";
+    case "new_reaction": // (no, non duplicare: una sola volta)
+      return "ha reagito a un post";
+    case "follow":
+      return "ha iniziato a seguirti";
+    case "application_status_changed":
+      return "ha aggiornato una candidatura";
+    case "application_received":
+      return "nuova candidatura ricevuta";
+    case "new_application_received":
+      return "nuova candidatura ricevuta";
+    case "message":
+      return "ti ha scritto un messaggio";
+    default:
+      return "nuova notifica";
+  }
+}
+
+function getInitial(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return "U";
+  return trimmed.charAt(0).toUpperCase();
+}
+
+function Avatar({ name, avatarUrl }: { name: string; avatarUrl?: string | null }) {
+  if (!avatarUrl) {
+    return (
+      <View
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: 21,
+          backgroundColor: theme.colors.neutral200,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Text style={{ color: theme.colors.text, fontWeight: "600" }}>{getInitial(name)}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri: avatarUrl }}
+      style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: theme.colors.neutral200 }}
+    />
+  );
+}
+
+export default function NotificationsScreen() {
+  const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const router = useRouter();
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErrorText(null);
+
+    // IMPORTANT: all=1 per ottenere la lista completa (coerente col web che ha filtro unread separato)
+    const res = await fetchNotifications({ limit: 50 });
+
+    console.log("[notifications][fetch]", {
+      ok: res.ok,
+      status: res.status,
+      errorText: res.errorText ?? null,
+      items: res.data?.data?.length ?? 0,
+    });
+
+    const kinds = (res.data?.data ?? []).map((n: any) => n.kind);
+    console.log("[notifications][kinds]", kinds);
+
+    console.log("[notifications][raw-data]", JSON.stringify(res.data, null, 2));
+
+    if (!res.ok) {
+      setNotifications([]);
+      setErrorText(res.errorText || `Errore caricamento notifiche (HTTP ${res.status})`);
+      setLoading(false);
+      return;
+    }
+
+    setNotifications((res.data?.data as NotificationItem[]) ?? []);
+    setLoading(false);
+  }, []);
+
+  // Refetch quando la screen torna in focus (es: dopo login o dopo navigazioni)
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      (async () => {
+        if (!active) return;
+        await load();
+      })();
+      return () => {
+        active = false;
+      };
+    }, [load])
+  );
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  if (errorText) {
+    return (
+      <View style={{ flex: 1, padding: 16 }}>
+        <Text style={{ color: theme.colors.text, fontWeight: "700", marginBottom: 8 }}>Errore</Text>
+        <Text style={{ color: theme.colors.text, marginBottom: 12 }}>{errorText}</Text>
+
+        <Pressable
+          onPress={() => void load()}
+          style={{
+            alignSelf: "flex-start",
+            paddingVertical: 10,
+            paddingHorizontal: 14,
+            borderRadius: 10,
+            backgroundColor: theme.colors.primary,
+          }}
+        >
+          <Text style={{ color: "white", fontWeight: "700" }}>Riprova</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  const filteredNotifications = notifications.filter((n) => !isChatMessageKind(n.kind));
+
+  if (!filteredNotifications.length) {
+    return (
+      <View style={{ flex: 1, padding: 16 }}>
+        <Text style={{ color: theme.colors.text, fontWeight: "700", marginBottom: 8 }}>Notifiche</Text>
+        <Text style={{ color: theme.colors.text }}>Nessuna notifica da mostrare.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <FlatList
+      data={filteredNotifications}
+      keyExtractor={(item) => item.id}
+      renderItem={({ item }) => {
+        const name = getActorName(item);
+        const unread = item.read_at == null && item.read !== true;
+
+        return (
+          <Pressable
+            onPress={() => {
+              const p: any = item.payload ?? {};
+
+              if ((item.kind === "new_comment" || item.kind === "new_reaction") && typeof p.post_id === "string") {
+                router.push(`/posts/${p.post_id}`);
+                return;
+              }
+
+              console.log("TODO PR-N2 deep link", item.id, item.kind);
+            }}
+            style={{
+              flexDirection: "row",
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              gap: 12,
+              borderBottomWidth: 1,
+              borderBottomColor: theme.colors.neutral200,
+              backgroundColor: unread ? theme.colors.neutral100 : "transparent",
+            }}
+          >
+            <Avatar name={name} avatarUrl={item.actor?.avatar_url} />
+
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: theme.colors.text, fontWeight: unread ? "600" : "500" }}>{name}</Text>
+              <Text style={{ color: theme.colors.text, marginTop: 2 }}>
+                {getNotificationMessage(item.kind)}
+              </Text>
+              <Text style={{ color: theme.colors.muted, marginTop: 6, fontSize: 12 }}>
+                {new Date(item.created_at).toLocaleString()}
+              </Text>
+            </View>
+
+            {unread ? (
+              <View
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 5,
+                  backgroundColor: theme.colors.primary,
+                  marginTop: 4,
+                }}
+              />
+            ) : null}
+          </Pressable>
+        );
+      }}
+    />
+  );
+}
+
+
+
+==================================================
+FILE: app/club/applications.tsx
+==================================================
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { theme } from "../../src/theme";
+import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
+
+import {
+  fetchClubApplicationsReceived,
+  fetchWhoami,
+  patchApplicationStatus,
+  type ReceivedApplicationItem,
+} from "../../src/lib/api";
+
+type ClubFilterStatus = "pending" | "all" | "accepted" | "rejected";
+
+const FILTERS: ClubFilterStatus[] = ["pending", "all", "accepted", "rejected"];
+
+function labelForFilter(status: ClubFilterStatus): string {
+  if (status === "pending") return "In attesa";
+  if (status === "all") return "Tutte";
+  if (status === "accepted") return "Accettate";
+  return "Rifiutate";
+}
+
+function labelForStatus(status?: string | null): string {
+  const v = String(status || "").toLowerCase();
+  if (v === "submitted") return "Inviata";
+  if (v === "seen") return "Visualizzata";
+  if (v === "accepted") return "Accettata";
+  if (v === "rejected") return "Rifiutata";
+  return status ? String(status) : "-";
+}
+
+function athleteName(item: ReceivedApplicationItem): string {
+  const athlete = item.athlete;
+  return getProfileDisplayName({ ...(athlete ?? {}), account_type: "athlete" });
+}
+
+function athleteProfileId(item: ReceivedApplicationItem): string | null {
+  const athlete = item.athlete as Record<string, unknown> | null | undefined;
+  const raw =
+    athlete?.athlete_profile_id ??
+    athlete?.id ??
+    (item as Record<string, unknown>).athlete_profile_id ??
+    item.athlete_id;
+  return typeof raw === "string" && raw.trim() ? raw : null;
+}
+
+function opportunityLabel(item: ReceivedApplicationItem): string {
+  const opp = item.opportunity;
+  const title = opp?.title || "Opportunità";
+  const role = opp?.role ? ` • ${opp.role}` : "";
+  const location = [opp?.city, opp?.province, opp?.region].filter(Boolean).join(" · ");
+  return location ? `${title}${role}\n${location}` : `${title}${role}`;
+}
+
+export default function ClubApplicationsScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ opportunity_id?: string | string[] }>();
+  const opportunityId = Array.isArray(params.opportunity_id)
+    ? params.opportunity_id[0]?.trim() || ""
+    : String(params.opportunity_id ?? "").trim();
+
+  const [status, setStatus] = useState<ClubFilterStatus>("pending");
+  const [items, setItems] = useState<ReceivedApplicationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [actingId, setActingId] = useState<string | null>(null);
+  const hasFocusedOnceRef = useRef(false);
+
+  const load = useCallback(
+    async (mode: "initial" | "refresh") => {
+      try {
+        if (mode === "initial") setLoading(true);
+        if (mode === "refresh") setRefreshing(true);
+        setError(null);
+
+        const whoami = await fetchWhoami();
+        const role = whoami.data?.role;
+        if (!whoami.ok || role !== "club") {
+          router.replace("/(tabs)/feed");
+          return;
+        }
+
+        const response = await fetchClubApplicationsReceived({ status, opportunityId });
+        if (!response.ok || !response.data) {
+          throw new Error(response.errorText || "Errore nel caricamento");
+        }
+
+        setItems(response.data);
+      } catch (e: any) {
+        setItems([]);
+        setError(e?.message ? String(e.message) : "Errore nel caricamento");
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [opportunityId, router, status],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      hasFocusedOnceRef.current = true;
+      void load("initial");
+    }, [load]),
+  );
+
+  useEffect(() => {
+    if (!hasFocusedOnceRef.current) return;
+    void load("refresh");
+  }, [opportunityId, status, load]);
+
+  const empty = useMemo(() => {
+    if (loading || error) return null;
+    return (
+      <View style={{ padding: 16 }}>
+        <Text style={{ fontWeight: "700", fontSize: 16 }}>Nessuna candidatura</Text>
+      </View>
+    );
+  }, [error, loading]);
+
+  const onStatusAction = useCallback(
+    async (appId: string, next: "accepted" | "rejected") => {
+      try {
+        setActingId(appId);
+        const response = await patchApplicationStatus(appId, next);
+        if (!response.ok) throw new Error(response.errorText || "Aggiornamento non riuscito");
+        await load("refresh");
+      } catch (e: any) {
+        setError(e?.message ? String(e.message) : "Aggiornamento non riuscito");
+      } finally {
+        setActingId(null);
+      }
+    },
+    [load],
+  );
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ flex: 1, paddingBottom: insets.bottom + 12 }}>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 12 }}>
+        {FILTERS.map((filter) => {
+          const active = filter === status;
+          return (
+            <Pressable
+              key={filter}
+              onPress={() => setStatus(filter)}
+              style={{
+                borderWidth: 1,
+                borderRadius: 999,
+                paddingVertical: 6,
+                paddingHorizontal: 12,
+                backgroundColor: active ? theme.colors.text : theme.colors.background,
+              }}
+            >
+              <Text style={{ color: active ? theme.colors.background : theme.colors.text, fontWeight: "600" }}>{labelForFilter(filter)}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {error ? (
+        <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+          <Text style={{ color: theme.colors.danger }}>{error}</Text>
+        </View>
+      ) : null}
+
+      <FlatList
+        data={items}
+        keyExtractor={(item) => item.id}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load("refresh")} />}
+        ListEmptyComponent={empty}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+        renderItem={({ item }) => {
+          const oppId = item.opportunity_id ? String(item.opportunity_id) : null;
+          const profileId = athleteProfileId(item);
+          const isBusy = actingId === item.id;
+
+          return (
+            <View style={{ borderBottomWidth: 1, padding: 14 }}>
+              <Pressable disabled={!profileId} onPress={() => profileId && router.push(`/players/${profileId}` as any)}>
+                <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.primary }}>{athleteName(item)}</Text>
+              </Pressable>
+
+              {item.player_headline ? <Text style={{ marginTop: 4, opacity: 0.85 }}>{item.player_headline}</Text> : null}
+              {item.player_location ? <Text style={{ marginTop: 2, opacity: 0.65 }}>{item.player_location}</Text> : null}
+
+              <Pressable disabled={!oppId} onPress={() => oppId && router.push(`/opportunities/${oppId}` as any)} style={{ marginTop: 10 }}>
+                <Text style={{ color: theme.colors.text }}>{opportunityLabel(item)}</Text>
+              </Pressable>
+
+              <Text style={{ marginTop: 8, opacity: 0.75 }}>Stato: {labelForStatus(item.status)}</Text>
+
+              <View style={{ flexDirection: "row", gap: 10, marginTop: 10 }}>
+                <Pressable
+                  disabled={isBusy}
+                  onPress={() => void onStatusAction(item.id, "accepted")}
+                  style={{ borderWidth: 1, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12 }}
+                >
+                  <Text style={{ fontWeight: "600" }}>{isBusy ? "..." : "Accetta"}</Text>
+                </Pressable>
+                <Pressable
+                  disabled={isBusy}
+                  onPress={() => void onStatusAction(item.id, "rejected")}
+                  style={{ borderWidth: 1, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12 }}
+                >
+                  <Text style={{ fontWeight: "600" }}>{isBusy ? "..." : "Rifiuta"}</Text>
+                </Pressable>
+              </View>
+            </View>
+          );
+        }}
+      />
+    </View>
+  );
+}
+
+
+
+==================================================
+FILE: app/clubs/[id].tsx
+==================================================
+import { useMemo, useEffect, useState } from "react";
+import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { supabase } from "../../src/lib/supabase";
+import FollowButton from "../../src/components/follow/FollowButton";
+import { isUuid, useWebSession, useWhoami } from "../../src/lib/api";
+import { getFeedPosts, type FeedPost } from "../../src/lib/feed/getFeedPosts";
+import FeedCard from "../../src/components/feed/FeedCard";
+import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
+import { theme } from "../../src/theme";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+
+type ProfileRow = {
+  id: string;
+  full_name?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  account_type?: string | null;
+  type?: string | null;
+  city?: string | null;
+  country?: string | null;
+  club_country?: string | null;
+  sport?: string | null;
+  category?: string | null;
+  level?: string | null;
+  club_league_category?: string | null;
+  club_category?: string | null;
+  bio?: string | null;
+  description?: string | null;
+  facility_name?: string | null;
+  facility_address?: string | null;
+  address?: string | null;
+  club_stadium?: string | null;
+  club_stadium_address?: string | null;
+  is_certified?: boolean | null;
+  certified?: boolean | null;
+  certification?: string | boolean | null;
+  verified?: boolean | null;
+  [key: string]: unknown;
+};
+
+type OpportunityRow = {
+  id: string;
+  title?: string | null;
+  role?: string | null;
+  sport?: string | null;
+  city?: string | null;
+  province?: string | null;
+  region?: string | null;
+  country?: string | null;
+  created_at?: string | null;
+  status?: string | null;
+  category?: string | null;
+};
+
+type ClubRosterMemberRow = {
+  club_profile_id: string;
+  player_profile_id: string;
+  status: string | null;
+  created_at: string | null;
+  club_sport: string | null;
+};
+
+type PlayerMiniProfileRow = {
+  id: string;
+  full_name?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  sport?: string | null;
+  role?: string | null;
+  city?: string | null;
+  country?: string | null;
+};
+
+const getTextValue = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+export default function ClubProfileScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams<{ id?: string | string[] }>();
+  const insets = useSafeAreaInsets();
+
+  const id = useMemo(() => {
+    const raw = params.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : null;
+    if (!raw) return null;
+    const v = String(raw).trim();
+    return isUuid(v) ? v : null;
+  }, [params.id]);
+
+  const web = useWebSession();
+  const whoami = useWhoami(web.ready);
+
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [opps, setOpps] = useState<OpportunityRow[]>([]);
+  const [oppsLoading, setOppsLoading] = useState(false);
+  const [roster, setRoster] = useState<ClubRosterMemberRow[]>([]);
+  const [rosterPlayers, setRosterPlayers] = useState<Record<string, PlayerMiniProfileRow>>({});
+  const [rosterLoading, setRosterLoading] = useState(false);
+  const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const isLoading = loading || web.loading || whoami.loading;
+
+  useEffect(() => {
+    let mounted = true;
+
+    const load = async () => {
+      if (!id) {
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      const res = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
+
+      if (!mounted) return;
+      setProfile(res.data ? (res.data as ProfileRow) : null);
+      setLoading(false);
+    };
+
+    void load();
+
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadWallPosts = async () => {
+      if (!id) {
+        setPosts([]);
+        setPostsLoading(false);
+        return;
+      }
+
+      setPostsLoading(true);
+      try {
+        const res = await getFeedPosts({ scope: "all" });
+        if (!mounted) return;
+
+        const filtered = res.items
+          .filter((item) => {
+            const raw = item.raw ?? {};
+            const authorCandidates = [
+              raw?.author_profile_id,
+              raw?.authorId,
+              raw?.author_id,
+              raw?.author_profile?.id,
+              item.author_id,
+            ];
+            return authorCandidates.some((candidate) =>
+              typeof candidate === "string" ? candidate.trim() === id : false,
+            );
+          })
+          .slice(0, 10);
+
+        setPosts(filtered);
+      } catch (error) {
+        if (__DEV__) console.log("[clubs] wall posts load error", error);
+        if (!mounted) return;
+        setPosts([]);
+      } finally {
+        if (mounted) setPostsLoading(false);
+      }
+    };
+
+    void loadWallPosts();
+
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadRoster = async () => {
+      if (!id) {
+        setRoster([]);
+        setRosterPlayers({});
+        setRosterLoading(false);
+        return;
+      }
+
+      setRosterLoading(true);
+      const res = await supabase
+        .from("club_roster_members")
+        .select("club_profile_id,player_profile_id,status,created_at,club_sport")
+        .eq("club_profile_id", id)
+        .eq("status", "active")
+        .order("created_at", { ascending: false });
+
+      if (!mounted) return;
+
+      if (res.error) {
+        if (__DEV__) console.log("[clubs] roster load error", res.error.message);
+        setRoster([]);
+        setRosterPlayers({});
+        setRosterLoading(false);
+        return;
+      }
+
+      const items = (res.data ?? []) as ClubRosterMemberRow[];
+      setRoster(items);
+
+      const playerIds = Array.from(new Set(items.map((x) => x.player_profile_id).filter(Boolean)));
+
+      if (playerIds.length === 0) {
+        setRosterPlayers({});
+        setRosterLoading(false);
+        return;
+      }
+
+      const resProfiles = await supabase
+        .from("profiles")
+        .select("id,full_name,display_name,avatar_url,sport,role,city,country")
+        .in("id", playerIds);
+
+      if (!mounted) return;
+
+      if (resProfiles.error) {
+        if (__DEV__) console.log("[clubs] roster profiles load error", resProfiles.error.message);
+        setRosterPlayers({});
+        setRosterLoading(false);
+        return;
+      }
+
+      const map: Record<string, PlayerMiniProfileRow> = {};
+      for (const p of (resProfiles.data ?? []) as PlayerMiniProfileRow[]) {
+        map[p.id] = p;
+      }
+      setRosterPlayers(map);
+      setRosterLoading(false);
+    };
+
+    void loadRoster();
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadOpportunities = async () => {
+      if (!id) {
+        setOpps([]);
+        setOppsLoading(false);
+        return;
+      }
+
+      setOppsLoading(true);
+      const res = await supabase
+        .from("opportunities")
+        .select("id,title,role,sport,city,province,region,country,created_at,status,category")
+        .eq("club_id", id)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (!mounted) return;
+      if (res.error) {
+        if (__DEV__) console.log("[clubs] opportunities load error", res.error.message);
+        setOpps([]);
+        setOppsLoading(false);
+        return;
+      }
+
+      setOpps((res.data ?? []) as OpportunityRow[]);
+      setOppsLoading(false);
+    };
+
+    void loadOpportunities();
+
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
+
+  const displayName = isLoading ? "Caricamento…" : getProfileDisplayName({ ...(profile ?? {}), account_type: "club" });
+  const avatarUrl = getTextValue(profile?.avatar_url);
+  const sport = getTextValue(profile?.sport);
+  const category =
+    getTextValue(profile?.club_league_category) ||
+    getTextValue(profile?.club_category) ||
+    getTextValue(profile?.category) ||
+    getTextValue(profile?.level);
+  const city = getTextValue(profile?.city);
+  const clubCountry = getTextValue(profile?.club_country) || getTextValue(profile?.country);
+  const location = [clubCountry, city].filter(Boolean).join(" / ") || "—";
+  const stadium = getTextValue(profile?.club_stadium);
+  const stadiumAddress = getTextValue(profile?.club_stadium_address);
+  const facility = [stadium, stadiumAddress].filter(Boolean).join(" • ") || "—";
+  const biography = getTextValue(profile?.bio) || getTextValue(profile?.description) || "—";
+
+  const isCertified =
+    profile?.is_certified === true ||
+    profile?.certified === true ||
+    profile?.verified === true ||
+    profile?.certification === true ||
+    (typeof profile?.certification === "string" && profile.certification.trim().length > 0);
+
+  if (!id) {
+    return (
+      <View style={{ flex: 1, padding: 24, gap: 12, justifyContent: "center" }}>
+        <Text style={{ fontSize: 18, fontWeight: "800" }}>Profilo non valido</Text>
+        <Text style={{ color: theme.colors.muted }}>Questo percorso richiede un UUID valido.</Text>
+        <Pressable
+          onPress={() => router.back()}
+          style={{
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: theme.colors.text,
+            alignSelf: "flex-start",
+          }}
+        >
+          <Text style={{ fontWeight: "700", color: theme.colors.text }}>Indietro</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <ScrollView
+        style={{ flex: 1, backgroundColor: theme.colors.background }}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingTop: 8,
+          gap: 16,
+          paddingBottom: 16,
+        }}
+        scrollIndicatorInsets={{ bottom: 16 + (insets.bottom || 0) }}
+      >
+
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          backgroundColor: theme.colors.neutral50,
+          padding: 16,
+          gap: 14,
+        }}
+      >
+        <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+          {avatarUrl ? (
+            <Image
+              source={{ uri: avatarUrl }}
+              style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: theme.colors.neutral200 }}
+            />
+          ) : (
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: theme.colors.neutral200,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text style={{ fontWeight: "800", color: theme.colors.muted, fontSize: 20 }}>
+                {displayName.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+
+          <View style={{ flex: 1, gap: 8 }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+              <Text style={{ fontSize: 24, fontWeight: "900", color: theme.colors.text, flexShrink: 1 }}>
+                {displayName}
+              </Text>
+              {isCertified ? (
+                <View
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 11,
+                    backgroundColor: theme.colors.primary,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Text style={{ color: "white", fontWeight: "800", fontSize: 12 }}>C</Text>
+                </View>
+              ) : null}
+              <View
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  borderRadius: 999,
+                  backgroundColor: theme.colors.neutral200,
+                }}
+              >
+                <Text style={{ color: theme.colors.text, fontSize: 12, fontWeight: "700" }}>Club</Text>
+              </View>
+            </View>
+            <Text style={{ color: theme.colors.muted }}>
+              {[category, sport].filter(Boolean).join(" • ") || "—"}
+            </Text>
+            <Text style={{ color: theme.colors.muted }}>{location}</Text>
+          </View>
+        </View>
+
+        <View style={{ alignSelf: "flex-start" }}>
+          <FollowButton targetProfileId={id} />
+        </View>
+      </View>
+
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          backgroundColor: theme.colors.neutral50,
+          padding: 16,
+          gap: 14,
+        }}
+      >
+        <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Dati club</Text>
+
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={{ color: theme.colors.muted, fontSize: 12 }}>Sede</Text>
+            <Text style={{ color: theme.colors.text, fontWeight: "600" }}>{location}</Text>
+          </View>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={{ color: theme.colors.muted, fontSize: 12 }}>Sport principale</Text>
+            <Text style={{ color: theme.colors.text, fontWeight: "600" }}>{sport || "—"}</Text>
+          </View>
+        </View>
+
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={{ color: theme.colors.muted, fontSize: 12 }}>Tipologia / Categoria</Text>
+            <Text style={{ color: theme.colors.text, fontWeight: "600" }}>{category || "—"}</Text>
+          </View>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={{ color: theme.colors.muted, fontSize: 12 }}>Impianto sportivo</Text>
+            <Text style={{ color: theme.colors.text, fontWeight: "600" }}>{facility}</Text>
+          </View>
+        </View>
+      </View>
+
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          backgroundColor: theme.colors.neutral50,
+          padding: 16,
+          gap: 10,
+        }}
+      >
+        <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Biografia</Text>
+        <Text style={{ color: theme.colors.text, lineHeight: 20 }}>{biography}</Text>
+      </View>
+
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          backgroundColor: theme.colors.neutral50,
+          padding: 16,
+          gap: 10,
+        }}
+      >
+        <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>
+          Opportunità aperte
+        </Text>
+
+        {oppsLoading ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <ActivityIndicator size="small" />
+            <Text style={{ color: theme.colors.muted }}>Carico opportunità…</Text>
+          </View>
+        ) : null}
+
+        {!oppsLoading && opps.length === 0 ? (
+          <Text style={{ color: theme.colors.muted }}>Nessuna opportunità aperta</Text>
+        ) : null}
+
+        {!oppsLoading && opps.length > 0
+          ? opps.map((opp) => {
+              const title = getTextValue(opp.title) || getTextValue(opp.role) || "Opportunità";
+              const oppLocation =
+                [opp.city, opp.province, opp.region, opp.country]
+                  .map((value) => getTextValue(value))
+                  .filter(Boolean)
+                  .join(" • ") || "—";
+              const oppMeta = [getTextValue(opp.category), getTextValue(opp.sport)]
+                .filter(Boolean)
+                .join(" • ");
+              const publishedDate = getTextValue(opp.created_at)?.slice(0, 10) || "—";
+              const status = getTextValue(opp.status) || "—";
+
+              return (
+                <Pressable
+                  key={opp.id}
+                  onPress={() => router.push(`/opportunities/${opp.id}`)}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: theme.colors.neutral200,
+                    borderRadius: 10,
+                    padding: 12,
+                    gap: 4,
+                  }}
+                >
+                  <Text style={{ color: theme.colors.text, fontWeight: "700" }}>{title}</Text>
+                  <Text style={{ color: theme.colors.muted, fontSize: 12 }}>{oppLocation}</Text>
+                  {oppMeta ? <Text style={{ color: theme.colors.text, fontSize: 12 }}>{oppMeta}</Text> : null}
+                  <Text style={{ color: theme.colors.muted, fontSize: 12 }}>
+                    Pubblicato il {publishedDate}
+                  </Text>
+                  <Text style={{ color: theme.colors.muted, fontSize: 12 }}>Stato: {status}</Text>
+                </Pressable>
+              );
+            })
+          : null}
+      </View>
+
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          backgroundColor: theme.colors.neutral50,
+          padding: 16,
+          gap: 10,
+        }}
+      >
+        <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Rosa</Text>
+        <Text style={{ color: theme.colors.muted, fontSize: 12 }}>Giocatori in rosa</Text>
+
+        {rosterLoading ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <ActivityIndicator size="small" />
+            <Text style={{ color: theme.colors.muted }}>Carico rosa…</Text>
+          </View>
+        ) : null}
+
+        {!rosterLoading && roster.length === 0 ? (
+          <Text style={{ color: theme.colors.muted }}>Nessun giocatore in rosa</Text>
+        ) : null}
+
+        {!rosterLoading && roster.length > 0
+          ? roster.map((member) => {
+              const player = rosterPlayers[member.player_profile_id];
+              const playerName = getProfileDisplayName({ ...(player ?? {}), account_type: "athlete" });
+              const playerAvatarUrl = getTextValue(player?.avatar_url);
+              const playerMeta = [player?.role, player?.sport, player?.country]
+                .map((value) => getTextValue(value))
+                .filter(Boolean)
+                .join(" • ");
+
+              return (
+                <Pressable
+                  key={`${member.player_profile_id}-${member.created_at ?? "na"}`}
+                  onPress={() => router.push(`/players/${member.player_profile_id}`)}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: theme.colors.neutral200,
+                    borderRadius: 10,
+                    padding: 12,
+                    gap: 8,
+                    flexDirection: "row",
+                    alignItems: "center",
+                  }}
+                >
+                  {playerAvatarUrl ? (
+                    <Image
+                      source={{ uri: playerAvatarUrl }}
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                        backgroundColor: theme.colors.neutral200,
+                      }}
+                    />
+                  ) : (
+                    <View
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                        backgroundColor: theme.colors.neutral200,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Text style={{ fontWeight: "800", color: theme.colors.muted }}>
+                        {playerName.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={{ color: theme.colors.text, fontWeight: "700" }}>{playerName}</Text>
+                    <Text style={{ color: theme.colors.muted, fontSize: 12 }}>{playerMeta || "—"}</Text>
+                  </View>
+                </Pressable>
+              );
+            })
+          : null}
+      </View>
+
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          backgroundColor: theme.colors.neutral50,
+          padding: 16,
+          gap: 10,
+        }}
+      >
+        <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Bacheca</Text>
+
+        {postsLoading ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <ActivityIndicator size="small" />
+            <Text style={{ color: theme.colors.muted }}>Carico post…</Text>
+          </View>
+        ) : null}
+
+        {!postsLoading && posts.length === 0 ? (
+          <Text style={{ color: theme.colors.muted }}>Nessun post pubblicato</Text>
+        ) : null}
+
+        {!postsLoading && posts.length > 0
+          ? posts.map((post) => {
+              return <FeedCard key={post.id} item={post} />;
+            })
+          : null}
+      </View>
+
+      {isLoading ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Text style={{ color: theme.colors.muted }}>Caricamento…</Text>
+        </View>
+      ) : null}
+
+      <View style={{ height: 16 + (insets.bottom || 0) }} />
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+
+
+==================================================
+FILE: app/opportunities/[id]/applications.tsx
+==================================================
+import React, { useCallback, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  Text,
+  View,
+} from "react-native";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { theme } from "../../../src/theme";
+import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
+
+import {
+  fetchOpportunityApplications,
+  fetchWhoami,
+  patchApplicationStatus,
+  type ApplicationStatus,
+  type OpportunityApplicationItem,
+} from "../../../src/lib/api";
+
+function asSingle(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
+}
+
+function statusLabel(value?: string | null): string {
+  const v = String(value || "").toLowerCase();
+  if (v === "submitted") return "Inviata";
+  if (v === "seen") return "Visualizzata";
+  if (v === "accepted") return "Accettata";
+  if (v === "rejected") return "Rifiutata";
+  return value ? String(value) : "-";
+}
+
+function athleteLabel(item: OpportunityApplicationItem): string {
+  return getProfileDisplayName({ ...(item.athlete ?? {}), account_type: "athlete" });
+}
+
+function athleteProfileId(item: OpportunityApplicationItem): string | null {
+  const athlete = item.athlete as Record<string, unknown> | null | undefined;
+  const raw = athlete?.athlete_profile_id ?? athlete?.id ?? item.athlete_id;
+  return typeof raw === "string" && raw.trim() ? raw : null;
+}
+
+const STATUS_OPTIONS: ApplicationStatus[] = ["submitted", "seen", "accepted", "rejected"];
+
+export default function OpportunityApplicationsScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams<{ id?: string | string[] }>();
+  const id = asSingle(params.id).trim();
+
+  const [items, setItems] = useState<OpportunityApplicationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [actingId, setActingId] = useState<string | null>(null);
+
+  const load = useCallback(
+    async (mode: "initial" | "refresh") => {
+      try {
+        if (mode === "initial") setLoading(true);
+        if (mode === "refresh") setRefreshing(true);
+        setError(null);
+
+        const whoami = await fetchWhoami();
+        if (!whoami.ok || whoami.data?.role !== "club") {
+          router.replace("/(tabs)/feed");
+          return;
+        }
+
+        if (!id) throw new Error("Opportunità non valida");
+        const response = await fetchOpportunityApplications(id);
+        if (!response.ok || !response.data) {
+          throw new Error(response.errorText || "Errore nel caricamento candidature");
+        }
+        setItems(response.data);
+      } catch (e: any) {
+        setItems([]);
+        setError(e?.message ? String(e.message) : "Errore nel caricamento candidature");
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [id, router],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      void load("initial");
+    }, [load]),
+  );
+
+  const onSelectStatus = useCallback(
+    (appId: string) => {
+      const buttons = STATUS_OPTIONS.map((status) => ({
+        text: statusLabel(status),
+        onPress: async () => {
+          try {
+            setActingId(appId);
+            const response = await patchApplicationStatus(appId, status);
+            if (!response.ok) throw new Error(response.errorText || "Aggiornamento non riuscito");
+            await load("refresh");
+          } catch (e: any) {
+            setError(e?.message ? String(e.message) : "Aggiornamento non riuscito");
+          } finally {
+            setActingId(null);
+          }
+        },
+      }));
+
+      Alert.alert("Cambia stato", "Seleziona il nuovo stato", [
+        ...buttons,
+        { text: "Annulla", style: "cancel" },
+      ]);
+    },
+    [load],
+  );
+
+  const empty = useMemo(() => {
+    if (loading || error) return null;
+    return (
+      <View style={{ padding: 16 }}>
+        <Text style={{ fontWeight: "700" }}>Nessuna candidatura per questa opportunità.</Text>
+      </View>
+    );
+  }, [error, loading]);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ flex: 1 }}>
+      {error ? (
+        <View style={{ padding: 16 }}>
+          <Text style={{ color: theme.colors.danger }}>{error}</Text>
+        </View>
+      ) : null}
+
+      <FlatList
+        data={items}
+        keyExtractor={(item) => item.id}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load("refresh")} />}
+        ListEmptyComponent={empty}
+        renderItem={({ item }) => {
+          const profileId = athleteProfileId(item);
+          const busy = actingId === item.id;
+
+          return (
+            <View style={{ paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1 }}>
+              <Pressable disabled={!profileId} onPress={() => profileId && router.push(`/players/${profileId}` as any)}>
+                <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.primary }}>{athleteLabel(item)}</Text>
+              </Pressable>
+
+              <Text style={{ marginTop: 6, opacity: 0.8 }}>Stato: {statusLabel(item.status)}</Text>
+              {item.note ? <Text style={{ marginTop: 4, opacity: 0.75 }}>Nota: {item.note}</Text> : null}
+
+              <Pressable
+                disabled={busy}
+                onPress={() => onSelectStatus(item.id)}
+                style={{ marginTop: 10, alignSelf: "flex-start", borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}
+              >
+                <Text style={{ fontWeight: "600" }}>{busy ? "Aggiornamento..." : "Cambia stato"}</Text>
+              </Pressable>
+            </View>
+          );
+        }}
+      />
+    </View>
+  );
+}
+
+
+
+==================================================
+FILE: app/players/[id].tsx
+==================================================
+import { useMemo, useEffect, useState } from "react";
+import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { supabase } from "../../src/lib/supabase";
+import FollowButton from "../../src/components/follow/FollowButton";
+import { isUuid, useWebSession, useWhoami } from "../../src/lib/api";
+import { getFeedPosts, type FeedPost } from "../../src/lib/feed/getFeedPosts";
+import FeedCard from "../../src/components/feed/FeedCard";
+import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
+import { theme } from "../../src/theme";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+
+type ProfileRow = {
+  id: string;
+  full_name?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  sport?: string | null;
+  role?: string | null;
+  country?: string | null;
+  birth_year?: number | null;
+  height_cm?: number | null;
+  weight_kg?: number | null;
+  foot?: string | null;
+  interest_city?: string | null;
+  interest_province?: string | null;
+  interest_region?: string | null;
+  interest_country?: string | null;
+  bio?: string | null;
+  [key: string]: unknown;
+};
+
+const getTextValue = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const getNumberValue = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+export default function PlayerProfileScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams<{ id?: string | string[] }>();
+  const insets = useSafeAreaInsets();
+
+  const id = useMemo(() => {
+    const raw = params.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : null;
+    if (!raw) return null;
+    const v = String(raw).trim();
+    return isUuid(v) ? v : null;
+  }, [params.id]);
+
+  const web = useWebSession();
+  const whoami = useWhoami(web.ready);
+
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const isLoading = loading || web.loading || whoami.loading;
+
+  useEffect(() => {
+    let mounted = true;
+
+    const load = async () => {
+      if (!id) {
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      const res = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
+
+      if (!mounted) return;
+      setProfile(res.data ? (res.data as ProfileRow) : null);
+      setLoading(false);
+    };
+
+    void load();
+
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadWallPosts = async () => {
+      if (!id) {
+        setPosts([]);
+        setPostsLoading(false);
+        return;
+      }
+
+      setPostsLoading(true);
+      try {
+        const res = await getFeedPosts({ scope: "all" });
+        if (!mounted) return;
+
+        const filtered = res.items
+          .filter((item) => {
+            const raw = item.raw ?? {};
+            const authorCandidates = [
+              raw?.author_profile_id,
+              raw?.authorId,
+              raw?.author_id,
+              raw?.author_profile?.id,
+              item.author_id,
+            ];
+            return authorCandidates.some((candidate) =>
+              typeof candidate === "string" ? candidate.trim() === id : false,
+            );
+          })
+          .slice(0, 10);
+
+        setPosts(filtered);
+      } catch (error) {
+        if (__DEV__) console.log("[players] wall posts load error", error);
+        if (!mounted) return;
+        setPosts([]);
+      } finally {
+        if (mounted) setPostsLoading(false);
+      }
+    };
+
+    void loadWallPosts();
+
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
+
+  const displayName = isLoading ? "Caricamento…" : getProfileDisplayName({ ...(profile ?? {}), account_type: "athlete" });
+  const avatarUrl = getTextValue(profile?.avatar_url);
+  const sport = getTextValue(profile?.sport);
+  const role = getTextValue(profile?.role);
+  const sportRole = [sport, role].filter(Boolean).join(" • ") || "—";
+
+  const nationality = getTextValue(profile?.country) || "—";
+  const birthYear = getNumberValue(profile?.birth_year);
+  const currentYear = new Date().getFullYear();
+  const age = birthYear ? String(currentYear - birthYear) : "—";
+
+  const heightCm = getNumberValue(profile?.height_cm);
+  const weightKg = getNumberValue(profile?.weight_kg);
+  const height = heightCm ? `${heightCm} cm` : "—";
+  const weight = weightKg ? `${weightKg} kg` : "—";
+  const foot = getTextValue(profile?.foot) || "—";
+
+  const interestParts = [
+    getTextValue(profile?.interest_city),
+    getTextValue(profile?.interest_province),
+    getTextValue(profile?.interest_region),
+    getTextValue(profile?.interest_country),
+  ].filter(Boolean) as string[];
+  const interestLocation = interestParts.join(" • ") || "—";
+
+  const biography = getTextValue(profile?.bio) || "—";
+
+  if (!id) {
+    return (
+      <View style={{ flex: 1, padding: 24, gap: 12, justifyContent: "center" }}>
+        <Text style={{ fontSize: 18, fontWeight: "800" }}>Profilo non valido</Text>
+        <Text style={{ color: theme.colors.muted }}>Questo percorso richiede un UUID valido.</Text>
+        <Pressable
+          onPress={() => router.back()}
+          style={{
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: theme.colors.text,
+            alignSelf: "flex-start",
+          }}
+        >
+          <Text style={{ fontWeight: "700", color: theme.colors.text }}>Indietro</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <ScrollView
+        style={{ flex: 1, backgroundColor: theme.colors.background }}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingTop: 8,
+          gap: 16,
+          paddingBottom: 16,
+        }}
+        scrollIndicatorInsets={{ bottom: 16 + (insets.bottom || 0) }}
+      >
+
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          backgroundColor: theme.colors.neutral50,
+          padding: 16,
+          gap: 14,
+        }}
+      >
+        <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+          {avatarUrl ? (
+            <Image
+              source={{ uri: avatarUrl }}
+              style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: theme.colors.neutral200 }}
+            />
+          ) : (
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: theme.colors.neutral200,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text style={{ fontWeight: "800", color: theme.colors.muted, fontSize: 20 }}>
+                {displayName.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+
+          <View style={{ flex: 1, gap: 8 }}>
+            <Text style={{ fontSize: 24, fontWeight: "900", color: theme.colors.text }}>{displayName}</Text>
+            <View
+              style={{
+                alignSelf: "flex-start",
+                borderRadius: 999,
+                backgroundColor: theme.colors.neutral200,
+                paddingVertical: 4,
+                paddingHorizontal: 10,
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: "700", color: theme.colors.text }}>Player</Text>
+            </View>
+            <Text style={{ color: theme.colors.muted }}>{sportRole}</Text>
+            <Text style={{ color: theme.colors.muted }}>{[nationality, interestLocation].filter(Boolean).join(" • ")}</Text>
+          </View>
+        </View>
+
+        <FollowButton targetProfileId={id} />
+      </View>
+
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          backgroundColor: theme.colors.neutral50,
+          padding: 16,
+          gap: 12,
+        }}
+      >
+        <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Dati player</Text>
+
+        <View style={{ flexDirection: "row", flexWrap: "wrap", rowGap: 14, columnGap: 12 }}>
+          {[
+            { label: "Età", value: age },
+            { label: "Altezza", value: height },
+            { label: "Peso", value: weight },
+            { label: "Piede", value: foot },
+            { label: "Sport", value: sport || "—" },
+            { label: "Ruolo", value: role || "—" },
+            { label: "Nazionalità", value: nationality },
+            { label: "Zona di interesse", value: interestLocation },
+          ].map((item) => (
+            <View key={item.label} style={{ width: "48%", gap: 4 }}>
+              <Text style={{ fontSize: 12, color: theme.colors.muted }}>{item.label}</Text>
+              <Text style={{ fontSize: 15, fontWeight: "700", color: theme.colors.text }}>{item.value}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          backgroundColor: theme.colors.neutral50,
+          padding: 16,
+          gap: 8,
+        }}
+      >
+        <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Biografia</Text>
+        <Text style={{ color: theme.colors.text, lineHeight: 22 }}>{biography}</Text>
+      </View>
+
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          backgroundColor: theme.colors.neutral50,
+          padding: 16,
+          gap: 10,
+        }}
+      >
+        <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Bacheca</Text>
+
+        {postsLoading ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <ActivityIndicator size="small" />
+            <Text style={{ color: theme.colors.muted }}>Carico post…</Text>
+          </View>
+        ) : null}
+
+        {!postsLoading && posts.length === 0 ? (
+          <Text style={{ color: theme.colors.muted }}>Nessun post pubblicato</Text>
+        ) : null}
+
+        {!postsLoading && posts.length > 0
+          ? posts.map((post) => {
+              return <FeedCard key={post.id} item={post} />;
+            })
+          : null}
+      </View>
+
+      {loading ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <ActivityIndicator size="small" />
+          <Text style={{ color: theme.colors.muted }}>Carico profilo…</Text>
+        </View>
+      ) : null}
+      <View style={{ height: 16 + (insets.bottom || 0) }} />
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+
+
+==================================================
+FILE: app/posts/[id].tsx
+==================================================
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { VideoView, useVideoPlayer } from "expo-video";
+
+import { supabase } from "../../src/lib/supabase";
+import {
+  fetchCommentCountsForIds,
+  fetchReactionsForIds,
+  setPostReaction,
+  useWebSession,
+  useWhoami,
+} from "../../src/lib/api";
+import { CommentsSection } from "../../src/components/CommentsSection";
+import { getPostText, type FeedAuthor } from "../../src/lib/feed/getFeedPosts";
+import { emit } from "../../src/lib/events/appEvents";
+import { sharePostById } from "../../src/lib/sharePost";
+import { devWarn } from "../../src/lib/debug/devLog";
+import { theme } from "../../src/theme";
+import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
+
+const POST_FIELDS =
+  "id, content, created_at, author_id, media_url, media_type, media_aspect, kind, event_payload, quoted_post_id";
+
+type PostDetail = {
+  id: string;
+  author_id: string | null;
+  created_at: string | null;
+  raw: Record<string, any>;
+  author: FeedAuthor | null;
+  quoted_post_id?: string | null;
+};
+
+type SocialState = {
+  likeCount: number;
+  commentCount: number;
+  viewerHasLiked: boolean;
+  loading: boolean;
+  error: string | null;
+};
+
+function asString(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (value == null) return null;
+  try {
+    return String(value);
+  } catch {
+    return null;
+  }
+}
+
+function formatWhen(iso?: string | null) {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleString();
+  } catch {
+    return "";
+  }
+}
+
+function getSafeAuthorName(author: any): string {
+  return getProfileDisplayName(author ?? null);
+}
+
+function getWhoamiUserId(user: unknown): string | null {
+  if (!user || typeof user !== "object") return null;
+
+  const candidate = (user as any).id ?? (user as any).user_id ?? null;
+  if (typeof candidate !== "string") return null;
+
+  const trimmed = candidate.trim();
+  return trimmed ? trimmed : null;
+}
+
+function Avatar({ url, size = 44, name }: { url?: string | null; size?: number; name?: string }) {
+  if (!url) {
+    const initial = name?.trim().charAt(0).toUpperCase() || "U";
+    return (
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: theme.colors.neutral200,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Text style={{ fontSize: Math.max(12, Math.floor(size * 0.35)), fontWeight: "700", color: theme.colors.text }}>
+          {initial}
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <Image
+      source={{ uri: url }}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: theme.colors.neutral200,
+      }}
+    />
+  );
+}
+
+async function fetchAuthorProfile(authorId: string | null): Promise<FeedAuthor | null> {
+  if (!authorId) return null;
+
+  const primary = await supabase
+    .from("profiles")
+    .select("id, user_id, full_name, display_name, avatar_url, account_type, type")
+    .eq("user_id", authorId)
+    .maybeSingle();
+
+  let data = primary.data;
+  if (!data && !primary.error) {
+    const fallback = await supabase
+      .from("profiles")
+      .select("id, user_id, full_name, display_name, avatar_url, account_type, type")
+      .eq("id", authorId)
+      .maybeSingle();
+    data = fallback.data;
+  }
+
+  if (!data) return null;
+
+  return {
+    id: asString((data as any).id) ?? undefined,
+    user_id: asString((data as any).user_id) ?? null,
+    full_name: typeof (data as any).full_name === "string" ? (data as any).full_name : null,
+    display_name: typeof (data as any).display_name === "string" ? (data as any).display_name : null,
+    avatar_url: typeof (data as any).avatar_url === "string" ? (data as any).avatar_url : null,
+    account_type: typeof (data as any).account_type === "string" ? (data as any).account_type : null,
+    type: typeof (data as any).type === "string" ? (data as any).type : null,
+  };
+}
+
+async function fetchPostCore(postId: string): Promise<PostDetail | null> {
+  const { data, error } = await supabase
+    .from("posts")
+    .select(POST_FIELDS)
+    .eq("id", postId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  const author = await fetchAuthorProfile(asString((data as any).author_id));
+
+  return {
+    id: asString((data as any).id) ?? postId,
+    author_id: asString((data as any).author_id),
+    created_at: asString((data as any).created_at),
+    quoted_post_id: asString((data as any).quoted_post_id),
+    raw: data as any,
+    author,
+  };
+}
+
+function PostVideo({ uri }: { uri: string }) {
+  const player = useVideoPlayer({ uri }, (p) => {
+    // Detail view: show controls, no autoplay (do not call play()).
+    p.muted = false;
+    p.loop = false;
+  });
+
+  return (
+    <View style={{ width: "100%", height: 240, backgroundColor: theme.colors.text }}>
+      <VideoView
+        player={player}
+        style={{ width: "100%", height: "100%" }}
+        nativeControls
+        allowsFullscreen
+        allowsPictureInPicture
+        contentFit="contain"
+      />
+    </View>
+  );
+}
+
+function PostCard({ post, title }: { post: PostDetail; title?: string }) {
+  const authorName = getSafeAuthorName(post.author);
+  const when = formatWhen(post.created_at);
+  const text = getPostText(post.raw);
+  const mediaUrl = asString((post.raw as any)?.media_url);
+  const mediaType = asString((post.raw as any)?.media_type);
+
+  return (
+    <View
+      style={{
+        borderWidth: 1,
+        borderColor: theme.colors.neutral200,
+        borderRadius: 16,
+        padding: 16,
+        gap: 12,
+        backgroundColor: theme.colors.background,
+      }}
+    >
+      {title ? (
+        <Text style={{ fontSize: 12, fontWeight: "700", color: theme.colors.muted }}>
+          {title}
+        </Text>
+      ) : null}
+
+      <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+        <Avatar url={post.author?.avatar_url ?? null} size={44} name={authorName} />
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 16, fontWeight: "800", color: theme.colors.text }}>
+            {authorName}
+          </Text>
+          <Text style={{ fontSize: 12, color: theme.colors.muted }}>{when}</Text>
+        </View>
+      </View>
+
+      {text ? (
+        <Text style={{ fontSize: 15, lineHeight: 20, color: theme.colors.text }}>
+          {text}
+        </Text>
+      ) : null}
+
+      {mediaUrl ? (
+        <View style={{ borderRadius: 14, overflow: "hidden", backgroundColor: theme.colors.neutral100 }}>
+          {mediaType === "video" ? (
+            <PostVideo uri={mediaUrl} />
+          ) : (
+            <Image
+              source={{ uri: mediaUrl }}
+              style={{ width: "100%", height: 240 }}
+              resizeMode="cover"
+            />
+          )}
+          <View style={{ padding: 10 }}>
+            <Text style={{ fontSize: 12, color: theme.colors.muted }}>
+              {mediaType === "video" ? "Video" : "Media"}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+export default function PostDetailScreen() {
+  const params = useLocalSearchParams<{ id?: string | string[] }>();
+  const router = useRouter();
+
+  const postId = useMemo(() => {
+    if (!params.id) return null;
+    return Array.isArray(params.id) ? params.id[0] : params.id;
+  }, [params.id]);
+
+  const web = useWebSession();
+  const whoami = useWhoami(web.ready);
+  const currentUserId = getWhoamiUserId(whoami.data?.user);
+
+  const [post, setPost] = useState<PostDetail | null>(null);
+  const [quotedPost, setQuotedPost] = useState<PostDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [social, setSocial] = useState<SocialState>({
+    likeCount: 0,
+    commentCount: 0,
+    viewerHasLiked: false,
+    loading: true,
+    error: null,
+  });
+
+  const [isToggling, setIsToggling] = useState(false);
+  const [flash, setFlash] = useState<string | null>(null);
+
+  const loadSocial = useCallback(async (targetPostId: string) => {
+    setSocial((prev) => ({ ...prev, loading: true, error: null }));
+    try {
+      const [rRes, cRes] = await Promise.all([
+        fetchReactionsForIds([targetPostId]),
+        fetchCommentCountsForIds([targetPostId]),
+      ]);
+
+      if (!rRes.ok) throw new Error(rRes.errorText ?? `Reactions HTTP ${rRes.status}`);
+      if (!cRes.ok) throw new Error(cRes.errorText ?? `Comments HTTP ${cRes.status}`);
+
+      const likeCount =
+        (rRes.data?.counts ?? []).find((x) => x.post_id === targetPostId && x.reaction === "like")?.count ?? 0;
+
+      const viewerHasLiked =
+        (rRes.data?.mine ?? []).some((m) => m.post_id === targetPostId && m.reaction === "like");
+
+      const commentCount =
+        (cRes.data?.counts ?? []).find((x) => x.post_id === targetPostId)?.count ?? 0;
+
+      setSocial({
+        likeCount,
+        commentCount,
+        viewerHasLiked,
+        loading: false,
+        error: null,
+      });
+    } catch (e: any) {
+      setSocial((prev) => ({
+        ...prev,
+        loading: false,
+        error: e?.message ? String(e.message) : "Errore nel social",
+      }));
+    }
+  }, []);
+
+  const load = useCallback(async () => {
+    if (!postId) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const core = await fetchPostCore(postId);
+      if (!core) {
+        setPost(null);
+        setQuotedPost(null);
+        setError("Post non trovato");
+        return;
+      }
+
+      setPost(core);
+
+      if (core.quoted_post_id) {
+        const quoted = await fetchPostCore(core.quoted_post_id);
+        setQuotedPost(quoted);
+      } else {
+        setQuotedPost(null);
+      }
+
+      await loadSocial(postId);
+    } catch (e: any) {
+      setPost(null);
+      setQuotedPost(null);
+      setError(e?.message ? String(e.message) : "Errore nel caricamento post");
+    } finally {
+      setLoading(false);
+    }
+  }, [loadSocial, postId]);
+
+  useEffect(() => {
+    if (!web.ready) return;
+    if (!whoami.data?.user) return;
+    void load();
+  }, [load, web.ready, whoami.data?.user]);
+
+  const handleRetry = () => {
+    if (web.error) {
+      web.retry();
+      return;
+    }
+    void load();
+  };
+
+  const handleLikeToggle = async () => {
+    if (!postId || isToggling) return;
+    setIsToggling(true);
+    setSocial((prev) => ({ ...prev, error: null }));
+
+    const nextHasLiked = !social.viewerHasLiked;
+
+    try {
+      // ✅ WEB parity: unlike = reaction null
+      const res = await setPostReaction(postId, nextHasLiked ? "like" : null);
+      if (!res.ok) throw new Error(res.errorText ?? `Toggle HTTP ${res.status}`);
+
+      const likeCount =
+        (res.data?.counts ?? []).find((x) => x.post_id === postId && x.reaction === "like")?.count ?? 0;
+
+      const viewerHasLiked = res.data?.mine === "like";
+
+      setSocial((prev) => ({
+        ...prev,
+        likeCount,
+        viewerHasLiked,
+      }));
+
+      emit("feed:refresh");
+    } catch (e: any) {
+      setSocial((prev) => ({
+        ...prev,
+        error: e?.message ? String(e.message) : "Errore nel like",
+      }));
+    } finally {
+      setIsToggling(false);
+      await loadSocial(postId);
+    }
+  };
+
+  const handleShare = async () => {
+    if (!postId) return;
+    try {
+      await sharePostById(postId, setFlash);
+    } catch (error: any) {
+      devWarn("sharePostById failed", error);
+      setFlash(error?.message ? String(error.message) : "Condivisione non disponibile");
+    }
+  };
+
+  const handleCommentCountChange = (nextCount: number) => {
+    setSocial((prev) => ({ ...prev, commentCount: Math.max(0, nextCount) }));
+    emit("feed:refresh");
+  };
+
+  if (web.loading || whoami.loading || loading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10, padding: 24 }}>
+        <ActivityIndicator />
+        <Text style={{ color: theme.colors.muted }}>Caricamento dettaglio…</Text>
+      </View>
+    );
+  }
+
+  if (web.error) {
+    return (
+      <View style={{ flex: 1, padding: 24, gap: 12, justifyContent: "center" }}>
+        <Text style={{ fontSize: 18, fontWeight: "800" }}>Sessione web</Text>
+        <Text style={{ color: theme.colors.danger }}>Sessione web non disponibile.</Text>
+        <Pressable
+          onPress={handleRetry}
+          style={{
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: theme.colors.text,
+            alignSelf: "flex-start",
+          }}
+        >
+          <Text style={{ fontWeight: "700", color: theme.colors.text }}>Riprova</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (!whoami.data?.user) {
+    return (
+      <View style={{ flex: 1, padding: 24, gap: 16, justifyContent: "center" }}>
+        <Text style={{ fontSize: 20, fontWeight: "800" }}>Login richiesto</Text>
+        <Text style={{ color: theme.colors.text }}>
+          Per vedere il dettaglio del post devi effettuare l'accesso.
+        </Text>
+        <Pressable
+          onPress={() => router.replace("/(auth)/login")}
+          style={{
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: 10,
+            backgroundColor: theme.colors.text,
+            alignSelf: "flex-start",
+          }}
+        >
+          <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Vai al login</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={{ flex: 1, padding: 24, gap: 12, justifyContent: "center" }}>
+        <Text style={{ fontSize: 18, fontWeight: "800" }}>Errore</Text>
+        <Text style={{ color: theme.colors.danger }}>{error}</Text>
+        <Pressable
+          onPress={handleRetry}
+          style={{
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: theme.colors.text,
+            alignSelf: "flex-start",
+          }}
+        >
+          <Text style={{ fontWeight: "700", color: theme.colors.text }}>Riprova</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (!post) {
+    return (
+      <View style={{ flex: 1, padding: 24, gap: 12, justifyContent: "center" }}>
+        <Text style={{ fontSize: 18, fontWeight: "800" }}>Post non disponibile</Text>
+        <Text style={{ color: theme.colors.muted }}>
+          Questo post non esiste o non è accessibile.
+        </Text>
+        <Pressable
+          onPress={() => router.back()}
+          style={{
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: theme.colors.text,
+            alignSelf: "flex-start",
+          }}
+        >
+          <Text style={{ fontWeight: "700", color: theme.colors.text }}>Indietro</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
+      contentContainerStyle={{ padding: 24, paddingBottom: 32, gap: 18 }}
+    >
+      <Pressable onPress={() => router.back()} style={{ alignSelf: "flex-start" }}>
+        <Text style={{ fontWeight: "700", color: theme.colors.text }}>← Indietro</Text>
+      </Pressable>
+
+      <PostCard post={post} />
+      {quotedPost ? <PostCard post={quotedPost} title="Post citato" /> : null}
+
+      {flash ? (
+        <View style={{ borderWidth: 1, borderColor: theme.colors.neutral200, backgroundColor: theme.colors.neutral50, borderRadius: 12, padding: 12 }}>
+          <Text style={{ fontWeight: "700", color: theme.colors.text }}>{flash}</Text>
+        </View>
+      ) : null}
+
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 14,
+          padding: 16,
+          gap: 12,
+          backgroundColor: theme.colors.neutral50,
+        }}
+      >
+        <Text style={{ fontSize: 16, fontWeight: "800" }}>Reazioni</Text>
+
+        {social.loading ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <ActivityIndicator size="small" />
+            <Text style={{ color: theme.colors.muted }}>Caricamento reazioni…</Text>
+          </View>
+        ) : (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+            <Text style={{ color: theme.colors.text }}>👍 {social.likeCount}</Text>
+            <Text style={{ color: theme.colors.text }}>💬 {social.commentCount}</Text>
+          </View>
+        )}
+
+        {social.error ? <Text style={{ color: theme.colors.danger }}>{social.error}</Text> : null}
+
+        <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+          <Pressable
+            onPress={handleLikeToggle}
+            style={{
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: social.viewerHasLiked ? theme.colors.text : theme.colors.neutral200,
+              backgroundColor: social.viewerHasLiked ? theme.colors.text : "transparent",
+              alignSelf: "flex-start",
+              opacity: isToggling ? 0.6 : 1,
+            }}
+          >
+            <Text style={{ color: social.viewerHasLiked ? theme.colors.background : theme.colors.text, fontWeight: "700" }}>
+              {social.viewerHasLiked ? "Hai messo 👍" : "Metti 👍"}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={handleShare}
+            style={{
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: theme.colors.neutral200,
+              alignSelf: "flex-start",
+            }}
+          >
+            <Text style={{ color: theme.colors.text, fontWeight: "700" }}>Condividi</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      <CommentsSection
+        postId={post.id}
+        currentUserId={currentUserId}
+        initialCount={social.commentCount}
+        onCountChange={handleCommentCountChange}
+      />
+    </ScrollView>
+  );
+}
+
+
+
+==================================================
+FILE: app/profile/[id].tsx
+==================================================
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  RefreshControl,
+  Image,
+  Alert,
+} from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { supabase } from "../../src/lib/supabase";
+import { resolveProfileByAuthorId, type Profile } from "../../src/lib/profiles/resolveProfile";
+import { getFollowSocialForProfile, type FollowSocial } from "../../src/lib/social/getFollowSocial";
+import { isCertifiedClub } from "../../src/lib/profiles/certification";
+import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
+import { theme } from "../../src/theme";
+
+function buildDisplayName(p: Profile | null) {
+  return getProfileDisplayName(p);
+}
+
+function buildLocation(p: Profile | null) {
+  const parts = [p?.city, p?.province, p?.region, p?.country]
+    .map((v) => (v ?? "").trim())
+    .filter(Boolean);
+  return parts.length ? parts.join(" • ") : "—";
+}
+
+function buildTagline(p: Profile | null) {
+  const parts = [p?.sport, p?.role].map((v) => (v ?? "").trim()).filter(Boolean);
+  return parts.length ? parts.join(" • ") : "—";
+}
+
+export default function ProfileByIdScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams<{ id?: string }>();
+  const profileKey = (params.id ?? "").toString();
+
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [followSocial, setFollowSocial] = useState<FollowSocial | null>(null);
+  const [viewerUserId, setViewerUserId] = useState<string | null>(null);
+  const [viewerProfileId, setViewerProfileId] = useState<string | null>(null);
+
+  const title = useMemo(() => buildDisplayName(profile), [profile]);
+
+  const load = useCallback(async () => {
+    setError(null);
+    setFollowSocial(null);
+
+    if (!profileKey) {
+      setProfile(null);
+      setError("Profilo non valido.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      const viewerId = auth.user?.id ?? null;
+      setViewerUserId(viewerId);
+      setViewerProfileId(null);
+
+      if (viewerId) {
+        const viewerProfile = await resolveProfileByAuthorId(viewerId, supabase);
+        setViewerProfileId(viewerProfile?.id ?? null);
+      }
+
+      const found = await resolveProfileByAuthorId(profileKey, supabase);
+
+      if (!found) {
+        setProfile(null);
+        setError("Profilo non trovato.");
+      } else {
+        setProfile(found);
+      }
+
+      const followData = await getFollowSocialForProfile({
+        viewerUserId: viewerId,
+        profileKey,
+        supabase,
+      });
+      setFollowSocial(followData);
+    } catch (e: any) {
+      setProfile(null);
+      setError(e?.message ? String(e.message) : "Errore nel caricamento profilo");
+    } finally {
+      setLoading(false);
+    }
+  }, [profileKey]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const onRefresh = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [load]);
+
+  const Avatar = () => {
+    if (profile?.avatar_url) {
+      return (
+        <Image
+          source={{ uri: profile.avatar_url }}
+          style={{
+            width: 72,
+            height: 72,
+            borderRadius: 999,
+            backgroundColor: theme.colors.neutral200,
+          }}
+        />
+      );
+    }
+    const letter = (title.slice(0, 1) || "U").toUpperCase();
+    return (
+      <View
+        style={{
+          width: 72,
+          height: 72,
+          borderRadius: 999,
+          backgroundColor: theme.colors.neutral200,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Text style={{ fontSize: 22, fontWeight: "900" }}>{letter}</Text>
+      </View>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{ padding: 24, paddingBottom: 32, gap: 16 }}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <Pressable
+          onPress={() => router.back()}
+          style={{
+            paddingVertical: 10,
+            paddingHorizontal: 12,
+            borderWidth: 1,
+            borderColor: theme.colors.neutral200,
+            borderRadius: 10,
+          }}
+        >
+          <Text style={{ fontWeight: "800" }}>←</Text>
+        </Pressable>
+
+        <Text style={{ fontSize: 20, fontWeight: "900" }} numberOfLines={1}>
+          {title}
+        </Text>
+      </View>
+
+      {error ? (
+        <View
+          style={{
+            borderWidth: 1,
+            borderColor: theme.colors.dangerBorder,
+            backgroundColor: theme.colors.dangerBg,
+            borderRadius: 12,
+            padding: 14,
+            gap: 8,
+          }}
+        >
+          <Text style={{ fontWeight: "900", color: theme.colors.danger }}>Errore</Text>
+          <Text style={{ color: theme.colors.danger }}>{error}</Text>
+          <Pressable
+            onPress={() => {
+              setLoading(true);
+              load();
+            }}
+            style={{ alignSelf: "flex-start" }}
+          >
+            <Text style={{ color: theme.colors.primary, fontWeight: "900" }}>Riprova</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {!error && profile ? (
+        <View style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, padding: 16, gap: 12 }}>
+          <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+            <Avatar />
+            <View style={{ flex: 1, gap: 2 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Text style={{ fontSize: 18, fontWeight: "900" }}>{title}</Text>
+                {isCertifiedClub({
+                  account_type: profile.account_type,
+                  type: profile.type,
+                  role: profile.role,
+                  verified_until: profile.verified_until,
+                  certified: profile.certified,
+                  certification_status: profile.certification_status,
+                }) ? <Text style={{ fontSize: 12, fontWeight: "900", color: theme.colors.text }}>C</Text> : null}
+              </View>
+              <Text style={{ color: theme.colors.text }}>{buildTagline(profile)}</Text>
+              <Text style={{ color: theme.colors.muted, fontSize: 12 }}>
+                {buildLocation(profile)}
+              </Text>
+            </View>
+          </View>
+
+          {followSocial?.discoveryStatus === "discovery_failed" ? (
+            <Text style={{ color: theme.colors.muted }}>Statistiche non disponibili</Text>
+          ) : (
+            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              <Text style={{ color: theme.colors.text, fontWeight: "700" }}>
+                Follower: {followSocial?.followerCount ?? 0}
+              </Text>
+              <Text style={{ color: theme.colors.text, fontWeight: "700" }}>
+                Seguiti: {followSocial?.followingCount ?? 0}
+              </Text>
+            </View>
+          )}
+
+          {profile.user_id === viewerUserId ||
+          profile.id === viewerProfileId ||
+          profileKey === viewerUserId ? null : (
+            <Pressable
+              onPress={() => {
+                if (!viewerUserId) {
+                  router.replace("/(auth)/login");
+                  return;
+                }
+                Alert.alert("Segui", "Funzione in arrivo");
+              }}
+              style={{
+                alignSelf: "flex-start",
+                paddingVertical: 8,
+                paddingHorizontal: 16,
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: followSocial?.isFollowing ? theme.colors.primary : theme.colors.text,
+                backgroundColor: followSocial?.isFollowing ? theme.colors.primary : "transparent",
+              }}
+            >
+              <Text
+                style={{
+                  fontWeight: "800",
+                  color: followSocial?.isFollowing ? theme.colors.background : theme.colors.text,
+                }}
+              >
+                {followSocial?.isFollowing ? "Seguito" : "Segui"}
+              </Text>
+            </Pressable>
+          )}
+
+          <View style={{ gap: 6 }}>
+            <Text style={{ fontWeight: "800" }}>Bio</Text>
+            <Text style={{ color: theme.colors.text }}>
+              {profile.bio && profile.bio.trim().length > 0
+                ? profile.bio
+                : "Nessuna bio disponibile."}
+            </Text>
+          </View>
+
+          <Text style={{ color: theme.colors.muted, fontSize: 12 }}>
+            type: {(profile.account_type ?? profile.type ?? "—").toString()}
+          </Text>
+        </View>
+      ) : null}
+    </ScrollView>
+  );
+}
+
+
+
+==================================================
+FILE: src/components/CommentsSection.tsx
+==================================================
+import { useMemo, useState } from "react";
+import { ActivityIndicator, Image, Pressable, Text, TextInput, View } from "react-native";
+import { createComment, deleteComment, editComment, fetchComments, type FeedComment } from "../lib/api";
+import { getProfileDisplayName } from "../lib/profiles/getProfileDisplayName";
+import { theme } from "../theme";
+
+type CommentsSectionProps = {
+  postId: string;
+  currentUserId: string | null;
+  initialCount: number;
+  onCountChange?: (nextCount: number) => void;
+  loadLimit?: number;
+};
+
+const EDIT_WINDOW_MS = 60 * 1000;
+
+function getDisplayName(comment: FeedComment): string {
+  return getProfileDisplayName(comment.author ?? null);
+}
+
+function getAvatarUrl(comment: FeedComment): string | null {
+  const url = typeof comment.author?.avatar_url === "string" ? comment.author.avatar_url.trim() : "";
+  return url ? url : null;
+}
+
+function Avatar({ url, size = 34, name }: { url?: string | null; size?: number; name?: string }) {
+  if (!url) {
+    const initial = name?.trim().charAt(0).toUpperCase() || "U";
+    return (
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: theme.colors.neutral200,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Text style={{ fontSize: Math.max(12, Math.floor(size * 0.38)), fontWeight: "800", color: theme.colors.text }}>
+          {initial}
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri: url }}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: theme.colors.neutral200,
+      }}
+    />
+  );
+}
+
+function canEditComment(comment: FeedComment, currentUserId: string | null): boolean {
+  if (!currentUserId) return false;
+  const isOwner = currentUserId === comment.author_id || currentUserId === comment.author?.user_id;
+  if (!isOwner) return false;
+
+  const createdAtMs = Number(new Date(comment.created_at));
+  if (!Number.isFinite(createdAtMs)) return false;
+
+  return Date.now() - createdAtMs <= EDIT_WINDOW_MS;
+}
+
+function canDeleteComment(comment: FeedComment, currentUserId: string | null): boolean {
+  if (!currentUserId) return false;
+  return currentUserId === comment.author_id || currentUserId === comment.author?.user_id;
+}
+
+export function CommentsSection({
+  postId,
+  currentUserId,
+  initialCount,
+  onCountChange,
+  loadLimit = 100,
+}: CommentsSectionProps) {
+  const [expanded, setExpanded] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [comments, setComments] = useState<FeedComment[]>([]);
+  const [count, setCount] = useState(initialCount);
+
+  const [draft, setDraft] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [busyCommentId, setBusyCommentId] = useState<string | null>(null);
+
+  const previewComments = useMemo(() => comments.slice(0, 2), [comments]);
+
+  const updateCount = (nextCount: number) => {
+    const normalized = Math.max(0, nextCount);
+    setCount(normalized);
+    if (onCountChange) onCountChange(normalized);
+  };
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+
+    const res = await fetchComments(postId, loadLimit);
+    if (!res.ok) {
+      setError(res.errorText ?? `Errore caricamento commenti (${res.status})`);
+      setLoading(false);
+      return;
+    }
+
+    const nextComments = Array.isArray(res.data?.comments) ? res.data?.comments : [];
+    setComments(nextComments);
+    setHasLoaded(true);
+    updateCount(Math.max(count, nextComments.length));
+    setLoading(false);
+  };
+
+  const toggleExpanded = async () => {
+    const nextExpanded = !expanded;
+    setExpanded(nextExpanded);
+
+    if (nextExpanded && !hasLoaded && !loading) {
+      await load();
+    }
+  };
+
+  const onCreate = async () => {
+    if (!postId || submitting) return;
+
+    const body = draft.trim();
+    if (!body) return;
+
+    setSubmitting(true);
+    setError(null);
+
+    const res = await createComment(postId, body);
+    if (!res.ok || !res.data?.comment) {
+      setError(res.errorText ?? `Errore creazione commento (${res.status})`);
+      setSubmitting(false);
+      return;
+    }
+
+    const nextComments = [...comments, res.data.comment];
+    setComments(nextComments);
+    setDraft("");
+    setHasLoaded(true);
+    updateCount(count + 1);
+    setSubmitting(false);
+  };
+
+  const onStartEdit = (comment: FeedComment) => {
+    setEditingCommentId(comment.id);
+    setEditDraft(comment.body ?? "");
+    setError(null);
+  };
+
+  const onCancelEdit = () => {
+    setEditingCommentId(null);
+    setEditDraft("");
+  };
+
+  const onSaveEdit = async () => {
+    if (!editingCommentId || busyCommentId) return;
+
+    const body = editDraft.trim();
+    if (!body) return;
+
+    setBusyCommentId(editingCommentId);
+    setError(null);
+
+    const res = await editComment(editingCommentId, body);
+    if (!res.ok || !res.data?.comment) {
+      setError(res.errorText ?? `Errore modifica commento (${res.status})`);
+      setBusyCommentId(null);
+      return;
+    }
+
+    setComments((prev) => prev.map((item) => (item.id === editingCommentId ? res.data!.comment : item)));
+    setEditingCommentId(null);
+    setEditDraft("");
+    setBusyCommentId(null);
+  };
+
+  const onDelete = async (commentId: string) => {
+    if (busyCommentId) return;
+
+    setBusyCommentId(commentId);
+    setError(null);
+
+    const res = await deleteComment(commentId);
+    if (!res.ok) {
+      setError(res.errorText ?? `Errore eliminazione commento (${res.status})`);
+      setBusyCommentId(null);
+      return;
+    }
+
+    const nextComments = comments.filter((item) => item.id !== commentId);
+    setComments(nextComments);
+    updateCount(count - 1);
+
+    if (editingCommentId === commentId) onCancelEdit();
+    setBusyCommentId(null);
+  };
+
+  return (
+    <View
+      style={{
+        borderWidth: 1,
+        borderColor: theme.colors.neutral200,
+        borderRadius: 14,
+        padding: 16,
+        gap: 12,
+        backgroundColor: theme.colors.background,
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <Text style={{ fontSize: 16, fontWeight: "800", color: theme.colors.text }}>Commenti ({count})</Text>
+        <Pressable onPress={toggleExpanded}>
+          <Text style={{ fontWeight: "700", color: theme.colors.text }}>
+            {expanded ? "Nascondi commenti" : "Mostra commenti"}
+          </Text>
+        </Pressable>
+      </View>
+
+      {!expanded && hasLoaded && previewComments.length > 0 ? (
+        <View style={{ gap: 12 }}>
+          {previewComments.map((comment) => {
+            const name = getDisplayName(comment);
+            const avatarUrl = getAvatarUrl(comment);
+            return (
+              <View key={comment.id} style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
+                <Avatar url={avatarUrl} size={30} name={name} />
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Text style={{ fontSize: 13, fontWeight: "800", color: theme.colors.text }}>{name}</Text>
+                  <Text style={{ color: theme.colors.text }}>{comment.body}</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
+
+      {expanded ? (
+        <>
+          {loading ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <ActivityIndicator size="small" />
+              <Text style={{ color: theme.colors.muted }}>Caricamento commenti…</Text>
+            </View>
+          ) : comments.length === 0 ? (
+            <Text style={{ color: theme.colors.muted }}>Nessun commento.</Text>
+          ) : (
+            <View style={{ gap: 12 }}>
+              {comments.map((comment) => {
+                const isEditing = editingCommentId === comment.id;
+                const isBusy = busyCommentId === comment.id;
+                const canEdit = canEditComment(comment, currentUserId);
+                const canDelete = canDeleteComment(comment, currentUserId);
+
+                const name = getDisplayName(comment);
+                const avatarUrl = getAvatarUrl(comment);
+
+                return (
+                  <View
+                    key={comment.id}
+                    style={{
+                      gap: 8,
+                      borderBottomWidth: 1,
+                      borderBottomColor: theme.colors.neutral100,
+                      paddingBottom: 12,
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
+                      <Avatar url={avatarUrl} size={32} name={name} />
+                      <View style={{ flex: 1, gap: 6 }}>
+                        <Text style={{ fontSize: 13, fontWeight: "800", color: theme.colors.text }}>{name}</Text>
+
+                        {isEditing ? (
+                          <View style={{ gap: 8 }}>
+                            <TextInput
+                              value={editDraft}
+                              onChangeText={setEditDraft}
+                              multiline
+                              placeholder="Modifica commento"
+                              style={{
+                                borderWidth: 1,
+                                borderColor: theme.colors.neutral200,
+                                borderRadius: 10,
+                                padding: 10,
+                                minHeight: 44,
+                                color: theme.colors.text,
+                              }}
+                            />
+                            <View style={{ flexDirection: "row", gap: 12 }}>
+                              <Pressable onPress={onSaveEdit} disabled={isBusy || !editDraft.trim()}>
+                                <Text style={{ color: isBusy ? theme.colors.muted : theme.colors.text, fontWeight: "700" }}>
+                                  Salva
+                                </Text>
+                              </Pressable>
+                              <Pressable onPress={onCancelEdit} disabled={isBusy}>
+                                <Text style={{ color: theme.colors.muted, fontWeight: "700" }}>Annulla</Text>
+                              </Pressable>
+                            </View>
+                          </View>
+                        ) : (
+                          <Text style={{ color: theme.colors.text }}>{comment.body}</Text>
+                        )}
+
+                        {!isEditing && (canEdit || canDelete) ? (
+                          <View style={{ flexDirection: "row", gap: 14 }}>
+                            {canEdit ? (
+                              <Pressable onPress={() => onStartEdit(comment)} disabled={isBusy}>
+                                <Text style={{ color: isBusy ? theme.colors.muted : theme.colors.text, fontWeight: "700" }}>
+                                  Modifica
+                                </Text>
+                              </Pressable>
+                            ) : null}
+                            {canDelete ? (
+                              <Pressable onPress={() => onDelete(comment.id)} disabled={isBusy}>
+                                <Text style={{ color: isBusy ? theme.colors.muted : theme.colors.danger, fontWeight: "700" }}>
+                                  Elimina
+                                </Text>
+                              </Pressable>
+                            ) : null}
+                          </View>
+                        ) : null}
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
+          <View style={{ gap: 8 }}>
+            <TextInput
+              value={draft}
+              onChangeText={setDraft}
+              placeholder="Scrivi un commento"
+              multiline
+              style={{
+                borderWidth: 1,
+                borderColor: theme.colors.neutral200,
+                borderRadius: 10,
+                padding: 10,
+                minHeight: 44,
+                color: theme.colors.text,
+              }}
+            />
+            <Pressable
+              onPress={onCreate}
+              disabled={submitting || !draft.trim()}
+              style={{
+                paddingVertical: 10,
+                paddingHorizontal: 14,
+                borderRadius: 10,
+                backgroundColor: submitting || !draft.trim() ? theme.colors.neutral200 : theme.colors.text,
+                alignSelf: "flex-start",
+              }}
+            >
+              <Text style={{ color: theme.colors.background, fontWeight: "700" }}>
+                {submitting ? "Invio…" : "Commenta"}
+              </Text>
+            </Pressable>
+          </View>
+        </>
+      ) : null}
+
+      {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
+    </View>
+  );
+}
+
+
+
+==================================================
+FILE: src/components/feed/FeedCard.tsx
+==================================================
+import { useState } from "react";
+import { Image, Pressable, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+
+import { getAuthorName, getPostText, type FeedPost } from "../../lib/feed/getFeedPosts";
+import { isCertifiedClub } from "../../lib/profiles/certification";
+import { isUuid } from "../../lib/api";
+import FeedVideoPreview from "../../../components/feed/FeedVideoPreview";
+import LightboxModal from "../../../components/media/LightboxModal";
+import { sharePostById } from "../../lib/sharePost";
+import { devWarn } from "../../lib/debug/devLog";
+import { theme } from "../../theme";
+import { togglePostLike } from "../../lib/posts/togglePostLike";
+import { supabase } from "../../lib/supabase";
+
+function formatWhen(iso?: string | null) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString();
+  } catch {
+    return "";
+  }
+}
+
+function resolvePostPath(postId: string | null | undefined): string | null {
+  const id = (postId ?? "").toString().trim();
+  if (!id) return null;
+  return `/posts/${id}`;
+}
+
+function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
+  if (!url) {
+    return (
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: theme.colors.neutral200,
+        }}
+      />
+    );
+  }
+  return (
+    <Image
+      source={{ uri: url }}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: theme.colors.neutral200,
+      }}
+    />
+  );
+}
+
+export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: string) => void }) {
+  const router = useRouter();
+  const [lightbox, setLightbox] = useState<{ open: boolean; index: number }>({
+    open: false,
+    index: 0,
+  });
+
+  const authorName = getAuthorName(item.author);
+  const text = getPostText(item.raw);
+  const when = formatWhen(item.created_at);
+  const firstMedia = item.media?.[0] ?? null;
+  const [likeCount, setLikeCount] = useState(typeof item.likeCount === "number" ? item.likeCount : 0);
+  const [viewerHasLiked, setViewerHasLiked] = useState(Boolean(item.viewerHasLiked));
+  const [isLiking, setIsLiking] = useState(false);
+  const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
+
+  const post = (item?.raw as any) ?? (item as any);
+  const authorIdRaw = post?.author_profile?.id ?? post?.author_profile_id ?? post?.authorId ?? post?.author_id ?? null;
+
+  const authorUuid =
+    (typeof post?.author_profile?.id_uuid === "string" ? post.author_profile.id_uuid : null) ??
+    (typeof (post as any)?.author_profile_id_uuid === "string" ? (post as any).author_profile_id_uuid : null) ??
+    authorIdRaw;
+
+  const authorRoleRaw = (post as any)?.author_role ?? (post as any)?.authorRole ?? null;
+  const authorRole = typeof authorRoleRaw === "string" ? authorRoleRaw.toLowerCase().trim() : null;
+  const isAuthorClub = authorRole === "club";
+
+  const postPath = resolvePostPath(item.id);
+
+
+  const handleLikePress = async () => {
+    if (isLiking) return;
+    try {
+      setIsLiking(true);
+      const result = await togglePostLike({ postId: item.id, supabase });
+      setViewerHasLiked(result.liked);
+      setLikeCount((prev) => Math.max(0, prev + result.likeCountDelta));
+    } catch (error: any) {
+      onToast?.(error?.message ? String(error.message) : "Like non disponibile");
+    } finally {
+      setIsLiking(false);
+    }
+  };
+
+  const handleOpenComments = () => {
+    if (!postPath) return;
+    router.push(postPath);
+  };
+  const handleShare = async () => {
+    try {
+      await sharePostById(item.id, onToast);
+    } catch (error) {
+      devWarn("sharePostById failed", error);
+      onToast?.("Condivisione non disponibile");
+    }
+  };
+
+  return (
+    <View
+      style={{
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.neutral200,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        backgroundColor: theme.colors.background,
+        gap: 10,
+      }}
+    >
+      <Pressable
+        onPress={() => {
+          console.log("[PR-MOB.PROFILES.2.1][tap-author]", {
+            authorIdRaw,
+            authorUuid,
+            isUuid: authorUuid ? isUuid(authorUuid) : false,
+            postKeys: Object.keys(post ?? {}),
+          });
+
+          if (!authorUuid || !isUuid(authorUuid)) {
+            console.log("[PR-MOB.PROFILES.2.1][tap-author][skip]", "missing valid uuid");
+            return;
+          }
+
+          const target =
+            authorRole === null ? `/profiles/${authorUuid}` : isAuthorClub ? `/clubs/${authorUuid}` : `/players/${authorUuid}`;
+          console.log("[PR-MOB.PROFILES.2.2][tap-author][target]", { authorUuid, authorRole, target });
+          router.navigate(target);
+        }}
+        style={{
+          flexDirection: "row",
+          gap: 10,
+          alignItems: "center",
+          opacity: authorUuid && isUuid(authorUuid) ? 1 : 0.6,
+        }}
+      >
+        <Avatar url={item.author?.avatar_url ?? null} size={40} />
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text style={{ fontSize: 15, fontWeight: "800", color: theme.colors.text }}>
+              {authorName}
+            </Text>
+            {item.author && isCertifiedClub(item.author) ? (
+              <Text style={{ fontSize: 11, fontWeight: "900", color: theme.colors.text }}>
+                C
+              </Text>
+            ) : null}
+          </View>
+          <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>{when}</Text>
+        </View>
+      </Pressable>
+
+      <View style={{ gap: 10 }}>
+        {!!text ? (
+          <Pressable
+            disabled={!postPath}
+            onPress={() => {
+              if (!postPath) return;
+              router.push(postPath);
+            }}
+          >
+            <Text style={{ fontSize: 14, lineHeight: 19, color: theme.colors.text }}>{text}</Text>
+          </Pressable>
+        ) : null}
+
+        {firstMedia?.url ? (
+          <Pressable
+            onPress={() => {
+              setLightbox({ open: true, index: 0 });
+            }}
+            style={{
+              borderRadius: theme.radius.md,
+              overflow: "hidden",
+              backgroundColor: theme.colors.neutral100,
+            }}
+          >
+            {firstMedia.media_type === "video" ? (
+              <FeedVideoPreview
+                uri={firstMedia.url}
+                posterUri={firstMedia.poster_url || (firstMedia as any).posterUrl}
+              />
+            ) : (
+              <Image
+                source={{ uri: firstMedia.poster_url || firstMedia.url }}
+                style={{ width: "100%", aspectRatio: 4 / 5 }}
+                resizeMode="cover"
+              />
+            )}
+            <View style={{ padding: 10 }}>
+              <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>
+                {firstMedia.media_type === "video" ? "🎬 Video" : "🖼️ Foto"}
+                {item.media.length > 1 ? ` • +${item.media.length - 1}` : ""}
+              </Text>
+            </View>
+          </Pressable>
+        ) : null}
+      </View>
+
+      <LightboxModal
+        visible={lightbox.open}
+        items={item.media ?? []}
+        initialIndex={lightbox.index}
+        onClose={() => setLightbox({ open: false, index: 0 })}
+      />
+
+      <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
+        <Pressable onPress={handleLikePress} disabled={isLiking}>
+          <Text style={{ ...theme.typography.small, color: viewerHasLiked ? theme.colors.primary : theme.colors.muted }}>👍 {likeCount}</Text>
+        </Pressable>
+        <Pressable onPress={handleOpenComments} disabled={!postPath}>
+          <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>💬 {commentCount}</Text>
+        </Pressable>
+        <Pressable onPress={handleShare}>
+          <Text style={{ ...theme.typography.smallStrong, color: theme.colors.primary }}>Condividi</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+export { Avatar };
+
+
+
+==================================================
+FILE: src/lib/feed/getFeedPosts.ts
+==================================================
+import {
+  fetchCommentCountsForIds,
+  fetchFeedPosts,
+  fetchReactionsForIds,
+  type FeedCommentsCountsGetResponse,
+  type FeedReactionsGetResponse,
+} from "../api";
+import { asString, normalizeMediaRow, type NormalizedMediaItem } from "../media/normalizeMedia";
+import { getProfileDisplayName } from "../profiles/getProfileDisplayName";
+
+export type FeedMediaItem = NormalizedMediaItem;
+
+export type FeedAuthor = {
+  id?: string;
+  user_id?: string;
+  full_name?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  type?: string | null;
+  account_type?: string | null;
+  role?: string | null;
+  verified_until?: string | null;
+  certified?: boolean | null;
+  certification_status?: string | null;
+  is_verified?: boolean | null;
+};
+
+export type FeedPost = {
+  id: string;
+  author_id?: string | null;
+  created_at?: string | null;
+  raw: Record<string, any>;
+  author?: FeedAuthor | null;
+  media: FeedMediaItem[];
+
+  // WEB parity (computed client-side)
+  likeCount?: number;
+  commentCount?: number;
+  viewerHasLiked?: boolean;
+};
+
+type FeedScope = "all" | "following";
+
+function asNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeMediaList(list: unknown[]): FeedMediaItem[] {
+  return list.map((row) => normalizeMediaRow(row)).filter(Boolean) as FeedMediaItem[];
+}
+
+function extractMedia(item: any): FeedMediaItem[] {
+  // ✅ robust (PRIMA)
+  if (Array.isArray(item?.media)) {
+    return normalizeMediaList(item.media);
+  }
+  if (Array.isArray(item?.post_media)) {
+    return normalizeMediaList(item.post_media);
+  }
+
+  const mediaType = typeof item?.media_type === "string" ? item.media_type.trim().toLowerCase() : "";
+  const mediaUrl = asString(item?.media_url);
+  if ((mediaType === "image" || mediaType === "video") && mediaUrl) {
+    return [
+      {
+        media_type: mediaType as "image" | "video",
+        url: mediaUrl,
+        poster_url: asString(item?.poster_url) ?? null,
+        width: asNumber(item?.width),
+        height: asNumber(item?.height),
+      },
+    ];
+  }
+
+  return [];
+}
+
+function extractAuthor(item: any): FeedAuthor | null {
+  // ✅ robust (PRIMA) + keep DOPO variants
+  const candidate =
+    (item?.author && typeof item.author === "object" ? item.author : null) ||
+    (item?.profile && typeof item.profile === "object" ? item.profile : null) ||
+    (item?.profiles && typeof item.profiles === "object" ? item.profiles : null) ||
+    (item?.author_profile && typeof item.author_profile === "object" ? item.author_profile : null);
+
+  if (!candidate) return null;
+
+  return {
+    id: asString(candidate?.id) ?? undefined,
+    user_id: asString(candidate?.user_id) ?? undefined,
+    full_name: typeof candidate?.full_name === "string" ? candidate.full_name : null,
+    display_name: typeof candidate?.display_name === "string" ? candidate.display_name : null,
+    avatar_url: typeof candidate?.avatar_url === "string" ? candidate.avatar_url : null,
+    type: typeof candidate?.type === "string" ? candidate.type : null,
+    account_type: typeof candidate?.account_type === "string" ? candidate.account_type : null,
+    role: typeof candidate?.role === "string" ? candidate.role : null,
+    verified_until: typeof candidate?.verified_until === "string" ? candidate.verified_until : null,
+    certified: typeof candidate?.certified === "boolean" ? candidate.certified : null,
+    certification_status:
+      typeof candidate?.certification_status === "string" ? candidate.certification_status : null,
+    is_verified: typeof candidate?.is_verified === "boolean" ? candidate.is_verified : null,
+  };
+}
+
+function normalizeFeedPostsPayload(json: any): { items: any[]; nextPage: string | null } {
+  const payload = json && typeof json === "object" && "data" in json ? json.data : json;
+  const items = Array.isArray(payload?.items) ? payload.items : Array.isArray(payload) ? payload : [];
+  const nextPageRaw = payload?.nextPage ?? null;
+  const nextPage =
+    nextPageRaw == null ? null : typeof nextPageRaw === "string" ? nextPageRaw : String(nextPageRaw);
+  return { items, nextPage };
+}
+
+function buildCountsMaps(
+  reactions: FeedReactionsGetResponse | null,
+  comments: FeedCommentsCountsGetResponse | null,
+) {
+  const likeCountByPost = new Map<string, number>();
+  const viewerLikedSet = new Set<string>();
+  const commentCountByPost = new Map<string, number>();
+
+  if (reactions?.ok) {
+    for (const row of reactions.counts || []) {
+      if (row?.reaction === "like" && row?.post_id) {
+        likeCountByPost.set(row.post_id, Number(row.count) || 0);
+      }
+    }
+    for (const m of reactions.mine || []) {
+      if (m?.reaction === "like" && m?.post_id) {
+        viewerLikedSet.add(m.post_id);
+      }
+    }
+  }
+
+  if (comments?.ok) {
+    for (const row of comments.counts || []) {
+      if (row?.post_id) commentCountByPost.set(row.post_id, Number(row.count) || 0);
+    }
+  }
+
+  return { likeCountByPost, viewerLikedSet, commentCountByPost };
+}
+
+export async function getFeedPosts({
+  scope,
+  nextPage,
+}: {
+  scope: FeedScope;
+  nextPage?: string | null;
+}): Promise<{
+  items: FeedPost[];
+  nextPage: string | null;
+}> {
+  const res = await fetchFeedPosts({
+    scope,
+    nextPage: nextPage ?? undefined,
+  });
+
+  if (!res.ok) {
+    throw new Error(res.errorText ?? `Feed HTTP ${res.status}`);
+  }
+
+  const { items: rawItems, nextPage: nextPageToken } = normalizeFeedPostsPayload(res.data);
+
+  // 1) build base posts exactly like PRIMA (keep author/media robust)
+  const basePosts = rawItems
+    .map((item: any) => {
+      const id = asString(item?.id);
+      if (!id) return null;
+
+      return {
+        id,
+        author_id: asString(item?.author_id),
+        created_at: asString(item?.created_at),
+        raw: item ?? {},
+        author: extractAuthor(item),
+        media: extractMedia(item),
+        likeCount: 0,
+        commentCount: 0,
+        viewerHasLiked: false,
+      } as FeedPost;
+    })
+    .filter(Boolean) as FeedPost[];
+
+  if (basePosts.length === 0) {
+    return { items: basePosts, nextPage: nextPageToken };
+  }
+
+  // 2) WEB parity: counts are fetched separately using ids=...
+  const ids = basePosts.map((p) => p.id);
+
+  const [reactionsRes, commentsRes] = await Promise.all([
+    fetchReactionsForIds(ids),
+    fetchCommentCountsForIds(ids),
+  ]);
+
+  const reactions = reactionsRes.ok ? (reactionsRes.data ?? null) : null;
+  const comments = commentsRes.ok ? (commentsRes.data ?? null) : null;
+
+  const { likeCountByPost, viewerLikedSet, commentCountByPost } = buildCountsMaps(reactions, comments);
+
+  const items = basePosts.map((p) => ({
+    ...p,
+    likeCount: likeCountByPost.get(p.id) ?? 0,
+    commentCount: commentCountByPost.get(p.id) ?? 0,
+    viewerHasLiked: viewerLikedSet.has(p.id),
+  }));
+
+  return { items, nextPage: nextPageToken };
+}
+
+export function getPostText(raw: Record<string, any>): string {
+  const candidates = [raw?.text, raw?.content, raw?.body, raw?.message, raw?.caption, raw?.description];
+  const found = candidates.find((v) => typeof v === "string" && v.trim().length > 0);
+  return (found ?? "").toString().trim();
+}
+
+export function getAuthorName(author?: FeedAuthor | null): string {
+  return getProfileDisplayName(author);
+}
+
+
+
+==================================================
+FILE: src/lib/profiles/getProfileDisplayName.ts
+==================================================
+export type ProfileDisplayNameInput = {
+  account_type?: string | null;
+  accountType?: string | null;
+  type?: string | null;
+  role?: string | null;
+  club_name?: string | null;
+  name?: string | null;
+  full_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  display_name?: string | null;
+  username?: string | null;
+  email?: string | null;
+};
+
+function clean(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function isEmailLike(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function pick(...candidates: unknown[]): string {
+  for (const candidate of candidates) {
+    const value = clean(candidate);
+    if (!value) continue;
+    if (isEmailLike(value)) continue;
+    return value;
+  }
+  return "";
+}
+
+function resolveKind(input?: ProfileDisplayNameInput | null): "club" | "player" | "generic" {
+  const raw = clean(input?.account_type ?? input?.accountType ?? input?.type ?? input?.role).toLowerCase();
+  if (["club", "clubs", "team"].includes(raw)) return "club";
+  if (["athlete", "player", "players"].includes(raw)) return "player";
+  return "generic";
+}
+
+export function getProfileDisplayName(input?: ProfileDisplayNameInput | null): string {
+  const kind = resolveKind(input);
+  const fullName = [clean(input?.first_name), clean(input?.last_name)].filter(Boolean).join(" ");
+
+  if (kind === "club") {
+    const clubName = pick(input?.club_name, input?.name, input?.display_name, input?.username);
+    return clubName || "Club";
+  }
+
+  if (kind === "player") {
+    const playerName = pick(input?.full_name, fullName, input?.display_name, input?.username);
+    return playerName || "Player";
+  }
+
+  const genericName = pick(
+    input?.club_name,
+    input?.name,
+    input?.full_name,
+    fullName,
+    input?.display_name,
+    input?.username,
+  );
+
+  return genericName || "Utente";
+}
+
+
+

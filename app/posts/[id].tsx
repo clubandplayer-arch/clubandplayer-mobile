@@ -24,6 +24,7 @@ import { emit } from "../../src/lib/events/appEvents";
 import { sharePostById } from "../../src/lib/sharePost";
 import { devWarn } from "../../src/lib/debug/devLog";
 import { theme } from "../../src/theme";
+import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
 
 const POST_FIELDS =
   "id, content, created_at, author_id, media_url, media_type, media_aspect, kind, event_payload, quoted_post_id";
@@ -65,9 +66,7 @@ function formatWhen(iso?: string | null) {
 }
 
 function getSafeAuthorName(author: any): string {
-  const name = author?.display_name || author?.full_name || author?.public_name;
-  if (typeof name === "string" && name.trim()) return name.trim();
-  return "Utente";
+  return getProfileDisplayName(author ?? null);
 }
 
 function getWhoamiUserId(user: unknown): string | null {

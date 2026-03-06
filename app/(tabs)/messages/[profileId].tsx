@@ -27,6 +27,7 @@ import {
 } from "../../../src/lib/api";
 import type { DirectMessage, DirectThreadResponse } from "../../../src/types/directMessages";
 import { theme } from "../../../src/theme";
+import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
 import { emit } from "../../../src/lib/events/appEvents";
 
 function resolveProfileId(raw: string | string[] | undefined): string {
@@ -55,7 +56,7 @@ export default function DirectMessageThreadScreen() {
   const [error, setError] = useState<string | null>(null);
   const [peerFromThreads, setPeerFromThreads] = useState<{
     profileId: string;
-    fullName: string;
+    title: string;
     avatarUrl: string | null;
   } | null>(null);
 
@@ -167,19 +168,20 @@ export default function DirectMessageThreadScreen() {
         return String(otherId) === currentProfileId;
       });
 
-      const fullName =
-        matchingThread?.otherFullName ?? matchingThread?.other_full_name ?? matchingThread?.other?.full_name ?? null;
+      const title = getProfileDisplayName({
+        full_name: matchingThread?.otherFullName ?? matchingThread?.other_full_name ?? matchingThread?.other?.full_name ?? null,
+        display_name:
+          matchingThread?.otherDisplayName ?? matchingThread?.other_display_name ?? matchingThread?.other?.display_name ?? null,
+      });
       const avatar =
         matchingThread?.otherAvatarUrl ??
         matchingThread?.other_avatar_url ??
         matchingThread?.other?.avatar_url ??
         null;
 
-      if (typeof fullName !== "string") return;
-
       setPeerFromThreads({
         profileId: currentProfileId,
-        fullName,
+        title,
         avatarUrl: typeof avatar === "string" ? avatar : null,
       });
     })();
@@ -319,19 +321,14 @@ export default function DirectMessageThreadScreen() {
 
   const peerName = useMemo(() => {
     if (!peerReady) return "";
-    return peerFromThreads!.fullName;
+    return peerFromThreads!.title;
   }, [peerReady, peerFromThreads]);
 
   const peerSubLabel = useMemo(() => {
-    const full = thread?.peer?.full_name?.trim();
-    const display = thread?.peer?.display_name?.trim();
-
-    // mostra la seconda riga solo se è diversa dal titolo
-    if (display && full && display !== full) return display;
-
-    // altrimenti non mostrare nulla
-    return undefined;
-  }, [thread?.peer?.display_name, thread?.peer?.full_name]);
+    const label = getProfileDisplayName(thread?.peer ?? null);
+    if (!label || label === peerName) return undefined;
+    return label;
+  }, [peerName, thread?.peer]);
 
   const avatarUri = useMemo(() => {
     if (!peerReady) return undefined;

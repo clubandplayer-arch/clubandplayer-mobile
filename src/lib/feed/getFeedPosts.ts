@@ -6,6 +6,7 @@ import {
   type FeedReactionsGetResponse,
 } from "../api";
 import { asString, normalizeMediaRow, type NormalizedMediaItem } from "../media/normalizeMedia";
+import { getProfileDisplayName } from "../profiles/getProfileDisplayName";
 
 export type FeedMediaItem = NormalizedMediaItem;
 
@@ -216,15 +217,6 @@ export function getPostText(raw: Record<string, any>): string {
   return (found ?? "").toString().trim();
 }
 
-function isEmailLike(value: string): boolean {
-  return value.includes("@");
-}
-
 export function getAuthorName(author?: FeedAuthor | null): string {
-  const fullName = author?.full_name?.trim() ?? "";
-  if (fullName && !isEmailLike(fullName)) return fullName;
-
-  const displayName = author?.display_name?.trim() ?? "";
-  const name = displayName && !isEmailLike(displayName) ? displayName : "";
-  return name || "Utente";
+  return getProfileDisplayName(author);
 }

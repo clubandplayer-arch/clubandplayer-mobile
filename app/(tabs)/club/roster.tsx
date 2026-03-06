@@ -12,6 +12,7 @@ import {
 
 import { fetchClubRoster, updateClubRoster, type ClubRosterItem } from "../../../src/lib/api";
 import { theme } from "../../../src/theme";
+import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
 
 function getApiErrorMessage(errorText: string | undefined, status: number): string {
   if (!errorText) return `Errore (${status})`;
@@ -109,7 +110,7 @@ export default function ClubRosterScreen() {
           renderItem={({ item }) => {
             const subtitle = [item.role, item.sport].filter(Boolean).join(" • ");
             const busy = removingId === item.playerProfileId;
-            const name = item.display_name ?? item.full_name ?? "Giocatore";
+            const name = getProfileDisplayName({ ...item, account_type: "athlete" });
 
             return (
               <View

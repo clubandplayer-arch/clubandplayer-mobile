@@ -6,6 +6,7 @@ import FollowButton from "../../src/components/follow/FollowButton";
 import { isUuid, useWebSession, useWhoami } from "../../src/lib/api";
 import { getFeedPosts, type FeedPost } from "../../src/lib/feed/getFeedPosts";
 import FeedCard from "../../src/components/feed/FeedCard";
+import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
 import { theme } from "../../src/theme";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -138,9 +139,7 @@ export default function PlayerProfileScreen() {
     };
   }, [id]);
 
-  const displayName = isLoading
-    ? "Caricamento…"
-    : getTextValue(profile?.full_name) || getTextValue(profile?.display_name) || "Player";
+  const displayName = isLoading ? "Caricamento…" : getProfileDisplayName({ ...(profile ?? {}), account_type: "athlete" });
   const avatarUrl = getTextValue(profile?.avatar_url);
   const sport = getTextValue(profile?.sport);
   const role = getTextValue(profile?.role);

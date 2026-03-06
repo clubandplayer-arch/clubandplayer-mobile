@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Image, Pressable, Text, TextInput, View } from "react-native";
 import { createComment, deleteComment, editComment, fetchComments, type FeedComment } from "../lib/api";
+import { getProfileDisplayName } from "../lib/profiles/getProfileDisplayName";
 import { theme } from "../theme";
 
 type CommentsSectionProps = {
@@ -13,22 +14,8 @@ type CommentsSectionProps = {
 
 const EDIT_WINDOW_MS = 60 * 1000;
 
-function isEmailLike(candidate: unknown): boolean {
-  return typeof candidate === "string" && candidate.includes("@");
-}
-
-/**
- * ✅ WEB parity:
- * full_name → display_name (solo se NON email) → fallback
- */
 function getDisplayName(comment: FeedComment): string {
-  const fullName = typeof comment.author?.full_name === "string" ? comment.author.full_name.trim() : "";
-  if (fullName) return fullName;
-
-  const displayName = typeof comment.author?.display_name === "string" ? comment.author.display_name.trim() : "";
-  if (displayName && !isEmailLike(displayName)) return displayName;
-
-  return "Utente";
+  return getProfileDisplayName(comment.author ?? null);
 }
 
 function getAvatarUrl(comment: FeedComment): string | null {

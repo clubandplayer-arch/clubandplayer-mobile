@@ -14,12 +14,11 @@ import { supabase } from "../../src/lib/supabase";
 import { resolveProfileByAuthorId, type Profile } from "../../src/lib/profiles/resolveProfile";
 import { getFollowSocialForProfile, type FollowSocial } from "../../src/lib/social/getFollowSocial";
 import { isCertifiedClub } from "../../src/lib/profiles/certification";
+import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
 import { theme } from "../../src/theme";
 
 function buildDisplayName(p: Profile | null) {
-  const a = (p?.full_name ?? "").trim();
-  const b = (p?.display_name ?? "").trim();
-  return a || b || "Utente";
+  return getProfileDisplayName(p);
 }
 
 function buildLocation(p: Profile | null) {
