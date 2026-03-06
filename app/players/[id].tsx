@@ -256,7 +256,6 @@ export default function PlayerProfileScreen() {
               <Text style={{ fontSize: 12, fontWeight: "700", color: theme.colors.text }}>Player</Text>
             </View>
             <Text style={{ color: theme.colors.muted }}>{sportRole}</Text>
-            <Text style={{ color: theme.colors.muted }}>{[nationality, interestLocation].filter(Boolean).join(" • ")}</Text>
           </View>
         </View>
 
