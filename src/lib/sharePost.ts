@@ -5,18 +5,28 @@ import { createPostShareLink } from "./shareLinks";
 
 type ToastFn = (message: string) => void;
 
-function getWebBaseUrl() {
-  const base = (process.env.EXPO_PUBLIC_WEB_BASE_URL || "https://www.clubandplayer.com").trim();
-  return base.replace(/\/+$/, "");
+const shareUrlByPostId = new Map<string, string>();
+
+function getCachedShareUrl(postId: string) {
+  const cached = shareUrlByPostId.get(postId);
+  if (!cached) return null;
+  const normalized = cached.trim();
+  return normalized || null;
 }
 
-function buildFallbackPostUrl(postId: string) {
-  const base = getWebBaseUrl();
-  return `${base}/posts/${encodeURIComponent(postId)}`;
-}
+async function resolveShareUrl(postId: string) {
+  const cachedUrl = getCachedShareUrl(postId);
+  if (cachedUrl) return cachedUrl;
 
-function buildShareMessage(url: string) {
-  return `Guarda questo post su Club&Player:\n${url}`;
+  const shareLink = await createPostShareLink(postId);
+  const url = typeof shareLink?.url === "string" ? shareLink.url.trim() : "";
+
+  if (!url) {
+    throw new Error("shareLink url mancante");
+  }
+
+  shareUrlByPostId.set(postId, url);
+  return url;
 }
 
 export async function sharePostById(postId: string, toast?: ToastFn) {
@@ -25,20 +35,18 @@ export async function sharePostById(postId: string, toast?: ToastFn) {
     return { ok: false as const, url: null };
   }
 
-  let url = buildFallbackPostUrl(postId);
+  let url: string;
 
   try {
-    const shareLink = await createPostShareLink(postId);
-    if (typeof shareLink?.url === "string" && shareLink.url.trim()) {
-      url = shareLink.url.trim();
-    }
+    url = await resolveShareUrl(postId);
   } catch (err) {
     devWarn("createPostShareLink failed in sharePostById", { postId, err });
-    toast?.("Link pubblico non disponibile, condivido un link alternativo");
+    toast?.("Impossibile generare il link di condivisione");
+    return { ok: false as const, url: null };
   }
 
   try {
-    await Share.share({ message: buildShareMessage(url), url });
+    await Share.share({ message: url, url });
     return { ok: true as const, url };
   } catch (err) {
     devWarn("Share.share failed", err);
