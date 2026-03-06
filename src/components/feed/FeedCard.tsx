@@ -29,6 +29,22 @@ function resolvePostPath(postId: string | null | undefined): string | null {
   return `/posts/${id}`;
 }
 
+function resolveAuthorRoute(args: {
+  authorUuid: string;
+  authorRole: string | null;
+  author: FeedPost["author"];
+}): string {
+  const role = (args.authorRole ?? args.author?.account_type ?? args.author?.type ?? args.author?.role ?? "")
+    .toString()
+    .trim()
+    .toLowerCase();
+
+  if (role === "club" || role === "clubs" || role === "team") return `/clubs/${args.authorUuid}`;
+  if (role === "athlete" || role === "player" || role === "players") return `/players/${args.authorUuid}`;
+
+  return `/profile/${args.authorUuid}`;
+}
+
 function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
   if (!url) {
     return (
@@ -81,7 +97,6 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
 
   const authorRoleRaw = (post as any)?.author_role ?? (post as any)?.authorRole ?? null;
   const authorRole = typeof authorRoleRaw === "string" ? authorRoleRaw.toLowerCase().trim() : null;
-  const isAuthorClub = authorRole === "club";
 
   const postPath = resolvePostPath(item.id);
 
@@ -138,8 +153,7 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
             return;
           }
 
-          const target =
-            authorRole === null ? `/profiles/${authorUuid}` : isAuthorClub ? `/clubs/${authorUuid}` : `/players/${authorUuid}`;
+          const target = resolveAuthorRoute({ authorUuid, authorRole, author: item.author ?? null });
           console.log("[PR-MOB.PROFILES.2.2][tap-author][target]", { authorUuid, authorRole, target });
           router.navigate(target);
         }}
