@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 
-import { getAuthorName, getPostText, type FeedPost } from "../../lib/feed/getFeedPosts";
+import { getAuthorName, getFeedCountryCode, getPostText, type FeedPost } from "../../lib/feed/getFeedPosts";
 import { isCertifiedClub } from "../../lib/profiles/certification";
 import { isUuid } from "../../lib/api";
 import FeedVideoPreview from "../../../components/feed/FeedVideoPreview";
@@ -12,6 +12,7 @@ import { devWarn } from "../../lib/debug/devLog";
 import { theme } from "../../theme";
 import { togglePostLike } from "../../lib/posts/togglePostLike";
 import { supabase } from "../../lib/supabase";
+import { iso2ToFlagEmoji } from "../../lib/geo/countryFlag";
 
 function formatWhen(iso?: string | null) {
   if (!iso) return "";
@@ -81,6 +82,7 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
   const authorName = getAuthorName(item.author);
   const text = getPostText(item.raw);
   const when = formatWhen(item.created_at);
+  const countryFlag = iso2ToFlagEmoji(getFeedCountryCode(item));
   const firstMedia = item.media?.[0] ?? null;
   const [likeCount, setLikeCount] = useState(typeof item.likeCount === "number" ? item.likeCount : 0);
   const [viewerHasLiked, setViewerHasLiked] = useState(Boolean(item.viewerHasLiked));
@@ -178,7 +180,9 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
               </Text>
             ) : null}
           </View>
-          <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>{when}</Text>
+          <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>
+            {countryFlag ? `${countryFlag} · ${when}` : when}
+          </Text>
         </View>
       </Pressable>
 

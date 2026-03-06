@@ -6,6 +6,7 @@ import FollowButton from "../../src/components/follow/FollowButton";
 import { isUuid, useWebSession, useWhoami } from "../../src/lib/api";
 import { getFeedPosts, type FeedPost } from "../../src/lib/feed/getFeedPosts";
 import FeedCard from "../../src/components/feed/FeedCard";
+import { iso2ToFlagEmoji } from "../../src/lib/geo/countryFlag";
 import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
 import { theme } from "../../src/theme";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -145,7 +146,9 @@ export default function PlayerProfileScreen() {
   const role = getTextValue(profile?.role);
   const sportRole = [sport, role].filter(Boolean).join(" • ") || "—";
 
-  const nationality = getTextValue(profile?.country) || "—";
+  const countryCode = getTextValue(profile?.country);
+  const nationalityFlag = iso2ToFlagEmoji(countryCode);
+  const nationality = [nationalityFlag, countryCode].filter(Boolean).join(" ") || "—";
   const birthYear = getNumberValue(profile?.birth_year);
   const currentYear = new Date().getFullYear();
   const age = birthYear ? String(currentYear - birthYear) : "—";
@@ -160,7 +163,12 @@ export default function PlayerProfileScreen() {
     getTextValue(profile?.interest_city),
     getTextValue(profile?.interest_province),
     getTextValue(profile?.interest_region),
-    getTextValue(profile?.interest_country),
+    [
+      iso2ToFlagEmoji(getTextValue(profile?.interest_country)),
+      getTextValue(profile?.interest_country),
+    ]
+      .filter(Boolean)
+      .join(" "),
   ].filter(Boolean) as string[];
   const interestLocation = interestParts.join(" • ") || "—";
 
@@ -248,7 +256,6 @@ export default function PlayerProfileScreen() {
               <Text style={{ fontSize: 12, fontWeight: "700", color: theme.colors.text }}>Player</Text>
             </View>
             <Text style={{ color: theme.colors.muted }}>{sportRole}</Text>
-            <Text style={{ color: theme.colors.muted }}>{[nationality, interestLocation].filter(Boolean).join(" • ")}</Text>
           </View>
         </View>
 

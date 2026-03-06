@@ -6,6 +6,7 @@ import {
   type FeedReactionsGetResponse,
 } from "../api";
 import { asString, normalizeMediaRow, type NormalizedMediaItem } from "../media/normalizeMedia";
+import { readCountryCodeFromCandidates } from "../geo/countryFlag";
 import { getProfileDisplayName } from "../profiles/getProfileDisplayName";
 
 export type FeedMediaItem = NormalizedMediaItem;
@@ -23,6 +24,8 @@ export type FeedAuthor = {
   certified?: boolean | null;
   certification_status?: string | null;
   is_verified?: boolean | null;
+  country?: string | null;
+  interest_country?: string | null;
 };
 
 export type FeedPost = {
@@ -101,6 +104,8 @@ function extractAuthor(item: any): FeedAuthor | null {
     certification_status:
       typeof candidate?.certification_status === "string" ? candidate.certification_status : null,
     is_verified: typeof candidate?.is_verified === "boolean" ? candidate.is_verified : null,
+    country: typeof candidate?.country === "string" ? candidate.country : null,
+    interest_country: typeof candidate?.interest_country === "string" ? candidate.interest_country : null,
   };
 }
 
@@ -219,4 +224,28 @@ export function getPostText(raw: Record<string, any>): string {
 
 export function getAuthorName(author?: FeedAuthor | null): string {
   return getProfileDisplayName(author);
+}
+
+export function getFeedCountryCode(item: FeedPost): string | null {
+  const raw = item.raw ?? {};
+  const rawAuthor = raw?.author && typeof raw.author === "object" ? raw.author : null;
+  const rawProfile = raw?.profile && typeof raw.profile === "object" ? raw.profile : null;
+  const rawProfiles = raw?.profiles && typeof raw.profiles === "object" ? raw.profiles : null;
+  const rawAuthorProfile =
+    raw?.author_profile && typeof raw.author_profile === "object" ? raw.author_profile : null;
+
+  return readCountryCodeFromCandidates([
+    item.author?.country,
+    rawAuthorProfile?.country,
+    rawAuthor?.country,
+    rawProfile?.country,
+    rawProfiles?.country,
+    raw?.country,
+    item.author?.interest_country,
+    rawAuthorProfile?.interest_country,
+    rawAuthor?.interest_country,
+    rawProfile?.interest_country,
+    rawProfiles?.interest_country,
+    raw?.interest_country,
+  ]);
 }
