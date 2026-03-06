@@ -43,7 +43,7 @@ export function getProfileDisplayName(input?: ProfileDisplayNameInput | null): s
   const fullName = [clean(input?.first_name), clean(input?.last_name)].filter(Boolean).join(" ");
 
   if (kind === "club") {
-    const clubName = pick(input?.club_name, input?.name, input?.display_name, input?.username);
+    const clubName = pick(input?.club_name, input?.name, input?.full_name, input?.display_name, input?.username);
     return clubName || "Club";
   }
 
