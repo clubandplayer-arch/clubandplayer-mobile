@@ -26,7 +26,7 @@ function formatWhen(iso?: string | null) {
 function resolvePostPath(postId: string | null | undefined): string | null {
   const id = (postId ?? "").toString().trim();
   if (!id) return null;
-  return `/posts/${id}`;
+  return `/posts/${encodeURIComponent(id)}`;
 }
 
 function resolveAuthorRoute(args: {
@@ -102,6 +102,7 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
 
 
   const handleLikePress = async () => {
+    if (!item.id) return;
     if (isLiking) return;
     try {
       setIsLiking(true);
@@ -120,6 +121,7 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
     router.push(postPath);
   };
   const handleShare = async () => {
+    if (!item.id) return;
     try {
       await sharePostById(item.id, onToast);
     } catch (error) {
