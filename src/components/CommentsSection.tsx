@@ -9,6 +9,7 @@ type CommentsSectionProps = {
   currentUserId: string | null;
   initialCount: number;
   onCountChange?: (nextCount: number) => void;
+  onComposerFocusChange?: (focused: boolean) => void;
   loadLimit?: number;
 };
 
@@ -78,6 +79,7 @@ export function CommentsSection({
   currentUserId,
   initialCount,
   onCountChange,
+  onComposerFocusChange,
   loadLimit = 100,
 }: CommentsSectionProps) {
   const [expanded, setExpanded] = useState(false);
@@ -340,6 +342,8 @@ export function CommentsSection({
             <TextInput
               value={draft}
               onChangeText={setDraft}
+              onFocus={() => onComposerFocusChange?.(true)}
+              onBlur={() => onComposerFocusChange?.(false)}
               placeholder="Scrivi un commento"
               multiline
               style={{

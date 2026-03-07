@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -280,6 +281,8 @@ export default function PostDetailScreen() {
 
   const [isToggling, setIsToggling] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  const [isComposerFocused, setIsComposerFocused] = useState(false);
+  const scrollRef = useRef<ScrollView | null>(null);
 
   const loadSocial = useCallback(async (targetPostId: string) => {
     setSocial((prev) => ({ ...prev, loading: true, error: null }));
@@ -415,6 +418,23 @@ export default function PostDetailScreen() {
     emit("feed:refresh");
   };
 
+
+  const scrollComposerIntoView = useCallback((animated = true) => {
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollToEnd({ animated });
+    });
+  }, []);
+
+  useEffect(() => {
+    const onKeyboardDidShow = () => {
+      if (!isComposerFocused) return;
+      scrollComposerIntoView(true);
+    };
+
+    const showSub = Keyboard.addListener("keyboardDidShow", onKeyboardDidShow);
+    return () => showSub.remove();
+  }, [isComposerFocused, scrollComposerIntoView]);
+
   if (web.loading || whoami.loading || loading) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10, padding: 24 }}>
@@ -522,6 +542,7 @@ export default function PostDetailScreen() {
       keyboardVerticalOffset={0}
     >
       <ScrollView
+        ref={scrollRef}
         style={{ flex: 1, backgroundColor: theme.colors.background }}
         contentContainerStyle={{ padding: 24, paddingBottom: Math.max(32, insets.bottom + 16), gap: 18 }}
         keyboardShouldPersistTaps="handled"
@@ -605,6 +626,12 @@ export default function PostDetailScreen() {
           currentUserId={currentUserId}
           initialCount={social.commentCount}
           onCountChange={handleCommentCountChange}
+          onComposerFocusChange={(focused) => {
+            setIsComposerFocused(focused);
+            if (!focused) return;
+            scrollComposerIntoView(true);
+            setTimeout(() => scrollComposerIntoView(true), 120);
+          }}
         />
       </ScrollView>
     </KeyboardAvoidingView>
