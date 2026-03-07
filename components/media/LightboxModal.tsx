@@ -111,15 +111,17 @@ export default function LightboxModal({ visible, onClose, items, initialIndex }:
             top: 56,
             right: 20,
             zIndex: 10,
-            width: 40,
-            height: 40,
+            width: 48,
+            height: 48,
             borderRadius: 999,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: "rgba(17,24,39,0.8)",
+            backgroundColor: "rgba(0,0,0,0.55)",
+            borderWidth: 1,
+            borderColor: "rgba(255,255,255,0.4)",
           }}
         >
-          <Text style={{ color: "#ffffff", fontSize: 20, fontWeight: "700" }}>×</Text>
+          <Text style={{ color: "#34f5a0", fontSize: 34, lineHeight: 36, fontWeight: "900" }}>×</Text>
         </Pressable>
 
         {mediaUrl ? (
