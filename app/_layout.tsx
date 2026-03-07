@@ -98,7 +98,10 @@ export default function RootLayout() {
     router.replace(redirectTarget as any);
   }, [redirectTarget, router]);
 
-  if (!fontsLoaded || !bootstrapped || onboardingSeen === null || !!redirectTarget) {
+  // Keep the navigator mounted even while a redirect is pending.
+  // Unmounting the Stack here can prevent router.replace() from settling on some devices,
+  // leaving the app on a blank loading screen.
+  if (!fontsLoaded || !bootstrapped || onboardingSeen === null) {
     return <LoadingScreen />;
   }
 
