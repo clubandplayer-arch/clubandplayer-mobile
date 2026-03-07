@@ -2,7 +2,8 @@ import { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
-import { fetchNotifications } from "../../../src/lib/api";
+import { fetchNotifications, patchNotificationsMarkRead } from "../../../src/lib/api";
+import { setNotificationsBadgeCount } from "../../../src/lib/notificationsBadge";
 import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
 import { theme } from "../../../src/theme";
 import { useRouter } from "expo-router";
@@ -32,6 +33,10 @@ function getActorName(notification: NotificationItem): string {
 }
 
 const isChatMessageKind = (kind?: string | null) => kind === "message" || kind === "new_message";
+
+function countUnreadNotifications(items: NotificationItem[]): number {
+  return items.filter((n) => !isChatMessageKind(n.kind) && n.read_at == null && n.read !== true).length;
+}
 
 function getNotificationMessage(kind: string): string {
   switch (kind) {
@@ -120,8 +125,40 @@ export default function NotificationsScreen() {
       return;
     }
 
-    setNotifications((res.data?.data as NotificationItem[]) ?? []);
+    const nextNotifications = (res.data?.data as NotificationItem[]) ?? [];
+    setNotifications(nextNotifications);
+    setNotificationsBadgeCount(countUnreadNotifications(nextNotifications));
     setLoading(false);
+  }, []);
+
+  const markAsRead = useCallback(async (notificationId: string) => {
+    const response = await patchNotificationsMarkRead({ ids: [notificationId] });
+    if (!response.ok) {
+      console.log("[notifications][mark-read][error]", {
+        id: notificationId,
+        status: response.status,
+        errorText: response.errorText ?? null,
+      });
+    }
+  }, []);
+
+  const markAsReadOptimistic = useCallback((notificationId: string) => {
+    const nowIso = new Date().toISOString();
+
+    setNotifications((prev) => {
+      const next = prev.map((notification) => {
+        if (notification.id !== notificationId) return notification;
+        if (notification.read === true || notification.read_at != null) return notification;
+        return {
+          ...notification,
+          read: true,
+          read_at: nowIso,
+        };
+      });
+
+      setNotificationsBadgeCount(countUnreadNotifications(next));
+      return next;
+    });
   }, []);
 
   // Refetch quando la screen torna in focus (es: dopo login o dopo navigazioni)
@@ -189,8 +226,14 @@ export default function NotificationsScreen() {
 
         return (
           <Pressable
-            onPress={() => {
+            onPress={async () => {
               const p: any = item.payload ?? {};
+              const isUnread = item.read_at == null && item.read !== true;
+
+              if (isUnread) {
+                markAsReadOptimistic(item.id);
+                await markAsRead(item.id);
+              }
 
               if ((item.kind === "new_comment" || item.kind === "new_reaction") && typeof p.post_id === "string") {
                 router.push(`/posts/${p.post_id}`);
