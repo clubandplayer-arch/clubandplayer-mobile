@@ -282,6 +282,7 @@ export default function PostDetailScreen() {
   const [isToggling, setIsToggling] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const [isComposerFocused, setIsComposerFocused] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const scrollRef = useRef<ScrollView | null>(null);
 
   const loadSocial = useCallback(async (targetPostId: string) => {
@@ -426,13 +427,23 @@ export default function PostDetailScreen() {
   }, []);
 
   useEffect(() => {
-    const onKeyboardDidShow = () => {
+    const onKeyboardDidShow = (event: { endCoordinates?: { height?: number } }) => {
+      const nextHeight = event?.endCoordinates?.height;
+      setKeyboardHeight(typeof nextHeight === "number" && Number.isFinite(nextHeight) ? nextHeight : 0);
       if (!isComposerFocused) return;
       scrollComposerIntoView(true);
     };
 
+    const onKeyboardDidHide = () => {
+      setKeyboardHeight(0);
+    };
+
     const showSub = Keyboard.addListener("keyboardDidShow", onKeyboardDidShow);
-    return () => showSub.remove();
+    const hideSub = Keyboard.addListener("keyboardDidHide", onKeyboardDidHide);
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
   }, [isComposerFocused, scrollComposerIntoView]);
 
   if (web.loading || whoami.loading || loading) {
@@ -626,6 +637,7 @@ export default function PostDetailScreen() {
           currentUserId={currentUserId}
           initialCount={social.commentCount}
           onCountChange={handleCommentCountChange}
+          composerBottomSpacing={isComposerFocused && keyboardHeight > 0 ? 12 : 0}
           onComposerFocusChange={(focused) => {
             setIsComposerFocused(focused);
             if (!focused) return;

@@ -10,6 +10,7 @@ type CommentsSectionProps = {
   initialCount: number;
   onCountChange?: (nextCount: number) => void;
   onComposerFocusChange?: (focused: boolean) => void;
+  composerBottomSpacing?: number;
   loadLimit?: number;
 };
 
@@ -80,6 +81,7 @@ export function CommentsSection({
   initialCount,
   onCountChange,
   onComposerFocusChange,
+  composerBottomSpacing = 0,
   loadLimit = 100,
 }: CommentsSectionProps) {
   const [expanded, setExpanded] = useState(false);
@@ -338,7 +340,7 @@ export function CommentsSection({
             </View>
           )}
 
-          <View style={{ gap: 8 }}>
+          <View style={{ gap: 8, paddingBottom: composerBottomSpacing }}>
             <TextInput
               value={draft}
               onChangeText={setDraft}
