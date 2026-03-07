@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -9,6 +11,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { VideoView, useVideoPlayer } from "expo-video";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { supabase } from "../../src/lib/supabase";
 import {
@@ -251,6 +254,7 @@ function PostCard({ post, title }: { post: PostDetail; title?: string }) {
 export default function PostDetailScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const postId = useMemo(() => {
     if (!params.id) return null;
@@ -512,90 +516,97 @@ export default function PostDetailScreen() {
   }
 
   return (
-    <ScrollView
+    <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: theme.colors.background }}
-      contentContainerStyle={{ padding: 24, paddingBottom: 32, gap: 18 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={0}
     >
-      <Pressable onPress={() => router.back()} style={{ alignSelf: "flex-start" }}>
-        <Text style={{ fontWeight: "700", color: theme.colors.text }}>← Indietro</Text>
-      </Pressable>
-
-      <PostCard post={post} />
-      {quotedPost ? <PostCard post={quotedPost} title="Post citato" /> : null}
-
-      {flash ? (
-        <View style={{ borderWidth: 1, borderColor: theme.colors.neutral200, backgroundColor: theme.colors.neutral50, borderRadius: 12, padding: 12 }}>
-          <Text style={{ fontWeight: "700", color: theme.colors.text }}>{flash}</Text>
-        </View>
-      ) : null}
-
-      <View
-        style={{
-          borderWidth: 1,
-          borderColor: theme.colors.neutral200,
-          borderRadius: 14,
-          padding: 16,
-          gap: 12,
-          backgroundColor: theme.colors.neutral50,
-        }}
+      <ScrollView
+        style={{ flex: 1, backgroundColor: theme.colors.background }}
+        contentContainerStyle={{ padding: 24, paddingBottom: Math.max(32, insets.bottom + 16), gap: 18 }}
+        keyboardShouldPersistTaps="handled"
       >
-        <Text style={{ fontSize: 16, fontWeight: "800" }}>Reazioni</Text>
+        <Pressable onPress={() => router.back()} style={{ alignSelf: "flex-start" }}>
+          <Text style={{ fontWeight: "700", color: theme.colors.text }}>← Indietro</Text>
+        </Pressable>
 
-        {social.loading ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <ActivityIndicator size="small" />
-            <Text style={{ color: theme.colors.muted }}>Caricamento reazioni…</Text>
+        <PostCard post={post} />
+        {quotedPost ? <PostCard post={quotedPost} title="Post citato" /> : null}
+
+        {flash ? (
+          <View style={{ borderWidth: 1, borderColor: theme.colors.neutral200, backgroundColor: theme.colors.neutral50, borderRadius: 12, padding: 12 }}>
+            <Text style={{ fontWeight: "700", color: theme.colors.text }}>{flash}</Text>
           </View>
-        ) : (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
-            <Text style={{ color: theme.colors.text }}>👍 {social.likeCount}</Text>
-            <Text style={{ color: theme.colors.text }}>💬 {social.commentCount}</Text>
+        ) : null}
+
+        <View
+          style={{
+            borderWidth: 1,
+            borderColor: theme.colors.neutral200,
+            borderRadius: 14,
+            padding: 16,
+            gap: 12,
+            backgroundColor: theme.colors.neutral50,
+          }}
+        >
+          <Text style={{ fontSize: 16, fontWeight: "800" }}>Reazioni</Text>
+
+          {social.loading ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <ActivityIndicator size="small" />
+              <Text style={{ color: theme.colors.muted }}>Caricamento reazioni…</Text>
+            </View>
+          ) : (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+              <Text style={{ color: theme.colors.text }}>👍 {social.likeCount}</Text>
+              <Text style={{ color: theme.colors.text }}>💬 {social.commentCount}</Text>
+            </View>
+          )}
+
+          {social.error ? <Text style={{ color: theme.colors.danger }}>{social.error}</Text> : null}
+
+          <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+            <Pressable
+              onPress={handleLikeToggle}
+              style={{
+                paddingVertical: 10,
+                paddingHorizontal: 14,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: social.viewerHasLiked ? theme.colors.text : theme.colors.neutral200,
+                backgroundColor: social.viewerHasLiked ? theme.colors.text : "transparent",
+                alignSelf: "flex-start",
+                opacity: isToggling ? 0.6 : 1,
+              }}
+            >
+              <Text style={{ color: social.viewerHasLiked ? theme.colors.background : theme.colors.text, fontWeight: "700" }}>
+                {social.viewerHasLiked ? "Hai messo 👍" : "Metti 👍"}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={handleShare}
+              style={{
+                paddingVertical: 10,
+                paddingHorizontal: 14,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: theme.colors.neutral200,
+                alignSelf: "flex-start",
+              }}
+            >
+              <Text style={{ color: theme.colors.text, fontWeight: "700" }}>Condividi</Text>
+            </Pressable>
           </View>
-        )}
-
-        {social.error ? <Text style={{ color: theme.colors.danger }}>{social.error}</Text> : null}
-
-        <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-          <Pressable
-            onPress={handleLikeToggle}
-            style={{
-              paddingVertical: 10,
-              paddingHorizontal: 14,
-              borderRadius: 10,
-              borderWidth: 1,
-              borderColor: social.viewerHasLiked ? theme.colors.text : theme.colors.neutral200,
-              backgroundColor: social.viewerHasLiked ? theme.colors.text : "transparent",
-              alignSelf: "flex-start",
-              opacity: isToggling ? 0.6 : 1,
-            }}
-          >
-            <Text style={{ color: social.viewerHasLiked ? theme.colors.background : theme.colors.text, fontWeight: "700" }}>
-              {social.viewerHasLiked ? "Hai messo 👍" : "Metti 👍"}
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={handleShare}
-            style={{
-              paddingVertical: 10,
-              paddingHorizontal: 14,
-              borderRadius: 10,
-              borderWidth: 1,
-              borderColor: theme.colors.neutral200,
-              alignSelf: "flex-start",
-            }}
-          >
-            <Text style={{ color: theme.colors.text, fontWeight: "700" }}>Condividi</Text>
-          </Pressable>
         </View>
-      </View>
 
-      <CommentsSection
-        postId={post.id}
-        currentUserId={currentUserId}
-        initialCount={social.commentCount}
-        onCountChange={handleCommentCountChange}
-      />
-    </ScrollView>
+        <CommentsSection
+          postId={post.id}
+          currentUserId={currentUserId}
+          initialCount={social.commentCount}
+          onCountChange={handleCommentCountChange}
+        />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
