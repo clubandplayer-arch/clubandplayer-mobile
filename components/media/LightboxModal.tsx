@@ -70,12 +70,13 @@ function LightboxVideo({ uri, posterUri, visible, closeSignal }: LightboxVideoPr
         </>
       ) : null}
 
-	<VideoView
-	  player={player}
-	  style={{ width: "100%", height: "100%" }}
-	  nativeControls
-	  contentFit="contain"
-	/>
+      <VideoView
+        player={player}
+        style={{ width: "100%", height: "100%" }}
+        nativeControls
+        fullscreenOptions={{ enable: true }}
+        contentFit="contain"
+      />
     </View>
   );
 }
