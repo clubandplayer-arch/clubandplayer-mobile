@@ -26,8 +26,8 @@ export default function TabsLayout() {
   });
 
   const unreadCount = useNotificationsBadgeCount();
-  const [sessionPresent, setSessionPresent] = useState(false);
-  const { isClub, loading: isClubLoading } = useIsClub(sessionPresent);
+  const [sessionPresent, setSessionPresent] = useState<boolean | null>(null);
+  const { isClub, loading: isClubLoading } = useIsClub(sessionPresent === true);
   const [messagesUnreadCount, setMessagesUnreadCount] = useState<number>(0);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -76,7 +76,7 @@ export default function TabsLayout() {
   useEffect(() => {
     let cancelled = false;
 
-    if (!sessionPresent) {
+    if (sessionPresent !== true) {
       setAvatarUrl(null);
       return;
     }
@@ -114,7 +114,7 @@ export default function TabsLayout() {
   }, []);
 
   const onAvatarPress = useCallback(() => {
-    if (!sessionPresent) {
+    if (sessionPresent !== true) {
       router.push("/login");
       return;
     }
@@ -309,7 +309,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="club/roster"
           options={{
-            href: isClubLoading ? null : isClub ? undefined : null,
+            href: sessionPresent === null || isClubLoading ? null : isClub ? undefined : null,
           }}
         />
         <Tabs.Screen name="following" />

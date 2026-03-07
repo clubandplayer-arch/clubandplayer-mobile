@@ -1,5 +1,5 @@
 import { Stack, usePathname, useRouter, useSegments } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useFonts } from "expo-font";
 import type { Session } from "@supabase/supabase-js";
@@ -8,29 +8,37 @@ import { supabase } from "../src/lib/supabase";
 import { getOnboardingSeen, subscribeOnboardingSeen } from "../src/lib/onboarding";
 import { theme } from "../src/theme";
 
-function AuthGate() {
+function LoadingScreen() {
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+      <ActivityIndicator />
+    </View>
+  );
+}
+
+export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
   const pathname = usePathname();
 
+  const [fontsLoaded] = useFonts({
+    Righteous: require("../assets/fonts/Righteous-Regular.ttf"),
+  });
+
   const [session, setSession] = useState<Session | null>(null);
   const [onboardingSeen, setOnboardingSeen] = useState<boolean | null>(null);
-  const [ready, setReady] = useState(false);
-
+  const [bootstrapped, setBootstrapped] = useState(false);
   const lastTargetRef = useRef<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
 
     const init = async () => {
-      const [{ data }, seen] = await Promise.all([
-        supabase.auth.getSession(),
-        getOnboardingSeen(),
-      ]);
+      const [{ data }, seen] = await Promise.all([supabase.auth.getSession(), getOnboardingSeen()]);
       if (!mounted) return;
       setSession(data.session ?? null);
       setOnboardingSeen(seen);
-      setReady(true);
+      setBootstrapped(true);
     };
 
     void init();
@@ -52,14 +60,13 @@ function AuthGate() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!ready || onboardingSeen === null) return;
+  const redirectTarget = useMemo(() => {
+    if (!bootstrapped || onboardingSeen === null) return null;
 
-    const group = segments[0]; // "(tabs)" | "(auth)" | "(onboarding)"
+    const group = segments[0];
     const inTabs = group === "(tabs)";
     const inCallback = pathname === "/callback";
 
-    // utenti loggati possono stare fuori dai tabs su queste route.
     const allowAuthedOutsideTabs =
       pathname.startsWith("/posts/") ||
       pathname.startsWith("/clubs/") ||
@@ -70,54 +77,36 @@ function AuthGate() {
       pathname.startsWith("/player/") ||
       pathname.startsWith("/applications");
 
-    let target: string | null = null;
-
     if (session) {
-      if (!inTabs && !allowAuthedOutsideTabs) target = "/(tabs)/feed";
-    } else {
-      if (inCallback) target = null;
-      else if (!onboardingSeen) target = "/(onboarding)";
-      else target = "/(auth)/login";
+      if (!inTabs && !allowAuthedOutsideTabs) return "/(tabs)/feed";
+      return null;
     }
 
-    if (!target) {
+    if (inCallback) return null;
+    if (!onboardingSeen) return "/(onboarding)";
+    return "/(auth)/login";
+  }, [bootstrapped, onboardingSeen, pathname, segments, session]);
+
+  useEffect(() => {
+    if (!redirectTarget) {
       lastTargetRef.current = null;
       return;
     }
 
-    if (lastTargetRef.current === target) return;
-    lastTargetRef.current = target;
+    if (lastTargetRef.current === redirectTarget) return;
+    lastTargetRef.current = redirectTarget;
+    router.replace(redirectTarget as any);
+  }, [redirectTarget, router]);
 
-    router.replace(target as any);
-  }, [onboardingSeen, pathname, ready, router, segments, session]);
-
-  if (!ready || onboardingSeen === null) {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator />
-      </View>
-    );
+  // Keep the navigator mounted even while a redirect is pending.
+  // Unmounting the Stack here can prevent router.replace() from settling on some devices,
+  // leaving the app on a blank loading screen.
+  if (!fontsLoaded || !bootstrapped || onboardingSeen === null) {
+    return <LoadingScreen />;
   }
 
-  return null;
-}
-
-export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
-  Righteous: require("../assets/fonts/Righteous-Regular.ttf"),
-});
-
-  if (!fontsLoaded) {
   return (
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-      <ActivityIndicator />
-    </View>
-  );
-}
-
-  return (
-      <CrashBoundary>
-      <AuthGate />
+    <CrashBoundary>
       <Stack
         screenOptions={{
           headerTitleStyle: { fontFamily: theme.fonts.brand, color: theme.colors.primary },
