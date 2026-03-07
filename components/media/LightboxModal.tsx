@@ -48,7 +48,7 @@ function LightboxVideo({ uri, posterUri, visible, closeSignal }: LightboxVideoPr
   }, [closeSignal, player]);
 
   return (
-    <View style={{ width: "100%", aspectRatio: 4 / 5, maxHeight: "80%", overflow: "hidden" }}>
+    <View style={{ flex: 1, width: "100%", backgroundColor: "#000" }}>
       {posterUri ? (
         <>
           <Image
@@ -70,12 +70,13 @@ function LightboxVideo({ uri, posterUri, visible, closeSignal }: LightboxVideoPr
         </>
       ) : null}
 
-	<VideoView
-	  player={player}
-	  style={{ width: "100%", height: "100%" }}
-	  nativeControls
-	  contentFit="contain"
-	/>
+      <VideoView
+        player={player}
+        style={{ width: "100%", height: "100%" }}
+        nativeControls
+        fullscreenOptions={{ enable: true }}
+        contentFit="contain"
+      />
     </View>
   );
 }
@@ -93,14 +94,17 @@ export default function LightboxModal({ visible, onClose, items, initialIndex }:
   }, [onClose]);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
+    <Modal
+      visible={visible}
+      animationType="fade"
+      presentationStyle="fullScreen"
+      statusBarTranslucent
+      onRequestClose={handleClose}
+    >
       <View
         style={{
           flex: 1,
-          backgroundColor: "rgba(0,0,0,0.92)",
-          justifyContent: "center",
-          alignItems: "center",
-          padding: 16,
+          backgroundColor: "#000",
         }}
       >
         <Pressable
@@ -115,10 +119,10 @@ export default function LightboxModal({ visible, onClose, items, initialIndex }:
             borderRadius: 999,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: "rgba(17,24,39,0.8)",
+            backgroundColor: "rgba(0,0,0,0.2)",
           }}
         >
-          <Text style={{ color: "#ffffff", fontSize: 20, fontWeight: "700" }}>×</Text>
+          <Text style={{ color: "#fff", fontSize: 34, lineHeight: 36, fontWeight: "700" }}>×</Text>
         </Pressable>
 
         {mediaUrl ? (
@@ -127,7 +131,7 @@ export default function LightboxModal({ visible, onClose, items, initialIndex }:
           ) : (
             <Image
               source={{ uri: mediaUrl }}
-              style={{ width: "100%", aspectRatio: 4 / 5, maxHeight: "80%" }}
+              style={{ width: "100%", height: "100%" }}
               resizeMode="contain"
             />
           )

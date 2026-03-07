@@ -11,9 +11,10 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { VideoView, useVideoPlayer } from "expo-video";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import FeedVideoPreview from "../../components/feed/FeedVideoPreview";
+import LightboxModal from "../../components/media/LightboxModal";
 import { supabase } from "../../src/lib/supabase";
 import {
   fetchCommentCountsForIds,
@@ -169,28 +170,8 @@ async function fetchPostCore(postId: string): Promise<PostDetail | null> {
   };
 }
 
-function PostVideo({ uri }: { uri: string }) {
-  const player = useVideoPlayer({ uri }, (p) => {
-    // Detail view: show controls, no autoplay (do not call play()).
-    p.muted = false;
-    p.loop = false;
-  });
-
-  return (
-    <View style={{ width: "100%", height: 240, backgroundColor: theme.colors.text }}>
-      <VideoView
-        player={player}
-        style={{ width: "100%", height: "100%" }}
-        nativeControls
-        allowsFullscreen
-        allowsPictureInPicture
-        contentFit="contain"
-      />
-    </View>
-  );
-}
-
 function PostCard({ post, title }: { post: PostDetail; title?: string }) {
+  const [videoLightboxOpen, setVideoLightboxOpen] = useState(false);
   const authorName = getSafeAuthorName(post.author);
   const when = formatWhen(post.created_at);
   const text = getPostText(post.raw);
@@ -233,7 +214,38 @@ function PostCard({ post, title }: { post: PostDetail; title?: string }) {
       {mediaUrl ? (
         <View style={{ borderRadius: 14, overflow: "hidden", backgroundColor: theme.colors.neutral100 }}>
           {mediaType === "video" ? (
-            <PostVideo uri={mediaUrl} />
+            <Pressable
+              onPress={() => setVideoLightboxOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Apri video in fullscreen"
+            >
+              <FeedVideoPreview uri={mediaUrl} />
+              <View
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  left: 0,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                pointerEvents="none"
+              >
+                <View
+                  style={{
+                    width: 66,
+                    height: 66,
+                    borderRadius: 999,
+                    backgroundColor: "rgba(0,0,0,0.5)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Text style={{ color: "#fff", fontSize: 28, marginLeft: 2 }}>▶</Text>
+                </View>
+              </View>
+            </Pressable>
           ) : (
             <Image
               source={{ uri: mediaUrl }}
@@ -243,10 +255,19 @@ function PostCard({ post, title }: { post: PostDetail; title?: string }) {
           )}
           <View style={{ padding: 10 }}>
             <Text style={{ fontSize: 12, color: theme.colors.muted }}>
-              {mediaType === "video" ? "Video" : "Media"}
+              {mediaType === "video" ? "Tocca per aprire il video" : "Media"}
             </Text>
           </View>
         </View>
+      ) : null}
+
+      {mediaType === "video" && mediaUrl ? (
+        <LightboxModal
+          visible={videoLightboxOpen}
+          items={[{ url: mediaUrl, media_type: "video" }]}
+          initialIndex={0}
+          onClose={() => setVideoLightboxOpen(false)}
+        />
       ) : null}
     </View>
   );
