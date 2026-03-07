@@ -48,7 +48,7 @@ function LightboxVideo({ uri, posterUri, visible, closeSignal }: LightboxVideoPr
   }, [closeSignal, player]);
 
   return (
-    <View style={{ width: "100%", aspectRatio: 4 / 5, maxHeight: "80%", overflow: "hidden" }}>
+    <View style={{ flex: 1, width: "100%", backgroundColor: "#000" }}>
       {posterUri ? (
         <>
           <Image
@@ -94,14 +94,17 @@ export default function LightboxModal({ visible, onClose, items, initialIndex }:
   }, [onClose]);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
+    <Modal
+      visible={visible}
+      animationType="fade"
+      presentationStyle="fullScreen"
+      statusBarTranslucent
+      onRequestClose={handleClose}
+    >
       <View
         style={{
           flex: 1,
-          backgroundColor: "rgba(0,0,0,0.92)",
-          justifyContent: "center",
-          alignItems: "center",
-          padding: 16,
+          backgroundColor: "#000",
         }}
       >
         <Pressable
@@ -111,17 +114,15 @@ export default function LightboxModal({ visible, onClose, items, initialIndex }:
             top: 56,
             right: 20,
             zIndex: 10,
-            width: 48,
-            height: 48,
+            width: 40,
+            height: 40,
             borderRadius: 999,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: "rgba(0,0,0,0.55)",
-            borderWidth: 1,
-            borderColor: "rgba(255,255,255,0.4)",
+            backgroundColor: "rgba(0,0,0,0.2)",
           }}
         >
-          <Text style={{ color: "#34f5a0", fontSize: 34, lineHeight: 36, fontWeight: "900" }}>×</Text>
+          <Text style={{ color: "#fff", fontSize: 34, lineHeight: 36, fontWeight: "700" }}>×</Text>
         </Pressable>
 
         {mediaUrl ? (
@@ -130,7 +131,7 @@ export default function LightboxModal({ visible, onClose, items, initialIndex }:
           ) : (
             <Image
               source={{ uri: mediaUrl }}
-              style={{ width: "100%", aspectRatio: 4 / 5, maxHeight: "80%" }}
+              style={{ width: "100%", height: "100%" }}
               resizeMode="contain"
             />
           )
