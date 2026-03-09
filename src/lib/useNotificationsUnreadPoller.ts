@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { fetchNotifications } from "./api";
 import { setNotificationsBadgeCount } from "./notificationsBadge";
+import { isNotificationLocallyRead } from "./notificationsLocalRead";
+
 
 export function useNotificationsUnreadPoller(options?: { enabled?: boolean }) {
   const enabled = options?.enabled !== false;
@@ -15,9 +17,11 @@ export function useNotificationsUnreadPoller(options?: { enabled?: boolean }) {
       const res = await fetchNotifications({ unread: true, limit: 100 });
       if (!cancelled && res.ok) {
         const items = res.data?.data ?? [];
+
         const count = items
           .filter((n) => !n.read_at && n.read !== true)
           .filter((n) => n.kind !== "message" && n.kind !== "new_message")
+          .filter((n) => !isNotificationLocallyRead(n.id))
           .length;
 
         setNotificationsBadgeCount(count);
@@ -27,7 +31,6 @@ export function useNotificationsUnreadPoller(options?: { enabled?: boolean }) {
       timer = setTimeout(tick, 45_000); // parity web: 45s
     }
 
-    // first run immediately
     void tick();
 
     return () => {
