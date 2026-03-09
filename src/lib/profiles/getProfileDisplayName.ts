@@ -9,6 +9,7 @@ export type ProfileDisplayNameInput = {
   first_name?: string | null;
   last_name?: string | null;
   display_name?: string | null;
+  public_name?: string | null;
   username?: string | null;
   email?: string | null;
 };
@@ -48,7 +49,7 @@ export function getProfileDisplayName(input?: ProfileDisplayNameInput | null): s
   }
 
   if (kind === "player") {
-    const playerName = pick(input?.full_name, fullName, input?.display_name, input?.username);
+    const playerName = pick(input?.full_name, fullName, input?.public_name, input?.display_name, input?.username);
     return playerName || "Player";
   }
 
@@ -57,6 +58,7 @@ export function getProfileDisplayName(input?: ProfileDisplayNameInput | null): s
     input?.name,
     input?.full_name,
     fullName,
+    input?.public_name,
     input?.display_name,
     input?.username,
   );

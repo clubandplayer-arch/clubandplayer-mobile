@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
@@ -13,6 +13,10 @@ type NotificationActor = {
   display_name?: string | null;
   full_name?: string | null;
   public_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  username?: string | null;
+  name?: string | null;
   avatar_url?: string | null;
   account_type?: string | null;
 };
@@ -28,14 +32,70 @@ type NotificationItem = {
   actor?: NotificationActor | null;
 };
 
-function getActorName(notification: NotificationItem): string {
-  return getProfileDisplayName(notification.actor ?? null);
-}
-
 const isChatMessageKind = (kind?: string | null) => kind === "message" || kind === "new_message";
 
+function isReadNotification(notification: NotificationItem): boolean {
+  if (notification.read === true) return true;
+  if (typeof notification.read_at === "string" && notification.read_at.trim().length > 0) return true;
+  return false;
+}
+
+function normalizeActor(notification: NotificationItem): NotificationActor | null {
+  const actor = notification.actor ?? null;
+  const payload = notification.payload ?? {};
+  const payloadActor = payload?.actor ?? payload?.sender ?? payload?.profile ?? null;
+
+  if (!actor && !payloadActor) return null;
+
+  return {
+    ...(payloadActor ?? {}),
+    ...(actor ?? {}),
+    public_name: actor?.public_name ?? payloadActor?.public_name ?? payload?.actor_public_name ?? null,
+    display_name: actor?.display_name ?? payloadActor?.display_name ?? payload?.actor_display_name ?? null,
+    full_name: actor?.full_name ?? payloadActor?.full_name ?? payload?.actor_full_name ?? null,
+    first_name: actor?.first_name ?? payloadActor?.first_name ?? payload?.actor_first_name ?? null,
+    last_name: actor?.last_name ?? payloadActor?.last_name ?? payload?.actor_last_name ?? null,
+    name: actor?.name ?? payloadActor?.name ?? payload?.actor_name ?? null,
+    username: actor?.username ?? payloadActor?.username ?? payload?.actor_username ?? null,
+    account_type: actor?.account_type ?? payloadActor?.account_type ?? payload?.actor_account_type ?? null,
+    avatar_url: actor?.avatar_url ?? payloadActor?.avatar_url ?? payload?.actor_avatar_url ?? null,
+  };
+}
+
+function normalizeNotification(notification: NotificationItem): NotificationItem {
+  const normalizedActor = normalizeActor(notification);
+  return {
+    ...notification,
+    actor: normalizedActor,
+    read: isReadNotification(notification),
+    read_at:
+      typeof notification.read_at === "string" && notification.read_at.trim().length > 0
+        ? notification.read_at
+        : notification.read
+          ? notification.read_at ?? new Date(0).toISOString()
+          : null,
+  };
+}
+
+function getActorName(notification: NotificationItem): string {
+  const actor = normalizeActor(notification);
+  return getProfileDisplayName(actor ?? null);
+}
+
 function countUnreadNotifications(items: NotificationItem[]): number {
-  return items.filter((n) => !isChatMessageKind(n.kind) && n.read_at == null && n.read !== true).length;
+  return items.filter((n) => !isChatMessageKind(n.kind) && !isReadNotification(n)).length;
+}
+
+function mergeWithLocalReadState(serverItems: NotificationItem[], locallyReadIds: Set<string>): NotificationItem[] {
+  return serverItems.map((item) => {
+    if (!locallyReadIds.has(item.id) || isReadNotification(item)) return item;
+
+    return {
+      ...item,
+      read: true,
+      read_at: item.read_at ?? new Date().toISOString(),
+    };
+  });
 }
 
 function getNotificationMessage(kind: string): string {
@@ -43,8 +103,6 @@ function getNotificationMessage(kind: string): string {
     case "new_comment":
       return "ha commentato un post";
     case "new_reaction":
-      return "ha reagito a un post";
-    case "new_reaction": // (no, non duplicare: una sola volta)
       return "ha reagito a un post";
     case "follow":
       return "ha iniziato a seguirti";
@@ -97,26 +155,14 @@ export default function NotificationsScreen() {
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [errorText, setErrorText] = useState<string | null>(null);
+  const locallyReadIdsRef = useRef<Set<string>>(new Set());
   const router = useRouter();
 
   const load = useCallback(async () => {
     setLoading(true);
     setErrorText(null);
 
-    // IMPORTANT: all=1 per ottenere la lista completa (coerente col web che ha filtro unread separato)
     const res = await fetchNotifications({ limit: 50 });
-
-    console.log("[notifications][fetch]", {
-      ok: res.ok,
-      status: res.status,
-      errorText: res.errorText ?? null,
-      items: res.data?.data?.length ?? 0,
-    });
-
-    const kinds = (res.data?.data ?? []).map((n: any) => n.kind);
-    console.log("[notifications][kinds]", kinds);
-
-    console.log("[notifications][raw-data]", JSON.stringify(res.data, null, 2));
 
     if (!res.ok) {
       setNotifications([]);
@@ -125,9 +171,18 @@ export default function NotificationsScreen() {
       return;
     }
 
-    const nextNotifications = (res.data?.data as NotificationItem[]) ?? [];
-    setNotifications(nextNotifications);
-    setNotificationsBadgeCount(countUnreadNotifications(nextNotifications));
+    const normalizedServerItems = ((res.data?.data as NotificationItem[]) ?? []).map(normalizeNotification);
+
+    const mergedItems = mergeWithLocalReadState(normalizedServerItems, locallyReadIdsRef.current);
+
+    for (const item of mergedItems) {
+      if (isReadNotification(item)) {
+        locallyReadIdsRef.current.delete(item.id);
+      }
+    }
+
+    setNotifications(mergedItems);
+    setNotificationsBadgeCount(countUnreadNotifications(mergedItems));
     setLoading(false);
   }, []);
 
@@ -139,16 +194,20 @@ export default function NotificationsScreen() {
         status: response.status,
         errorText: response.errorText ?? null,
       });
+      return;
     }
+
+    locallyReadIdsRef.current.delete(notificationId);
   }, []);
 
   const markAsReadOptimistic = useCallback((notificationId: string) => {
     const nowIso = new Date().toISOString();
+    locallyReadIdsRef.current.add(notificationId);
 
     setNotifications((prev) => {
       const next = prev.map((notification) => {
         if (notification.id !== notificationId) return notification;
-        if (notification.read === true || notification.read_at != null) return notification;
+        if (isReadNotification(notification)) return notification;
         return {
           ...notification,
           read: true,
@@ -161,7 +220,6 @@ export default function NotificationsScreen() {
     });
   }, []);
 
-  // Refetch quando la screen torna in focus (es: dopo login o dopo navigazioni)
   useFocusEffect(
     useCallback(() => {
       let active = true;
@@ -222,15 +280,14 @@ export default function NotificationsScreen() {
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => {
         const name = getActorName(item);
-        const unread = item.read_at == null && item.read !== true;
+        const unread = !isReadNotification(item);
 
         return (
           <Pressable
             onPress={async () => {
               const p: any = item.payload ?? {};
-              const isUnread = item.read_at == null && item.read !== true;
 
-              if (isUnread) {
+              if (unread) {
                 markAsReadOptimistic(item.id);
                 await markAsRead(item.id);
               }
@@ -256,9 +313,7 @@ export default function NotificationsScreen() {
 
             <View style={{ flex: 1 }}>
               <Text style={{ color: theme.colors.text, fontWeight: unread ? "600" : "500" }}>{name}</Text>
-              <Text style={{ color: theme.colors.text, marginTop: 2 }}>
-                {getNotificationMessage(item.kind)}
-              </Text>
+              <Text style={{ color: theme.colors.text, marginTop: 2 }}>{getNotificationMessage(item.kind)}</Text>
               <Text style={{ color: theme.colors.muted, marginTop: 6, fontSize: 12 }}>
                 {new Date(item.created_at).toLocaleString()}
               </Text>
