@@ -179,9 +179,6 @@ export default function NotificationsScreen() {
 
     const mergedItems = mergeWithLocalReadState(normalizedServerItems);
 
-    for (const item of mergedItems) {
-      if (isReadNotification(item)) unmarkNotificationLocallyRead(item.id);
-    }
 
     setNotifications(mergedItems);
     setNotificationsBadgeCount(countUnreadNotifications(mergedItems));
