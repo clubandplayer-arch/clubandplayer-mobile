@@ -37,6 +37,11 @@ type NotificationItem = {
   actor?: NotificationActor | null;
 };
 
+type NotificationTapResolution = {
+  targetRoute: string | null;
+  blockedReason?: string;
+};
+
 const isChatMessageKind = (kind?: string | null) => kind === "message" || kind === "new_message";
 
 function isReadNotification(notification: NotificationItem): boolean {
@@ -128,6 +133,58 @@ function getInitial(name: string): string {
   const trimmed = name.trim();
   if (!trimmed) return "U";
   return trimmed.charAt(0).toUpperCase();
+}
+
+function getPayloadId(payload: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const raw = payload[key];
+    if (typeof raw !== "string") continue;
+    const value = raw.trim();
+    if (value) return value;
+  }
+  return null;
+}
+
+function resolveNotificationTarget(item: NotificationItem): NotificationTapResolution {
+  const payload = (item.payload ?? {}) as Record<string, unknown>;
+
+  if ((item.kind === "new_comment" || item.kind === "new_reaction") && typeof payload.post_id === "string") {
+    return { targetRoute: `/posts/${payload.post_id}` };
+  }
+
+  if (item.kind === "follow") {
+    const profileId = getPayloadId(payload, ["profile_id", "target_profile_id", "follower_profile_id", "actor_profile_id"]);
+    if (profileId) {
+      return { targetRoute: `/profiles/${profileId}` };
+    }
+
+    if (typeof item.actor_profile_id === "string" && item.actor_profile_id.trim().length > 0) {
+      return { targetRoute: `/profiles/${item.actor_profile_id}` };
+    }
+
+    return {
+      targetRoute: null,
+      blockedReason: "missing_profile_id_in_follow_payload",
+    };
+  }
+
+  if (item.kind === "application_received" || item.kind === "new_application_received") {
+    const opportunityId = getPayloadId(payload, ["opportunity_id"]);
+    if (opportunityId) {
+      return { targetRoute: `/club/applications?opportunity_id=${encodeURIComponent(opportunityId)}` };
+    }
+
+    return { targetRoute: "/club/applications" };
+  }
+
+  if (item.kind === "application_status_changed") {
+    return { targetRoute: "/my/applications" };
+  }
+
+  return {
+    targetRoute: null,
+    blockedReason: "kind_not_mapped_to_mobile_destination",
+  };
 }
 
 function Avatar({ name, avatarUrl }: { name: string; avatarUrl?: string | null }) {
@@ -286,20 +343,24 @@ export default function NotificationsScreen() {
         return (
           <Pressable
             onPress={async () => {
-              const p: any = item.payload ?? {};
-
               if (unread) {
                 markAsReadOptimistic(item.id);
                 const ok = await markAsRead(item.id);
                 if (!ok) await load();
               }
 
-              if ((item.kind === "new_comment" || item.kind === "new_reaction") && typeof p.post_id === "string") {
-                router.push(`/posts/${p.post_id}`);
+              const resolution = resolveNotificationTarget(item);
+              if (resolution.targetRoute) {
+                router.push(resolution.targetRoute as never);
                 return;
               }
 
-              console.log("TODO PR-N2 deep link", item.id, item.kind);
+              console.log("[notifications][deep-link][blocked]", {
+                id: item.id,
+                kind: item.kind,
+                reason: resolution.blockedReason,
+                payload: item.payload ?? null,
+              });
             }}
             style={{
               flexDirection: "row",
