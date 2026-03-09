@@ -12,6 +12,7 @@ import { Righteous_400Regular } from "@expo-google-fonts/righteous";
 import { fetchDirectMessagesUnreadCount, clearSession, fetchProfileMe } from "../../src/lib/api";
 import { on } from "../../src/lib/events/appEvents";
 import { useNotificationsBadgeCount } from "../../src/lib/notificationsBadge";
+import { clearAllLocallyReadNotifications } from "../../src/lib/notificationsLocalRead";
 import { supabase } from "../../src/lib/supabase";
 import { useIsClub } from "../../src/lib/useIsClub";
 
@@ -132,6 +133,7 @@ export default function TabsLayout() {
 
   const onLogoutFromAvatarMenu = useCallback(async () => {
     setAvatarMenuOpen(false);
+    clearAllLocallyReadNotifications();
 
     try {
       await clearSession();

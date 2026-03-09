@@ -7,6 +7,7 @@ import { setNotificationsBadgeCount } from "../../../src/lib/notificationsBadge"
 import {
   isNotificationLocallyRead,
   markNotificationLocallyRead,
+  settleNotificationReadFromServer,
   unmarkNotificationLocallyRead,
 } from "../../../src/lib/notificationsLocalRead";
 import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
@@ -98,6 +99,12 @@ function countUnreadNotifications(items: NotificationItem[]): number {
 
 function mergeWithLocalReadState(serverItems: NotificationItem[]): NotificationItem[] {
   return serverItems.map((item) => {
+    settleNotificationReadFromServer({
+      notificationId: item.id,
+      read: item.read === true,
+      readAt: item.read_at ?? null,
+    });
+
     if (!isNotificationLocallyRead(item.id) || isReadNotification(item)) return item;
 
     return {
@@ -244,11 +251,14 @@ export default function NotificationsScreen() {
 
   const markAsRead = useCallback(async (notificationId: string) => {
     const response = await patchNotificationsMarkRead({ ids: [notificationId] });
-    if (!response.ok) {
+    const updatedCount = response.data?.updated ?? 0;
+
+    if (!response.ok || updatedCount <= 0) {
       console.log("[notifications][mark-read][error]", {
         id: notificationId,
         status: response.status,
         errorText: response.errorText ?? null,
+        updated: updatedCount,
       });
       unmarkNotificationLocallyRead(notificationId);
       return false;
