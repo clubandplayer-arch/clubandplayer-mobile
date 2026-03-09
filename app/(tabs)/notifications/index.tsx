@@ -1,9 +1,14 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { fetchNotifications, patchNotificationsMarkRead } from "../../../src/lib/api";
 import { setNotificationsBadgeCount } from "../../../src/lib/notificationsBadge";
+import {
+  isNotificationLocallyRead,
+  markNotificationLocallyRead,
+  unmarkNotificationLocallyRead,
+} from "../../../src/lib/notificationsLocalRead";
 import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
 import { theme } from "../../../src/theme";
 import { useRouter } from "expo-router";
@@ -86,9 +91,9 @@ function countUnreadNotifications(items: NotificationItem[]): number {
   return items.filter((n) => !isChatMessageKind(n.kind) && !isReadNotification(n)).length;
 }
 
-function mergeWithLocalReadState(serverItems: NotificationItem[], locallyReadIds: Set<string>): NotificationItem[] {
+function mergeWithLocalReadState(serverItems: NotificationItem[]): NotificationItem[] {
   return serverItems.map((item) => {
-    if (!locallyReadIds.has(item.id) || isReadNotification(item)) return item;
+    if (!isNotificationLocallyRead(item.id) || isReadNotification(item)) return item;
 
     return {
       ...item,
@@ -155,7 +160,6 @@ export default function NotificationsScreen() {
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [errorText, setErrorText] = useState<string | null>(null);
-  const locallyReadIdsRef = useRef<Set<string>>(new Set());
   const router = useRouter();
 
   const load = useCallback(async () => {
@@ -173,12 +177,10 @@ export default function NotificationsScreen() {
 
     const normalizedServerItems = ((res.data?.data as NotificationItem[]) ?? []).map(normalizeNotification);
 
-    const mergedItems = mergeWithLocalReadState(normalizedServerItems, locallyReadIdsRef.current);
+    const mergedItems = mergeWithLocalReadState(normalizedServerItems);
 
     for (const item of mergedItems) {
-      if (isReadNotification(item)) {
-        locallyReadIdsRef.current.delete(item.id);
-      }
+      if (isReadNotification(item)) unmarkNotificationLocallyRead(item.id);
     }
 
     setNotifications(mergedItems);
@@ -194,15 +196,17 @@ export default function NotificationsScreen() {
         status: response.status,
         errorText: response.errorText ?? null,
       });
-      return;
+      unmarkNotificationLocallyRead(notificationId);
+      return false;
     }
 
-    locallyReadIdsRef.current.delete(notificationId);
+    // keep local read mark until a subsequent fetch confirms read state
+    return true;
   }, []);
 
   const markAsReadOptimistic = useCallback((notificationId: string) => {
     const nowIso = new Date().toISOString();
-    locallyReadIdsRef.current.add(notificationId);
+    markNotificationLocallyRead(notificationId);
 
     setNotifications((prev) => {
       const next = prev.map((notification) => {
@@ -289,7 +293,8 @@ export default function NotificationsScreen() {
 
               if (unread) {
                 markAsReadOptimistic(item.id);
-                await markAsRead(item.id);
+                const ok = await markAsRead(item.id);
+                if (!ok) await load();
               }
 
               if ((item.kind === "new_comment" || item.kind === "new_reaction") && typeof p.post_id === "string") {
