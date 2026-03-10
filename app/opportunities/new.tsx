@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, TextInput, View, type AlertButton } from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -26,9 +26,9 @@ function asOptionalNumber(value: string): number | null {
 }
 
 function uniqueSorted(values: Array<string | null | undefined>): string[] {
-  return Array.from(
-    new Set(values.map((item) => String(item ?? "").trim()).filter(Boolean)),
-  ).sort((a, b) => a.localeCompare(b, "it", { sensitivity: "base" }));
+  return Array.from(new Set(values.map((item) => String(item ?? "").trim()).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b, "it", { sensitivity: "base" }),
+  );
 }
 
 function sanitizeAgeInput(value: string): string {
@@ -41,17 +41,12 @@ function sanitizeAgeInput(value: string): string {
   return String(parsed);
 }
 
-function openSelectSheet(params: {
+type SelectModalState = {
   title: string;
   options: string[];
-  onSelect: (value: string) => void;
   allowClear?: boolean;
-}) {
-  const buttons: AlertButton[] = params.options.slice(0, 10).map((option) => ({ text: option, onPress: () => params.onSelect(option) }));
-  if (params.allowClear) buttons.unshift({ text: "Nessuno", onPress: () => params.onSelect("") });
-  buttons.push({ text: "Annulla", style: "cancel" as const });
-  Alert.alert(params.title, undefined, buttons);
-}
+  onSelect: (value: string) => void;
+};
 
 export default function CreateOpportunityScreen() {
   const router = useRouter();
@@ -85,14 +80,20 @@ export default function CreateOpportunityScreen() {
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [selectModal, setSelectModal] = useState<SelectModalState | null>(null);
+  const [selectQuery, setSelectQuery] = useState("");
 
   const roleValue = normalizeRole((whoami.data as { role?: unknown } | null)?.role);
   const isClub = roleValue === "club";
 
-  const formDisabled = useMemo(
-    () => submitting || web.loading || whoami.loading || !isClub,
-    [isClub, submitting, web.loading, whoami.loading],
-  );
+  const formDisabled = useMemo(() => submitting || web.loading || whoami.loading || !isClub, [isClub, submitting, web.loading, whoami.loading]);
+
+  const selectOptionsFiltered = useMemo(() => {
+    const base = selectModal?.options ?? [];
+    const query = selectQuery.trim().toLowerCase();
+    if (!query) return base;
+    return base.filter((item) => item.toLowerCase().includes(query));
+  }, [selectModal?.options, selectQuery]);
 
   useEffect(() => {
     let active = true;
@@ -238,6 +239,12 @@ export default function CreateOpportunityScreen() {
     ]);
   };
 
+  const openSelectModal = (params: SelectModalState) => {
+    if (formDisabled) return;
+    setSelectQuery("");
+    setSelectModal(params);
+  };
+
   if (web.loading || whoami.loading) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
@@ -264,88 +271,215 @@ export default function CreateOpportunityScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: Math.max(84, insets.bottom + 64) }}>
-      <Text style={{ fontSize: 24, fontWeight: "800", color: theme.colors.text }}>Nuova opportunità</Text>
-      <Text style={{ color: theme.colors.muted }}>Compila i campi allineati al payload web POST /api/opportunities.</Text>
+    <>
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: Math.max(84, insets.bottom + 64) }}>
+        <Text style={{ fontSize: 24, fontWeight: "800", color: theme.colors.text }}>Nuova opportunità</Text>
+        <Text style={{ color: theme.colors.muted }}>Compila i campi allineati al payload web POST /api/opportunities.</Text>
 
-      {submitError ? <Text style={{ color: theme.colors.danger }}>{submitError}</Text> : null}
+        {submitError ? <Text style={{ color: theme.colors.danger }}>{submitError}</Text> : null}
 
-      <View style={{ gap: 6 }}>
-        <Text style={{ fontWeight: "600", color: theme.colors.text }}>Titolo *</Text>
-        <TextInput
-          value={title}
-          onChangeText={setTitle}
-          editable={!formDisabled}
-          style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text }}
-        />
-      </View>
+        <View style={{ gap: 6 }}>
+          <Text style={{ fontWeight: "600", color: theme.colors.text }}>Titolo *</Text>
+          <TextInput
+            value={title}
+            onChangeText={setTitle}
+            editable={!formDisabled}
+            style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text }}
+          />
+        </View>
 
-      <View style={{ gap: 6 }}>
-        <Text style={{ fontWeight: "600", color: theme.colors.text }}>Descrizione</Text>
-        <TextInput
-          value={description}
-          onChangeText={setDescription}
-          editable={!formDisabled}
-          multiline
-          style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text, minHeight: 90 }}
-        />
-      </View>
+        <View style={{ gap: 6 }}>
+          <Text style={{ fontWeight: "600", color: theme.colors.text }}>Descrizione</Text>
+          <TextInput
+            value={description}
+            onChangeText={setDescription}
+            editable={!formDisabled}
+            multiline
+            style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text, minHeight: 90 }}
+          />
+        </View>
 
-      {[
-        { label: "Country", value: country, onPress: () => openSelectSheet({ title: "Country", options: ["IT"], onSelect: setCountry }) },
-        { label: "Regione", value: region, onPress: () => openSelectSheet({ title: "Regione", options: regions.map((item) => item.name), onSelect: setRegion, allowClear: true }) },
-        { label: "Provincia", value: province, onPress: () => openSelectSheet({ title: "Provincia", options: provinces.map((item) => item.name), onSelect: setProvince, allowClear: true }) },
-        { label: "Città", value: city, onPress: () => openSelectSheet({ title: "Città", options: municipalities.map((item) => item.name), onSelect: setCity, allowClear: true }) },
-        { label: "Sport", value: sport, onPress: () => openSelectSheet({ title: "Sport", options: sportOptions, onSelect: setSport, allowClear: true }) },
-        { label: "Ruolo", value: role, onPress: () => openSelectSheet({ title: "Ruolo", options: roleOptions, onSelect: setRole, allowClear: true }) },
-        { label: "Categoria richiesta", value: requiredCategory, onPress: () => openSelectSheet({ title: "Categoria richiesta", options: requiredCategoryOptions, onSelect: setRequiredCategory, allowClear: true }) },
-        { label: "Gender", value: gender, onPress: () => openSelectSheet({ title: "Gender", options: genderOptions, onSelect: setGender, allowClear: true }) },
-        { label: "Status", value: status, onPress: () => openSelectSheet({ title: "Status", options: statusOptions.length ? statusOptions : ["open"], onSelect: setStatus }) },
-      ].map((field) => (
-        <View key={field.label} style={{ gap: 6 }}>
-          <Text style={{ fontWeight: "600", color: theme.colors.text }}>{field.label}</Text>
-          <Pressable
-            disabled={formDisabled}
-            onPress={field.onPress}
-            style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12, opacity: formDisabled ? 0.6 : 1 }}
+        {[
+          { label: "Country", value: country, options: ["IT"], onSelect: setCountry, allowClear: false, enabled: true },
+          { label: "Regione", value: region, options: regions.map((item) => item.name), onSelect: setRegion, allowClear: true, enabled: true },
+          {
+            label: "Provincia",
+            value: province,
+            options: provinces.map((item) => item.name),
+            onSelect: setProvince,
+            allowClear: true,
+            enabled: Boolean(region),
+          },
+          {
+            label: "Città",
+            value: city,
+            options: municipalities.map((item) => item.name),
+            onSelect: setCity,
+            allowClear: true,
+            enabled: Boolean(province),
+          },
+          { label: "Sport", value: sport, options: sportOptions, onSelect: setSport, allowClear: true, enabled: sportOptions.length > 0 },
+          { label: "Ruolo", value: role, options: roleOptions, onSelect: setRole, allowClear: true, enabled: roleOptions.length > 0 },
+          {
+            label: "Categoria richiesta",
+            value: requiredCategory,
+            options: requiredCategoryOptions,
+            onSelect: setRequiredCategory,
+            allowClear: true,
+            enabled: requiredCategoryOptions.length > 0,
+          },
+          { label: "Gender", value: gender, options: genderOptions, onSelect: setGender, allowClear: true, enabled: genderOptions.length > 0 },
+          {
+            label: "Status",
+            value: status,
+            options: statusOptions.length ? statusOptions : ["open"],
+            onSelect: setStatus,
+            allowClear: false,
+            enabled: true,
+          },
+        ].map((field) => (
+          <View key={field.label} style={{ gap: 6 }}>
+            <Text style={{ fontWeight: "600", color: theme.colors.text }}>{field.label}</Text>
+            <Pressable
+              disabled={formDisabled || !field.enabled}
+              onPress={() => openSelectModal({ title: field.label, options: field.options, onSelect: field.onSelect, allowClear: field.allowClear })}
+              style={{
+                borderWidth: 1,
+                borderColor: theme.colors.neutral200,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 12,
+                opacity: formDisabled || !field.enabled ? 0.6 : 1,
+              }}
+            >
+              <Text style={{ color: field.value ? theme.colors.text : theme.colors.muted }}>
+                {field.value || (field.enabled ? "Seleziona" : "Nessuna opzione")}
+              </Text>
+            </Pressable>
+          </View>
+        ))}
+
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <View style={{ flex: 1, gap: 6 }}>
+            <Text style={{ fontWeight: "600", color: theme.colors.text }}>Età minima</Text>
+            <TextInput
+              value={ageMin}
+              keyboardType="numeric"
+              onChangeText={(value) => setAgeMin(sanitizeAgeInput(value))}
+              editable={!formDisabled}
+              style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text }}
+            />
+          </View>
+          <View style={{ flex: 1, gap: 6 }}>
+            <Text style={{ fontWeight: "600", color: theme.colors.text }}>Età massima</Text>
+            <TextInput
+              value={ageMax}
+              keyboardType="numeric"
+              onChangeText={(value) => setAgeMax(sanitizeAgeInput(value))}
+              editable={!formDisabled}
+              style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text }}
+            />
+          </View>
+        </View>
+
+        <Pressable
+          disabled={formDisabled}
+          onPress={() => void onSubmit()}
+          style={{
+            marginTop: 8,
+            borderRadius: 10,
+            backgroundColor: theme.colors.primary,
+            paddingHorizontal: 14,
+            paddingVertical: 12,
+            alignItems: "center",
+            opacity: formDisabled ? 0.6 : 1,
+          }}
+        >
+          <Text style={{ color: theme.colors.background, fontWeight: "800" }}>
+            {submitting ? "Pubblicazione in corso..." : "Pubblica opportunità"}
+          </Text>
+        </Pressable>
+      </ScrollView>
+
+      <Modal visible={Boolean(selectModal)} animationType="slide" transparent onRequestClose={() => setSelectModal(null)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" }}>
+          <View
+            style={{
+              backgroundColor: theme.colors.background,
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              maxHeight: "78%",
+              paddingBottom: Math.max(insets.bottom, 12),
+            }}
           >
-            <Text style={{ color: field.value ? theme.colors.text : theme.colors.muted }}>{field.value || "Seleziona"}</Text>
-          </Pressable>
-        </View>
-      ))}
+            <View style={{ paddingHorizontal: 16, paddingTop: 14, gap: 10 }}>
+              <Text style={{ fontWeight: "800", fontSize: 16, color: theme.colors.text }}>{selectModal?.title}</Text>
+              {(selectModal?.options?.length ?? 0) > 8 ? (
+                <TextInput
+                  value={selectQuery}
+                  onChangeText={setSelectQuery}
+                  placeholder="Cerca..."
+                  placeholderTextColor={theme.colors.muted}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: theme.colors.neutral200,
+                    borderRadius: 10,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    color: theme.colors.text,
+                  }}
+                />
+              ) : null}
+            </View>
 
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        <View style={{ flex: 1, gap: 6 }}>
-          <Text style={{ fontWeight: "600", color: theme.colors.text }}>Età minima</Text>
-          <TextInput
-            value={ageMin}
-            keyboardType="numeric"
-            onChangeText={(value) => setAgeMin(sanitizeAgeInput(value))}
-            editable={!formDisabled}
-            style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text }}
-          />
-        </View>
-        <View style={{ flex: 1, gap: 6 }}>
-          <Text style={{ fontWeight: "600", color: theme.colors.text }}>Età massima</Text>
-          <TextInput
-            value={ageMax}
-            keyboardType="numeric"
-            onChangeText={(value) => setAgeMax(sanitizeAgeInput(value))}
-            editable={!formDisabled}
-            style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text }}
-          />
-        </View>
-      </View>
+            <ScrollView contentContainerStyle={{ padding: 12, gap: 8 }}>
+              {selectModal?.allowClear ? (
+                <Pressable
+                  onPress={() => {
+                    selectModal.onSelect("");
+                    setSelectModal(null);
+                  }}
+                  style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, padding: 12 }}
+                >
+                  <Text style={{ color: theme.colors.text }}>Nessuno</Text>
+                </Pressable>
+              ) : null}
 
-      <Pressable
-        disabled={formDisabled}
-        onPress={() => void onSubmit()}
-        style={{ marginTop: 8, borderRadius: 10, backgroundColor: theme.colors.primary, paddingHorizontal: 14, paddingVertical: 12, alignItems: "center", opacity: formDisabled ? 0.6 : 1 }}
-      >
-        <Text style={{ color: theme.colors.background, fontWeight: "800" }}>
-          {submitting ? "Pubblicazione in corso..." : "Pubblica opportunità"}
-        </Text>
-      </Pressable>
-    </ScrollView>
+              {selectOptionsFiltered.length ? (
+                selectOptionsFiltered.map((option) => (
+                  <Pressable
+                    key={`${selectModal?.title}-${option}`}
+                    onPress={() => {
+                      selectModal?.onSelect(option);
+                      setSelectModal(null);
+                    }}
+                    style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, padding: 12 }}
+                  >
+                    <Text style={{ color: theme.colors.text }}>{option}</Text>
+                  </Pressable>
+                ))
+              ) : (
+                <Text style={{ color: theme.colors.muted, paddingHorizontal: 2 }}>Nessuna opzione disponibile</Text>
+              )}
+            </ScrollView>
+
+            <View style={{ paddingHorizontal: 12 }}>
+              <Pressable
+                onPress={() => setSelectModal(null)}
+                style={{
+                  borderWidth: 1,
+                  borderColor: theme.colors.neutral200,
+                  borderRadius: 10,
+                  padding: 12,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ color: theme.colors.text, fontWeight: "700" }}>Chiudi</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
