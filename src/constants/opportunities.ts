@@ -8,7 +8,7 @@ export const SPORTS_ROLES: Record<string, readonly string[]> = {
   Atletica: [],
 };
 
-export const AGE_BRACKETS = ["U13", "U15", "U17", "U19", "U21", "Senior"] as const;
+export const AGE_BRACKETS = ["17-20", "21-25", "26-30", "31+", "Indifferente"] as const;
 
 export const CATEGORIES_BY_SPORT: Record<string, readonly string[]> = {
   Calcio: ["Prima Squadra", "Juniores", "Allievi", "Giovanissimi"],
@@ -18,9 +18,18 @@ export const CATEGORIES_BY_SPORT: Record<string, readonly string[]> = {
   Atletica: ["Pista", "Strada", "Trail"],
 };
 
-export const COUNTRIES = ["IT", "ES", "FR", "DE", "GB", "PT", "NL", "BE", "CH", "AT"] as const;
+export const COUNTRIES = ["Italia", "Spagna", "Francia", "Germania", "Regno Unito", "Portogallo", "Paesi Bassi", "Belgio", "Svizzera", "Austria", "Altro"] as const;
 
 export const OPPORTUNITY_GENDER_LABELS = ["uomo", "donna", "mixed"] as const;
 
 export const FOOTBALL_SPORT = "Calcio";
-export const DEFAULT_COUNTRY = "IT";
+export const ITALY_LABEL = "Italia";
+export const OTHER_COUNTRY_LABEL = "Altro";
+
+export function ageBracketToRange(ageBracket: string): { age_min: number | null; age_max: number | null } {
+  if (ageBracket === "17-20") return { age_min: 17, age_max: 20 };
+  if (ageBracket === "21-25") return { age_min: 21, age_max: 25 };
+  if (ageBracket === "26-30") return { age_min: 26, age_max: 30 };
+  if (ageBracket === "31+") return { age_min: 31, age_max: null };
+  return { age_min: null, age_max: null };
+}

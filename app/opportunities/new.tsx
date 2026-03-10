@@ -1,14 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -19,11 +10,13 @@ import {
   AGE_BRACKETS,
   CATEGORIES_BY_SPORT,
   COUNTRIES,
-  DEFAULT_COUNTRY,
   FOOTBALL_SPORT,
+  ITALY_LABEL,
   OPPORTUNITY_GENDER_LABELS,
+  OTHER_COUNTRY_LABEL,
   SPORTS,
   SPORTS_ROLES,
+  ageBracketToRange,
 } from "../../src/constants/opportunities";
 import type { CreateOpportunityPayload } from "../../src/types/opportunity";
 import { theme } from "../../src/theme";
@@ -37,23 +30,14 @@ function asOptionalText(value: string): string | null {
   return normalized ? normalized : null;
 }
 
-function asOptionalNumber(value: string): number | null {
-  const normalized = value.trim();
-  if (!normalized) return null;
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
 function OptionSelect({
   label,
   value,
-  placeholder,
   onPress,
   disabled,
 }: {
   label: string;
   value: string;
-  placeholder?: string;
   onPress: () => void;
   disabled?: boolean;
 }) {
@@ -72,7 +56,7 @@ function OptionSelect({
           opacity: disabled ? 0.6 : 1,
         }}
       >
-        <Text style={{ color: value ? theme.colors.text : theme.colors.muted }}>{value || placeholder || "Seleziona"}</Text>
+        <Text style={{ color: value ? theme.colors.text : theme.colors.muted }}>{value || "Seleziona"}</Text>
       </Pressable>
     </View>
   );
@@ -110,10 +94,28 @@ function OptionsModal({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.35)" }}>
-        <View style={{ backgroundColor: theme.colors.background, borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: "80%", padding: 16, gap: 10 }}>
+        <View
+          style={{
+            backgroundColor: theme.colors.background,
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
+            maxHeight: "80%",
+            padding: 16,
+            gap: 10,
+          }}
+        >
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
             <Text style={{ fontSize: 18, fontWeight: "700", color: theme.colors.text }}>{title}</Text>
-            <Pressable onPress={onClose} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.neutral200 }}>
+            <Pressable
+              onPress={onClose}
+              style={{
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: theme.colors.neutral200,
+              }}
+            >
               <Text style={{ color: theme.colors.text }}>Chiudi</Text>
             </Pressable>
           </View>
@@ -123,7 +125,14 @@ function OptionsModal({
               value={query}
               onChangeText={setQuery}
               placeholder="Cerca..."
-              style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text }}
+              style={{
+                borderWidth: 1,
+                borderColor: theme.colors.neutral200,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                color: theme.colors.text,
+              }}
             />
           ) : null}
 
@@ -159,21 +168,20 @@ export default function CreateOpportunityScreen() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [country, setCountry] = useState(DEFAULT_COUNTRY);
+  const [country, setCountry] = useState(ITALY_LABEL);
+  const [countryOther, setCountryOther] = useState("");
   const [region, setRegion] = useState("");
   const [province, setProvince] = useState("");
   const [city, setCity] = useState("");
   const [sport, setSport] = useState("");
   const [role, setRole] = useState("");
   const [category, setCategory] = useState("");
-  const [requiredCategory, setRequiredCategory] = useState("");
   const [ageBracket, setAgeBracket] = useState("");
-  const [ageMin, setAgeMin] = useState("");
-  const [ageMax, setAgeMax] = useState("");
   const [gender, setGender] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [picker, setPicker] = useState<string | null>(null);
+
   const [regions, setRegions] = useState<LocationOption[]>([]);
   const [provinces, setProvinces] = useState<LocationOption[]>([]);
   const [municipalities, setMunicipalities] = useState<LocationOption[]>([]);
@@ -182,7 +190,9 @@ export default function CreateOpportunityScreen() {
 
   const roleValue = normalizeRole((whoami.data as { role?: unknown } | null)?.role);
   const isClub = roleValue === "club";
-  const isItaly = country === "IT";
+
+  const isItaly = country === ITALY_LABEL;
+  const isOtherCountry = country === OTHER_COUNTRY_LABEL;
   const footballRoleRequired = sport === FOOTBALL_SPORT;
 
   const roleOptions = useMemo(() => [...(SPORTS_ROLES[sport] ?? [])], [sport]);
@@ -190,8 +200,7 @@ export default function CreateOpportunityScreen() {
 
   useEffect(() => {
     void (async () => {
-      const next = await getRegions();
-      setRegions(next);
+      setRegions(await getRegions());
     })();
   }, []);
 
@@ -201,8 +210,7 @@ export default function CreateOpportunityScreen() {
       return;
     }
     void (async () => {
-      const next = await getProvinces(selectedRegionId);
-      setProvinces(next);
+      setProvinces(await getProvinces(selectedRegionId));
     })();
   }, [isItaly, selectedRegionId]);
 
@@ -212,29 +220,14 @@ export default function CreateOpportunityScreen() {
       return;
     }
     void (async () => {
-      const next = await getMunicipalities(selectedProvinceId);
-      setMunicipalities(next);
+      setMunicipalities(await getMunicipalities(selectedProvinceId));
     })();
   }, [isItaly, selectedProvinceId]);
 
   useEffect(() => {
     setRole("");
     setCategory("");
-    setRequiredCategory("");
   }, [sport]);
-
-  useEffect(() => {
-    if (isItaly) return;
-    setSelectedRegionId(null);
-    setSelectedProvinceId(null);
-    setRegions([]);
-    setProvinces([]);
-    setMunicipalities([]);
-    void (async () => {
-      const next = await getRegions();
-      setRegions(next);
-    })();
-  }, [isItaly]);
 
   const formDisabled = useMemo(
     () => submitting || web.loading || whoami.loading || !isClub,
@@ -249,35 +242,32 @@ export default function CreateOpportunityScreen() {
     if (!gender) return setSubmitError("Gender obbligatorio");
     if (footballRoleRequired && !role) return setSubmitError("Ruolo obbligatorio per Calcio");
 
-    if (isItaly) {
-      if (!region || !province || !city) return setSubmitError("Per l'Italia seleziona Regione, Provincia e Città");
-    } else {
-      if (!region || !city) return setSubmitError("Fuori Italia inserisci almeno Regione e Città");
+    if (isItaly && (!region || !province || !city)) {
+      return setSubmitError("Per Italia seleziona Regione, Provincia e Città");
+    }
+    if (!isItaly && (!region || !city)) {
+      return setSubmitError("Per estero inserisci Regione e Città");
+    }
+    if (isOtherCountry && !countryOther.trim()) {
+      return setSubmitError("Inserisci il paese");
     }
 
-    const ageMinValue = asOptionalNumber(ageMin);
-    const ageMaxValue = asOptionalNumber(ageMax);
-
-    if (ageMin.trim() && ageMinValue === null) return setSubmitError("Età minima non valida");
-    if (ageMax.trim() && ageMaxValue === null) return setSubmitError("Età massima non valida");
-    if (ageMinValue !== null && ageMaxValue !== null && ageMinValue > ageMaxValue) {
-      return setSubmitError("Età minima non può superare età massima");
-    }
+    const normalizedAgeBracket = ageBracket === "Indifferente" ? null : asOptionalText(ageBracket);
+    const ageRange = ageBracketToRange(ageBracket);
 
     const payload: CreateOpportunityPayload = {
       title: title.trim(),
       description: asOptionalText(description),
-      country: asOptionalText(country),
+      country: isOtherCountry ? asOptionalText(countryOther) : asOptionalText(country),
       region: asOptionalText(region),
-      province: asOptionalText(province),
+      province: isItaly ? asOptionalText(province) : null,
       city: asOptionalText(city),
       sport: asOptionalText(sport),
       role: footballRoleRequired ? asOptionalText(role) : null,
       category: asOptionalText(category),
-      required_category: asOptionalText(requiredCategory),
-      age_bracket: asOptionalText(ageBracket),
-      age_min: ageMinValue,
-      age_max: ageMaxValue,
+      age_bracket: normalizedAgeBracket,
+      age_min: ageRange.age_min,
+      age_max: ageRange.age_max,
       gender,
     };
 
@@ -308,9 +298,6 @@ export default function CreateOpportunityScreen() {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 20, gap: 10 }}>
         <Text style={{ fontSize: 18, fontWeight: "700", color: theme.colors.text }}>Accesso riservato ai club</Text>
-        <Text style={{ color: theme.colors.muted, textAlign: "center" }}>
-          Questa schermata replica /opportunities/new ed è disponibile solo per account club autenticati.
-        </Text>
         <Pressable
           onPress={() => router.replace("/(tabs)/opportunities")}
           style={{ borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 }}
@@ -325,81 +312,128 @@ export default function CreateOpportunityScreen() {
     <>
       <ScrollView contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: Math.max(42, insets.bottom + 20) }}>
         <Text style={{ fontSize: 24, fontWeight: "800", color: theme.colors.text }}>Nuova opportunità</Text>
-        <Text style={{ color: theme.colors.muted }}>Compila i campi allineati al payload web POST /api/opportunities.</Text>
 
         {submitError ? <Text style={{ color: theme.colors.danger }}>{submitError}</Text> : null}
 
         <View style={{ gap: 6 }}>
           <Text style={{ fontWeight: "600", color: theme.colors.text }}>Titolo *</Text>
-          <TextInput value={title} onChangeText={setTitle} editable={!formDisabled} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text }} />
+          <TextInput
+            value={title}
+            onChangeText={setTitle}
+            editable={!formDisabled}
+            style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text }}
+          />
         </View>
 
         <View style={{ gap: 6 }}>
           <Text style={{ fontWeight: "600", color: theme.colors.text }}>Descrizione</Text>
-          <TextInput value={description} onChangeText={setDescription} editable={!formDisabled} multiline style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text, minHeight: 90, textAlignVertical: "top" }} />
+          <TextInput
+            value={description}
+            onChangeText={setDescription}
+            editable={!formDisabled}
+            multiline
+            style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text, minHeight: 90, textAlignVertical: "top" }}
+          />
         </View>
 
-        <OptionSelect label="Country" value={country} onPress={() => setPicker("country")} />
+        <OptionSelect label="Paese" value={country} onPress={() => setPicker("country")} />
+
+        {isOtherCountry ? (
+          <View style={{ gap: 6 }}>
+            <Text style={{ fontWeight: "600", color: theme.colors.text }}>Paese (testo libero)</Text>
+            <TextInput
+              value={countryOther}
+              onChangeText={setCountryOther}
+              editable={!formDisabled}
+              style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text }}
+            />
+          </View>
+        ) : null}
 
         {isItaly ? (
           <>
-            <OptionSelect label="Regione" value={region} disabled={!regions.length} onPress={() => setPicker("region")} />
-            <OptionSelect label="Provincia" value={province} disabled={!selectedRegionId || !provinces.length} onPress={() => setPicker("province")} />
-            <OptionSelect label="Città" value={city} disabled={!selectedProvinceId || !municipalities.length} onPress={() => setPicker("city")} />
+            <OptionSelect label="Regione" value={region} onPress={() => setPicker("region")} disabled={!regions.length} />
+            <OptionSelect
+              label="Provincia"
+              value={province}
+              onPress={() => setPicker("province")}
+              disabled={!selectedRegionId || !provinces.length}
+            />
+            <OptionSelect
+              label="Città"
+              value={city}
+              onPress={() => setPicker("city")}
+              disabled={!selectedProvinceId || !municipalities.length}
+            />
           </>
         ) : (
           <>
             <View style={{ gap: 6 }}>
               <Text style={{ fontWeight: "600", color: theme.colors.text }}>Regione</Text>
-              <TextInput value={region} onChangeText={setRegion} editable={!formDisabled} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text }} />
-            </View>
-            <View style={{ gap: 6 }}>
-              <Text style={{ fontWeight: "600", color: theme.colors.text }}>Provincia</Text>
-              <TextInput value={province} onChangeText={setProvince} editable={!formDisabled} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text }} />
+              <TextInput
+                value={region}
+                onChangeText={setRegion}
+                editable={!formDisabled}
+                style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text }}
+              />
             </View>
             <View style={{ gap: 6 }}>
               <Text style={{ fontWeight: "600", color: theme.colors.text }}>Città</Text>
-              <TextInput value={city} onChangeText={setCity} editable={!formDisabled} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text }} />
+              <TextInput
+                value={city}
+                onChangeText={setCity}
+                editable={!formDisabled}
+                style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text }}
+              />
             </View>
           </>
         )}
 
         <OptionSelect label="Sport *" value={sport} onPress={() => setPicker("sport")} />
-        <OptionSelect label={`Ruolo${footballRoleRequired ? " *" : ""}`} value={role} disabled={!roleOptions.length} onPress={() => setPicker("role")} />
-        <OptionSelect label="Categoria" value={category} disabled={!categoryOptions.length} onPress={() => setPicker("category")} />
-        <OptionSelect label="Categoria richiesta" value={requiredCategory} disabled={!categoryOptions.length} onPress={() => setPicker("requiredCategory")} />
-        <OptionSelect label="Age bracket" value={ageBracket} onPress={() => setPicker("ageBracket")} />
+        <OptionSelect
+          label={`Ruolo${footballRoleRequired ? " *" : ""}`}
+          value={role}
+          onPress={() => setPicker("role")}
+          disabled={!roleOptions.length}
+        />
+        <OptionSelect
+          label="Categoria"
+          value={category}
+          onPress={() => setPicker("category")}
+          disabled={!categoryOptions.length}
+        />
+        <OptionSelect label="Fascia età" value={ageBracket} onPress={() => setPicker("ageBracket")} />
         <OptionSelect label="Gender *" value={gender} onPress={() => setPicker("gender")} />
-
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <View style={{ flex: 1, gap: 6 }}>
-            <Text style={{ fontWeight: "600", color: theme.colors.text }}>Età minima</Text>
-            <TextInput value={ageMin} keyboardType="numeric" onChangeText={setAgeMin} editable={!formDisabled} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text }} />
-          </View>
-          <View style={{ flex: 1, gap: 6 }}>
-            <Text style={{ fontWeight: "600", color: theme.colors.text }}>Età massima</Text>
-            <TextInput value={ageMax} keyboardType="numeric" onChangeText={setAgeMax} editable={!formDisabled} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text }} />
-          </View>
-        </View>
 
         <Pressable
           disabled={formDisabled}
           onPress={() => void onSubmit()}
-          style={{ marginTop: 8, borderRadius: 10, backgroundColor: theme.colors.primary, paddingHorizontal: 14, paddingVertical: 12, alignItems: "center", opacity: formDisabled ? 0.6 : 1 }}
+          style={{
+            marginTop: 8,
+            borderRadius: 10,
+            backgroundColor: theme.colors.primary,
+            paddingHorizontal: 14,
+            paddingVertical: 12,
+            alignItems: "center",
+            opacity: formDisabled ? 0.6 : 1,
+          }}
         >
-          <Text style={{ color: theme.colors.background, fontWeight: "800" }}>{submitting ? "Pubblicazione in corso..." : "Pubblica opportunità"}</Text>
+          <Text style={{ color: theme.colors.background, fontWeight: "800" }}>
+            {submitting ? "Pubblicazione in corso..." : "Pubblica opportunità"}
+          </Text>
         </Pressable>
       </ScrollView>
 
       <OptionsModal
         visible={picker === "country"}
-        title="Seleziona country"
+        title="Seleziona paese"
         options={[...COUNTRIES]}
         selected={country}
         searchable
         onClose={() => setPicker(null)}
         onSelect={(value) => {
           setCountry(value);
+          setCountryOther("");
           setRegion("");
           setProvince("");
           setCity("");
@@ -449,14 +483,13 @@ export default function CreateOpportunityScreen() {
       />
 
       <OptionsModal
-        visible={picker === "requiredCategory"}
-        title="Seleziona categoria richiesta"
-        options={categoryOptions}
-        selected={requiredCategory}
-        searchable
+        visible={picker === "ageBracket"}
+        title="Seleziona fascia età"
+        options={[...AGE_BRACKETS]}
+        selected={ageBracket}
         onClose={() => setPicker(null)}
         onSelect={(value) => {
-          setRequiredCategory(value);
+          setAgeBracket(value);
           setPicker(null);
         }}
       />
@@ -469,18 +502,6 @@ export default function CreateOpportunityScreen() {
         onClose={() => setPicker(null)}
         onSelect={(value) => {
           setGender(value);
-          setPicker(null);
-        }}
-      />
-
-      <OptionsModal
-        visible={picker === "ageBracket"}
-        title="Seleziona age bracket"
-        options={[...AGE_BRACKETS]}
-        selected={ageBracket}
-        onClose={() => setPicker(null)}
-        onSelect={(value) => {
-          setAgeBracket(value);
           setPicker(null);
         }}
       />
