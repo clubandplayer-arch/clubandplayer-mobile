@@ -28,7 +28,7 @@ type NotificationActor = {
 };
 
 type NotificationItem = {
-  id: string;
+  id: string | number;
   kind: string;
   payload: any;
   created_at: string;
@@ -95,6 +95,10 @@ function getActorName(notification: NotificationItem): string {
 
 function countUnreadNotifications(items: NotificationItem[]): number {
   return items.filter((n) => !isChatMessageKind(n.kind) && !isReadNotification(n)).length;
+}
+
+function normalizeNotificationId(notificationId: string | number): string {
+  return String(notificationId ?? "").trim();
 }
 
 function mergeWithLocalReadState(serverItems: NotificationItem[]): NotificationItem[] {
@@ -249,18 +253,19 @@ export default function NotificationsScreen() {
     setLoading(false);
   }, []);
 
-  const markAsRead = useCallback(async (notificationId: string) => {
-    const response = await patchNotificationsMarkRead({ ids: [notificationId] });
+  const markAsRead = useCallback(async (notificationId: string | number) => {
+    const normalizedId = normalizeNotificationId(notificationId);
+    const response = await patchNotificationsMarkRead({ ids: [normalizedId] });
     const updatedCount = response.data?.updated ?? 0;
 
     if (!response.ok || updatedCount <= 0) {
       console.log("[notifications][mark-read][error]", {
-        id: notificationId,
+        id: normalizedId,
         status: response.status,
         errorText: response.errorText ?? null,
         updated: updatedCount,
       });
-      unmarkNotificationLocallyRead(notificationId);
+      unmarkNotificationLocallyRead(normalizedId);
       return false;
     }
 
@@ -268,13 +273,14 @@ export default function NotificationsScreen() {
     return true;
   }, []);
 
-  const markAsReadOptimistic = useCallback((notificationId: string) => {
+  const markAsReadOptimistic = useCallback((notificationId: string | number) => {
+    const normalizedId = normalizeNotificationId(notificationId);
     const nowIso = new Date().toISOString();
-    markNotificationLocallyRead(notificationId);
+    markNotificationLocallyRead(normalizedId);
 
     setNotifications((prev) => {
       const next = prev.map((notification) => {
-        if (notification.id !== notificationId) return notification;
+        if (normalizeNotificationId(notification.id) !== normalizedId) return notification;
         if (isReadNotification(notification)) return notification;
         return {
           ...notification,
@@ -345,7 +351,7 @@ export default function NotificationsScreen() {
   return (
     <FlatList
       data={filteredNotifications}
-      keyExtractor={(item) => item.id}
+      keyExtractor={(item) => normalizeNotificationId(item.id)}
       renderItem={({ item }) => {
         const name = getActorName(item);
         const unread = !isReadNotification(item);
@@ -353,6 +359,15 @@ export default function NotificationsScreen() {
         return (
           <Pressable
             onPress={async () => {
+              if (__DEV__) {
+                const normalizedId = normalizeNotificationId(item.id);
+                console.log("[TEMP DEBUG][notifications][tap]", {
+                  id: normalizedId,
+                  idType: typeof item.id,
+                  kind: item.kind,
+                });
+              }
+
               if (unread) {
                 markAsReadOptimistic(item.id);
                 const ok = await markAsRead(item.id);

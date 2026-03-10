@@ -2,7 +2,7 @@ const pendingReadNotificationIds = new Map<string, number>();
 
 const PENDING_READ_TTL_MS = 60_000;
 
-function cleanId(input: string): string {
+function cleanId(input: string | number): string {
   return String(input ?? "").trim();
 }
 
@@ -18,19 +18,19 @@ function purgeExpiredPendingReadIds() {
   }
 }
 
-export function markNotificationLocallyRead(notificationId: string) {
+export function markNotificationLocallyRead(notificationId: string | number) {
   const id = cleanId(notificationId);
   if (!id) return;
   pendingReadNotificationIds.set(id, Date.now());
 }
 
-export function unmarkNotificationLocallyRead(notificationId: string) {
+export function unmarkNotificationLocallyRead(notificationId: string | number) {
   const id = cleanId(notificationId);
   if (!id) return;
   pendingReadNotificationIds.delete(id);
 }
 
-export function isNotificationLocallyRead(notificationId: string): boolean {
+export function isNotificationLocallyRead(notificationId: string | number): boolean {
   purgeExpiredPendingReadIds();
 
   const id = cleanId(notificationId);
@@ -48,7 +48,7 @@ export function isNotificationLocallyRead(notificationId: string): boolean {
 }
 
 export function settleNotificationReadFromServer(params: {
-  notificationId: string;
+  notificationId: string | number;
   read: boolean;
   readAt?: string | null;
 }) {
