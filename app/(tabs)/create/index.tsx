@@ -203,6 +203,14 @@ export default function CreateScreen() {
     >
       <BrandHeader subtitle="Crea" />
 
+      <Pressable
+        onPress={() => router.push("/opportunities/new" as any)}
+        style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, padding: 12, backgroundColor: theme.colors.background }}
+      >
+        <Text style={{ fontWeight: "800", color: theme.colors.text }}>Crea opportunità (Club)</Text>
+        <Text style={{ color: theme.colors.muted, marginTop: 4 }}>Apri la schermata equivalente web /opportunities/new.</Text>
+      </Pressable>
+
       {(isPublishing || publishError) && (
         <View
           style={{
