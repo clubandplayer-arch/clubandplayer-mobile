@@ -7,6 +7,7 @@ import { setNotificationsBadgeCount } from "../../../src/lib/notificationsBadge"
 import {
   isNotificationLocallyRead,
   markNotificationLocallyRead,
+  settleNotificationReadFromServer,
   unmarkNotificationLocallyRead,
 } from "../../../src/lib/notificationsLocalRead";
 import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
@@ -22,12 +23,15 @@ type NotificationActor = {
   last_name?: string | null;
   username?: string | null;
   name?: string | null;
+  club_name?: string | null;
+  company_name?: string | null;
+  profile_name?: string | null;
   avatar_url?: string | null;
   account_type?: string | null;
 };
 
 type NotificationItem = {
-  id: string;
+  id: string | number;
   kind: string;
   payload: any;
   created_at: string;
@@ -35,6 +39,11 @@ type NotificationItem = {
   read_at?: string | null;
   actor_profile_id?: string | null;
   actor?: NotificationActor | null;
+};
+
+type NotificationTapResolution = {
+  targetRoute: string | null;
+  blockedReason?: string;
 };
 
 const isChatMessageKind = (kind?: string | null) => kind === "message" || kind === "new_message";
@@ -61,6 +70,9 @@ function normalizeActor(notification: NotificationItem): NotificationActor | nul
     first_name: actor?.first_name ?? payloadActor?.first_name ?? payload?.actor_first_name ?? null,
     last_name: actor?.last_name ?? payloadActor?.last_name ?? payload?.actor_last_name ?? null,
     name: actor?.name ?? payloadActor?.name ?? payload?.actor_name ?? null,
+    club_name: actor?.club_name ?? payloadActor?.club_name ?? payload?.actor_club_name ?? payload?.club_name ?? null,
+    company_name: actor?.company_name ?? payloadActor?.company_name ?? payload?.actor_company_name ?? payload?.company_name ?? null,
+    profile_name: actor?.profile_name ?? payloadActor?.profile_name ?? payload?.actor_profile_name ?? payload?.profile_name ?? null,
     username: actor?.username ?? payloadActor?.username ?? payload?.actor_username ?? null,
     account_type: actor?.account_type ?? payloadActor?.account_type ?? payload?.actor_account_type ?? null,
     avatar_url: actor?.avatar_url ?? payloadActor?.avatar_url ?? payload?.actor_avatar_url ?? null,
@@ -91,8 +103,18 @@ function countUnreadNotifications(items: NotificationItem[]): number {
   return items.filter((n) => !isChatMessageKind(n.kind) && !isReadNotification(n)).length;
 }
 
+function normalizeNotificationId(notificationId: string | number): string {
+  return String(notificationId ?? "").trim();
+}
+
 function mergeWithLocalReadState(serverItems: NotificationItem[]): NotificationItem[] {
   return serverItems.map((item) => {
+    settleNotificationReadFromServer({
+      notificationId: item.id,
+      read: item.read === true,
+      readAt: item.read_at ?? null,
+    });
+
     if (!isNotificationLocallyRead(item.id) || isReadNotification(item)) return item;
 
     return {
@@ -111,6 +133,7 @@ function getNotificationMessage(kind: string): string {
       return "ha reagito a un post";
     case "follow":
       return "ha iniziato a seguirti";
+    case "application_status":
     case "application_status_changed":
       return "ha aggiornato una candidatura";
     case "application_received":
@@ -128,6 +151,58 @@ function getInitial(name: string): string {
   const trimmed = name.trim();
   if (!trimmed) return "U";
   return trimmed.charAt(0).toUpperCase();
+}
+
+function getPayloadId(payload: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const raw = payload[key];
+    if (typeof raw !== "string") continue;
+    const value = raw.trim();
+    if (value) return value;
+  }
+  return null;
+}
+
+function resolveNotificationTarget(item: NotificationItem): NotificationTapResolution {
+  const payload = (item.payload ?? {}) as Record<string, unknown>;
+
+  if ((item.kind === "new_comment" || item.kind === "new_reaction") && typeof payload.post_id === "string") {
+    return { targetRoute: `/posts/${payload.post_id}` };
+  }
+
+  if (item.kind === "follow") {
+    const profileId = getPayloadId(payload, ["profile_id", "target_profile_id", "follower_profile_id", "actor_profile_id"]);
+    if (profileId) {
+      return { targetRoute: `/profiles/${profileId}` };
+    }
+
+    if (typeof item.actor_profile_id === "string" && item.actor_profile_id.trim().length > 0) {
+      return { targetRoute: `/profiles/${item.actor_profile_id}` };
+    }
+
+    return {
+      targetRoute: null,
+      blockedReason: "missing_profile_id_in_follow_payload",
+    };
+  }
+
+  if (item.kind === "application_received" || item.kind === "new_application_received") {
+    const opportunityId = getPayloadId(payload, ["opportunity_id"]);
+    if (opportunityId) {
+      return { targetRoute: `/club/applications?opportunity_id=${encodeURIComponent(opportunityId)}` };
+    }
+
+    return { targetRoute: "/club/applications" };
+  }
+
+  if (item.kind === "application_status" || item.kind === "application_status_changed") {
+    return { targetRoute: "/my/applications" };
+  }
+
+  return {
+    targetRoute: null,
+    blockedReason: "kind_not_mapped_to_mobile_destination",
+  };
 }
 
 function Avatar({ name, avatarUrl }: { name: string; avatarUrl?: string | null }) {
@@ -185,15 +260,19 @@ export default function NotificationsScreen() {
     setLoading(false);
   }, []);
 
-  const markAsRead = useCallback(async (notificationId: string) => {
-    const response = await patchNotificationsMarkRead({ ids: [notificationId] });
-    if (!response.ok) {
+  const markAsRead = useCallback(async (notificationId: string | number) => {
+    const normalizedId = normalizeNotificationId(notificationId);
+    const response = await patchNotificationsMarkRead({ ids: [normalizedId] });
+    const updatedCount = response.data?.updated ?? 0;
+
+    if (!response.ok || updatedCount <= 0) {
       console.log("[notifications][mark-read][error]", {
-        id: notificationId,
+        id: normalizedId,
         status: response.status,
         errorText: response.errorText ?? null,
+        updated: updatedCount,
       });
-      unmarkNotificationLocallyRead(notificationId);
+      unmarkNotificationLocallyRead(normalizedId);
       return false;
     }
 
@@ -201,13 +280,14 @@ export default function NotificationsScreen() {
     return true;
   }, []);
 
-  const markAsReadOptimistic = useCallback((notificationId: string) => {
+  const markAsReadOptimistic = useCallback((notificationId: string | number) => {
+    const normalizedId = normalizeNotificationId(notificationId);
     const nowIso = new Date().toISOString();
-    markNotificationLocallyRead(notificationId);
+    markNotificationLocallyRead(normalizedId);
 
     setNotifications((prev) => {
       const next = prev.map((notification) => {
-        if (notification.id !== notificationId) return notification;
+        if (normalizeNotificationId(notification.id) !== normalizedId) return notification;
         if (isReadNotification(notification)) return notification;
         return {
           ...notification,
@@ -278,7 +358,7 @@ export default function NotificationsScreen() {
   return (
     <FlatList
       data={filteredNotifications}
-      keyExtractor={(item) => item.id}
+      keyExtractor={(item) => normalizeNotificationId(item.id)}
       renderItem={({ item }) => {
         const name = getActorName(item);
         const unread = !isReadNotification(item);
@@ -286,7 +366,14 @@ export default function NotificationsScreen() {
         return (
           <Pressable
             onPress={async () => {
-              const p: any = item.payload ?? {};
+              if (__DEV__) {
+                const normalizedId = normalizeNotificationId(item.id);
+                console.log("[TEMP DEBUG][notifications][tap]", {
+                  id: normalizedId,
+                  idType: typeof item.id,
+                  kind: item.kind,
+                });
+              }
 
               if (unread) {
                 markAsReadOptimistic(item.id);
@@ -294,12 +381,18 @@ export default function NotificationsScreen() {
                 if (!ok) await load();
               }
 
-              if ((item.kind === "new_comment" || item.kind === "new_reaction") && typeof p.post_id === "string") {
-                router.push(`/posts/${p.post_id}`);
+              const resolution = resolveNotificationTarget(item);
+              if (resolution.targetRoute) {
+                router.push(resolution.targetRoute as never);
                 return;
               }
 
-              console.log("TODO PR-N2 deep link", item.id, item.kind);
+              console.log("[notifications][deep-link][blocked]", {
+                id: item.id,
+                kind: item.kind,
+                reason: resolution.blockedReason,
+                payload: item.payload ?? null,
+              });
             }}
             style={{
               flexDirection: "row",

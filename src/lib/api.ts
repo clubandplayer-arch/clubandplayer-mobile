@@ -901,13 +901,41 @@ export async function getNotifications(): Promise<NotificationItem[]> {
 }
 
 export async function patchNotificationsMarkRead(params: {
-  ids?: string[];
+  ids?: Array<string | number>;
   markAll?: boolean;
 }): Promise<ApiResponse<NotificationsPatchResponse>> {
-  return apiFetch<NotificationsPatchResponse>("/api/notifications", {
+  const normalizedIds = Array.from(
+    new Set((params.ids ?? []).map((id) => String(id ?? "").trim()).filter(Boolean)),
+  );
+
+  const payload = {
+    ...(typeof params.markAll === "boolean" ? { markAll: params.markAll } : {}),
+    ids: normalizedIds,
+  };
+
+  if (__DEV__) {
+    console.log("[TEMP DEBUG][notifications][mark-read][request]", {
+      path: "/api/notifications",
+      payload,
+      idsTypes: normalizedIds.map((id) => typeof id),
+    });
+  }
+
+  const response = await apiFetch<NotificationsPatchResponse>("/api/notifications", {
     method: "PATCH",
-    body: JSON.stringify(params),
+    body: JSON.stringify(payload),
   });
+
+  if (__DEV__) {
+    console.log("[TEMP DEBUG][notifications][mark-read][response]", {
+      ok: response.ok,
+      status: response.status,
+      errorText: response.ok ? null : response.errorText ?? null,
+      updated: response.data?.updated ?? null,
+    });
+  }
+
+  return response;
 }
 
 export async function postNotificationsMarkAllRead(): Promise<ApiResponse<NotificationsMarkAllReadResponse>> {
