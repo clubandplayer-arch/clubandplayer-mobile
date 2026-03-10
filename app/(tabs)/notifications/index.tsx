@@ -23,6 +23,9 @@ type NotificationActor = {
   last_name?: string | null;
   username?: string | null;
   name?: string | null;
+  club_name?: string | null;
+  company_name?: string | null;
+  profile_name?: string | null;
   avatar_url?: string | null;
   account_type?: string | null;
 };
@@ -67,6 +70,9 @@ function normalizeActor(notification: NotificationItem): NotificationActor | nul
     first_name: actor?.first_name ?? payloadActor?.first_name ?? payload?.actor_first_name ?? null,
     last_name: actor?.last_name ?? payloadActor?.last_name ?? payload?.actor_last_name ?? null,
     name: actor?.name ?? payloadActor?.name ?? payload?.actor_name ?? null,
+    club_name: actor?.club_name ?? payloadActor?.club_name ?? payload?.actor_club_name ?? payload?.club_name ?? null,
+    company_name: actor?.company_name ?? payloadActor?.company_name ?? payload?.actor_company_name ?? payload?.company_name ?? null,
+    profile_name: actor?.profile_name ?? payloadActor?.profile_name ?? payload?.actor_profile_name ?? payload?.profile_name ?? null,
     username: actor?.username ?? payloadActor?.username ?? payload?.actor_username ?? null,
     account_type: actor?.account_type ?? payloadActor?.account_type ?? payload?.actor_account_type ?? null,
     avatar_url: actor?.avatar_url ?? payloadActor?.avatar_url ?? payload?.actor_avatar_url ?? null,
