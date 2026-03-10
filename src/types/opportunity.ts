@@ -60,3 +60,23 @@ export type FetchOpportunitiesResult = {
   pageCount: number;
   sort: string;
 };
+
+export type CreateOpportunityPayload = {
+  title: string;
+  description?: string | null;
+  country?: string | null;
+  region?: string | null;
+  province?: string | null;
+  city?: string | null;
+  sport?: string | null;
+  role?: string | null;
+  required_category?: string | null;
+  age_min?: number | null;
+  age_max?: number | null;
+  gender?: string | null;
+  status?: string | null;
+};
+
+export type CreateOpportunityResponse = {
+  data: OpportunityDetail;
+};
