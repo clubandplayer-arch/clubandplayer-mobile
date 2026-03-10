@@ -853,6 +853,49 @@ export async function fetchMyApplications(params?: {
   return { ok: true, status: response.status, data: normalized };
 }
 
+export async function fetchMyAppliedOpportunityIds(params?: {
+  status?: "all" | "submitted" | "seen" | "accepted" | "rejected" | string;
+}): Promise<ApiResponse<string[]>> {
+  const primary = await fetchMyApplications(params);
+
+  if (primary.ok && primary.data) {
+    const ids = primary.data
+      .map((application) => String(application.opportunity_id ?? "").trim())
+      .filter(Boolean);
+    return { ok: true, status: primary.status, data: ids };
+  }
+
+  const sp = new URLSearchParams();
+  if (typeof params?.status === "string" && params.status.trim()) {
+    sp.set("status", params.status.trim());
+  }
+
+  const legacyQuery = sp.toString();
+  const legacyPath = legacyQuery ? `/api/applications/mine?${legacyQuery}` : "/api/applications/mine";
+  const legacy = await apiFetch<{ data?: MyApplicationItem[] } | MyApplicationItem[]>(legacyPath, { method: "GET" });
+
+  if (!legacy.ok) {
+    return {
+      ok: false,
+      status: primary.status || legacy.status,
+      errorText: primary.errorText || legacy.errorText || "Errore nel caricamento candidature utente",
+    };
+  }
+
+  const payload = legacy.data;
+  const normalized = Array.isArray(payload)
+    ? payload
+    : Array.isArray((payload as { data?: MyApplicationItem[] } | undefined)?.data)
+      ? ((payload as { data?: MyApplicationItem[] }).data ?? [])
+      : [];
+
+  const ids = normalized
+    .map((application) => String(application.opportunity_id ?? "").trim())
+    .filter(Boolean);
+
+  return { ok: true, status: legacy.status, data: ids };
+}
+
 
 export async function applyToOpportunity(opportunityId: string, note?: string | null): Promise<ApiResponse<ApplyToOpportunityResult>> {
   const cleanId = String(opportunityId ?? "").trim();

@@ -12,7 +12,13 @@ import {
 import { useRouter } from "expo-router";
 
 import { devWarn } from "../../../src/lib/debug/devLog";
-import { applyToOpportunity, fetchMyApplications, fetchOpportunities, useWebSession, useWhoami } from "../../../src/lib/api";
+import {
+  applyToOpportunity,
+  fetchOpportunities,
+  useWebSession,
+  useWhoami,
+} from "../../../src/lib/api";
+import { fetchMyAppliedOpportunityIds } from "../../../src/lib/opportunities/fetchMyAppliedOpportunityIds";
 import type { Opportunity } from "../../../src/types/opportunity";
 import { theme } from "../../../src/theme";
 
@@ -216,6 +222,9 @@ export default function OpportunitiesScreen() {
   const [actingOpportunityId, setActingOpportunityId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageCount, setPageCount] = useState(1);
+  const [queryInput, setQueryInput] = useState("");
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<"recent" | "oldest">("recent");
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -223,7 +232,7 @@ export default function OpportunitiesScreen() {
 
   const role = normalizeRole((whoami.data as { role?: unknown } | null)?.role);
   const isClub = role === "club";
-  const isPlayer = !isClub;
+  const isPlayer = role === "player" || role === "athlete";
 
   const canLoadMore = useMemo(() => page < pageCount, [page, pageCount]);
 
@@ -231,7 +240,7 @@ export default function OpportunitiesScreen() {
     if (mode === "replace") setLoading(true);
     else setLoadingMore(true);
 
-    const response = await fetchOpportunities({ page: nextPage, pageSize: 20, sort: "recent" });
+    const response = await fetchOpportunities({ page: nextPage, pageSize: 20, sort, q: query });
 
     if (!response.ok || !response.data) {
       setError(response.errorText || "Errore nel caricamento opportunità");
@@ -244,16 +253,11 @@ export default function OpportunitiesScreen() {
     setError(null);
 
     if (mode === "replace" && isPlayer) {
-      const applicationsResponse = await fetchMyApplications({ status: "all" });
+      const applicationsResponse = await fetchMyAppliedOpportunityIds({ status: "all" });
       if (applicationsResponse.ok && applicationsResponse.data) {
-        const nextAppliedIds = new Set(
-          applicationsResponse.data
-            .map((application) => String(application.opportunity_id ?? "").trim())
-            .filter(Boolean),
-        );
-        setAppliedOpportunityIds(nextAppliedIds);
+        setAppliedOpportunityIds(new Set(applicationsResponse.data));
       } else {
-        devWarn("[opportunities] fetchMyApplications failed", {
+        devWarn("[opportunities] fetchMyAppliedOpportunityIds failed", {
           status: applicationsResponse.status,
           errorText: applicationsResponse.errorText,
         });
@@ -272,7 +276,14 @@ export default function OpportunitiesScreen() {
     setLoading(false);
     setLoadingMore(false);
     setRefreshing(false);
-  }, [isPlayer]);
+  }, [isPlayer, query, sort]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setQuery(queryInput.trim());
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [queryInput]);
 
   useEffect(() => {
     if (web.loading || whoami.loading) return;
@@ -359,7 +370,47 @@ export default function OpportunitiesScreen() {
     <FlatList
       data={items}
       ListHeaderComponent={
-        <View style={{ marginBottom: 12 }}>
+        <View style={{ marginBottom: 12, gap: 10 }}>
+          <TextInput
+            value={queryInput}
+            onChangeText={setQueryInput}
+            placeholder="Cerca opportunità"
+            style={{
+              borderWidth: 1,
+              borderColor: theme.colors.neutral200,
+              borderRadius: 10,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              color: theme.colors.text,
+            }}
+          />
+
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            {[
+              { key: "recent", label: "Più recenti" },
+              { key: "oldest", label: "Meno recenti" },
+            ].map((option) => {
+              const active = sort === option.key;
+              return (
+                <Pressable
+                  key={option.key}
+                  onPress={() => setSort(option.key as "recent" | "oldest")}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: theme.colors.neutral200,
+                    borderRadius: 999,
+                    paddingVertical: 6,
+                    paddingHorizontal: 12,
+                    backgroundColor: active ? theme.colors.text : theme.colors.background,
+                  }}
+                >
+                  <Text style={{ color: active ? theme.colors.background : theme.colors.text, fontWeight: "700" }}>
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
       }
       keyExtractor={(item) => String(item.id)}
@@ -384,7 +435,11 @@ export default function OpportunitiesScreen() {
         );
       }}
       contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }}
-      ListEmptyComponent={<Text style={{ color: theme.colors.muted }}>Nessuna opportunità disponibile.</Text>}
+      ListEmptyComponent={
+        <Text style={{ color: theme.colors.muted }}>
+          {query ? "Nessuna opportunità trovata con i filtri attuali." : "Nessuna opportunità disponibile."}
+        </Text>
+      }
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       onEndReachedThreshold={0.35}
       onEndReached={onEndReached}
