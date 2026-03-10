@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
-import { applyToOpportunity, fetchMyApplications, fetchOpportunityById, useWebSession, useWhoami } from "../../src/lib/api";
+import { applyToOpportunity, fetchOpportunityById, useWebSession, useWhoami } from "../../src/lib/api";
+import { fetchMyAppliedOpportunityIds } from "../../src/lib/opportunities/fetchMyAppliedOpportunityIds";
 import type { OpportunityDetail } from "../../src/types/opportunity";
 import { theme } from "../../src/theme";
 
@@ -106,17 +107,17 @@ export default function OpportunityDetailScreen() {
     let mounted = true;
     const loadMyApplications = async () => {
       setCheckingApplied(true);
-      const response = await fetchMyApplications({ status: "all" });
+      const response = await fetchMyAppliedOpportunityIds({ status: "all" });
 
       if (!mounted) return;
       if (!response.ok || !response.data) {
-        if (__DEV__) console.log("[opportunity-detail] fetchMyApplications failed", response.errorText);
+        if (__DEV__) console.log("[opportunity-detail] fetchMyAppliedOpportunityIds failed", response.errorText);
         setAlreadyApplied(false);
         setCheckingApplied(false);
         return;
       }
 
-      const applied = response.data.some((application) => String(application.opportunity_id ?? "").trim() === opportunityId);
+      const applied = response.data.some((id) => id === opportunityId);
       setAlreadyApplied(applied);
       setCheckingApplied(false);
     };
