@@ -385,7 +385,20 @@ export default function OpportunitiesScreen() {
             }}
           />
 
-          <View style={{ flexDirection: "row", gap: 8 }}>
+          <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+            {isClub ? (
+              <Pressable
+                onPress={() => router.push("/opportunities/new" as any)}
+                style={{
+                  borderRadius: 999,
+                  backgroundColor: theme.colors.primary,
+                  paddingVertical: 6,
+                  paddingHorizontal: 12,
+                }}
+              >
+                <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Crea opportunità</Text>
+              </Pressable>
+            ) : null}
             {[
               { key: "recent", label: "Più recenti" },
               { key: "oldest", label: "Meno recenti" },

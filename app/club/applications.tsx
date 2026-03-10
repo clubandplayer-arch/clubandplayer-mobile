@@ -12,24 +12,37 @@ import {
   type ReceivedApplicationItem,
 } from "../../src/lib/api";
 
-type ClubFilterStatus = "pending" | "all" | "accepted" | "rejected";
+type ClubFilterStatus = "pending" | "accepted" | "rejected" | "all";
 
-const FILTERS: ClubFilterStatus[] = ["pending", "all", "accepted", "rejected"];
+const FILTERS: ClubFilterStatus[] = ["pending", "accepted", "rejected", "all"];
 
 function labelForFilter(status: ClubFilterStatus): string {
-  if (status === "pending") return "In attesa";
-  if (status === "all") return "Tutte";
+  if (status === "pending") return "In valutazione";
   if (status === "accepted") return "Accettate";
+  if (status === "all") return "Tutte";
   return "Rifiutate";
 }
 
 function labelForStatus(status?: string | null): string {
   const v = String(status || "").toLowerCase();
-  if (v === "submitted") return "Inviata";
+  if (v === "submitted") return "In valutazione";
+  if (v === "pending" || v === "in_review") return "In valutazione";
   if (v === "seen") return "Visualizzata";
   if (v === "accepted") return "Accettata";
   if (v === "rejected") return "Rifiutata";
   return status ? String(status) : "-";
+}
+
+function statusBadgeColors(status?: string | null): { textColor: string; backgroundColor: string; borderColor: string } {
+  const v = String(status || "").toLowerCase();
+  if (v === "accepted") return { textColor: "#166534", backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" };
+  if (v === "rejected") return { textColor: "#991b1b", backgroundColor: "#fef2f2", borderColor: "#fecaca" };
+  return { textColor: "#854d0e", backgroundColor: "#fefce8", borderColor: "#fde68a" };
+}
+
+function isFinalStatus(status?: string | null): boolean {
+  const v = String(status || "").toLowerCase();
+  return v === "accepted" || v === "rejected";
 }
 
 function athleteName(item: ReceivedApplicationItem): string {
@@ -186,6 +199,8 @@ export default function ClubApplicationsScreen() {
           const oppId = item.opportunity_id ? String(item.opportunity_id) : null;
           const profileId = athleteProfileId(item);
           const isBusy = actingId === item.id;
+          const hideActions = isFinalStatus(item.status);
+          const badge = statusBadgeColors(item.status);
 
           return (
             <View style={{ borderBottomWidth: 1, padding: 14 }}>
@@ -200,24 +215,39 @@ export default function ClubApplicationsScreen() {
                 <Text style={{ color: theme.colors.text }}>{opportunityLabel(item)}</Text>
               </Pressable>
 
-              <Text style={{ marginTop: 8, opacity: 0.75 }}>Stato: {labelForStatus(item.status)}</Text>
-
-              <View style={{ flexDirection: "row", gap: 10, marginTop: 10 }}>
-                <Pressable
-                  disabled={isBusy}
-                  onPress={() => void onStatusAction(item.id, "accepted")}
-                  style={{ borderWidth: 1, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12 }}
-                >
-                  <Text style={{ fontWeight: "600" }}>{isBusy ? "..." : "Accetta"}</Text>
-                </Pressable>
-                <Pressable
-                  disabled={isBusy}
-                  onPress={() => void onStatusAction(item.id, "rejected")}
-                  style={{ borderWidth: 1, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12 }}
-                >
-                  <Text style={{ fontWeight: "600" }}>{isBusy ? "..." : "Rifiuta"}</Text>
-                </Pressable>
+              <View
+                style={{
+                  alignSelf: "flex-start",
+                  marginTop: 10,
+                  borderWidth: 1,
+                  borderColor: badge.borderColor,
+                  backgroundColor: badge.backgroundColor,
+                  borderRadius: 999,
+                  paddingVertical: 4,
+                  paddingHorizontal: 10,
+                }}
+              >
+                <Text style={{ color: badge.textColor, fontWeight: "700" }}>{labelForStatus(item.status)}</Text>
               </View>
+
+              {!hideActions ? (
+                <View style={{ flexDirection: "row", gap: 10, marginTop: 10 }}>
+                  <Pressable
+                    disabled={isBusy}
+                    onPress={() => void onStatusAction(item.id, "accepted")}
+                    style={{ borderWidth: 1, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12 }}
+                  >
+                    <Text style={{ fontWeight: "600" }}>{isBusy ? "..." : "Accetta"}</Text>
+                  </Pressable>
+                  <Pressable
+                    disabled={isBusy}
+                    onPress={() => void onStatusAction(item.id, "rejected")}
+                    style={{ borderWidth: 1, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12 }}
+                  >
+                    <Text style={{ fontWeight: "600" }}>{isBusy ? "..." : "Rifiuta"}</Text>
+                  </Pressable>
+                </View>
+              ) : null}
             </View>
           );
         }}
