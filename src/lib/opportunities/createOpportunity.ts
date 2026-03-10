@@ -7,7 +7,9 @@ export async function createOpportunity(payload: CreateOpportunityPayload): Prom
     body: JSON.stringify(payload),
   });
 
-  if (!response.ok || !response.data?.data) {
+  const created = (response.data as any)?.data ?? response.data ?? null;
+
+  if (!response.ok || !created) {
     return {
       ok: false,
       status: response.status,
@@ -18,6 +20,6 @@ export async function createOpportunity(payload: CreateOpportunityPayload): Prom
   return {
     ok: true,
     status: response.status,
-    data: response.data.data,
+    data: created,
   };
 }

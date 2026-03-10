@@ -70,11 +70,12 @@ export type CreateOpportunityPayload = {
   city?: string | null;
   sport?: string | null;
   role?: string | null;
+  category?: string | null;
   required_category?: string | null;
+  age_bracket?: string | null;
   age_min?: number | null;
   age_max?: number | null;
-  gender?: string | null;
-  status?: string | null;
+  gender: string;
 };
 
 export type CreateOpportunityResponse = {
