@@ -133,6 +133,7 @@ function getNotificationMessage(kind: string): string {
       return "ha reagito a un post";
     case "follow":
       return "ha iniziato a seguirti";
+    case "application_status":
     case "application_status_changed":
       return "ha aggiornato una candidatura";
     case "application_received":
@@ -194,7 +195,7 @@ function resolveNotificationTarget(item: NotificationItem): NotificationTapResol
     return { targetRoute: "/club/applications" };
   }
 
-  if (item.kind === "application_status_changed") {
+  if (item.kind === "application_status" || item.kind === "application_status_changed") {
     return { targetRoute: "/my/applications" };
   }
 
