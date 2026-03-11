@@ -12,7 +12,7 @@ import {
   COUNTRIES,
   FOOTBALL_SPORT,
   ITALY_LABEL,
-  OPPORTUNITY_GENDER_LABELS,
+  OPPORTUNITY_GENDER_OPTIONS,
   OTHER_COUNTRY_LABEL,
   SPORTS,
   SPORTS_ROLES,
@@ -197,6 +197,10 @@ export default function CreateOpportunityScreen() {
 
   const roleOptions = useMemo(() => [...(SPORTS_ROLES[sport] ?? [])], [sport]);
   const categoryOptions = useMemo(() => [...(CATEGORIES_BY_SPORT[sport] ?? [])], [sport]);
+  const selectedGenderLabel = useMemo(
+    () => OPPORTUNITY_GENDER_OPTIONS.find((item) => item.value === gender)?.label ?? "",
+    [gender],
+  );
 
   useEffect(() => {
     void (async () => {
@@ -310,7 +314,7 @@ export default function CreateOpportunityScreen() {
 
   return (
     <>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: Math.max(42, insets.bottom + 20) }}>
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: Math.max(220, insets.bottom + 140) }}>
         <Text style={{ fontSize: 24, fontWeight: "800", color: theme.colors.text }}>Nuova opportunità</Text>
 
         {submitError ? <Text style={{ color: theme.colors.danger }}>{submitError}</Text> : null}
@@ -403,7 +407,7 @@ export default function CreateOpportunityScreen() {
           disabled={!categoryOptions.length}
         />
         <OptionSelect label="Fascia età" value={ageBracket} onPress={() => setPicker("ageBracket")} />
-        <OptionSelect label="Gender *" value={gender} onPress={() => setPicker("gender")} />
+        <OptionSelect label="Gender *" value={selectedGenderLabel} onPress={() => setPicker("gender")} />
 
         <Pressable
           disabled={formDisabled}
@@ -497,11 +501,12 @@ export default function CreateOpportunityScreen() {
       <OptionsModal
         visible={picker === "gender"}
         title="Seleziona gender"
-        options={[...OPPORTUNITY_GENDER_LABELS]}
-        selected={gender}
+        options={OPPORTUNITY_GENDER_OPTIONS.map((item) => item.label)}
+        selected={selectedGenderLabel}
         onClose={() => setPicker(null)}
-        onSelect={(value) => {
-          setGender(value);
+        onSelect={(label) => {
+          const selected = OPPORTUNITY_GENDER_OPTIONS.find((item) => item.label === label);
+          setGender(selected?.value ?? "");
           setPicker(null);
         }}
       />
