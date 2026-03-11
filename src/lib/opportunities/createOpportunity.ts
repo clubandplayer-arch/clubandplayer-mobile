@@ -5,6 +5,15 @@ import type {
   OpportunityDetail,
 } from "../../types/opportunity";
 
+const ALLOWED_REQUIRED_CATEGORIES = new Set(["goalkeeper", "defender", "midfielder", "forward"]);
+
+function sanitizeRequiredCategory(value: string | null | undefined): string | null {
+  const normalized = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  return ALLOWED_REQUIRED_CATEGORIES.has(normalized) ? normalized : null;
+}
+
 function toRequiredCategoryForCalcio(role: string | null | undefined): string | null {
   const normalized = String(role ?? "")
     .trim()
@@ -20,7 +29,15 @@ function toRequiredCategoryForCalcio(role: string | null | undefined): string | 
   ) {
     return "midfielder";
   }
-  if (normalized.includes("punta") || normalized.includes("esterno offensivo")) return "forward";
+  if (
+    normalized.includes("punta") ||
+    normalized.includes("attacco") ||
+    normalized.includes("offensivo") ||
+    normalized.includes("ala") ||
+    normalized.includes("esterno")
+  ) {
+    return "forward";
+  }
 
   return null;
 }
@@ -32,14 +49,15 @@ function normalizeCreateOpportunityPayload(payload: CreateOpportunityPayload): C
     return {
       ...payload,
       sport: normalizedSport,
-      required_category: toRequiredCategoryForCalcio(payload.role),
+      required_category:
+        toRequiredCategoryForCalcio(payload.role) ?? sanitizeRequiredCategory(payload.required_category),
     };
   }
 
   return {
     ...payload,
     sport: normalizedSport,
-    required_category: payload.required_category ?? null,
+    required_category: sanitizeRequiredCategory(payload.required_category),
   };
 }
 

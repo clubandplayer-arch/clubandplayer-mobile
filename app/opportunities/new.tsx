@@ -282,7 +282,7 @@ export default function CreateOpportunityScreen() {
         contentContainerStyle={{
           padding: 16,
           gap: 12,
-          paddingBottom: insets.bottom + 180,
+          paddingBottom: insets.bottom + 220,
         }}
       >
         <Text style={{ fontSize: 24, fontWeight: "800", color: theme.colors.text }}>Nuova opportunità</Text>
@@ -445,7 +445,7 @@ export default function CreateOpportunityScreen() {
             paddingVertical: 12,
             alignItems: "center",
             opacity: formDisabled ? 0.6 : 1,
-            marginBottom: insets.bottom + 24,
+            marginBottom: insets.bottom + 40,
           }}
         >
           <Text style={{ color: theme.colors.background, fontWeight: "800" }}>
@@ -473,7 +473,7 @@ export default function CreateOpportunityScreen() {
               borderTopRightRadius: 16,
               paddingTop: 8,
               paddingHorizontal: 16,
-              paddingBottom: insets.bottom + 36,
+              paddingBottom: insets.bottom + 56,
               gap: 8,
             }}
           >
