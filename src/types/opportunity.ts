@@ -71,6 +71,7 @@ export type CreateOpportunityPayload = {
   city?: string | null;
   sport?: string | null;
   role?: string | null;
+  category?: string | null;
   required_category?: string | null;
   age_min?: number | null;
   age_max?: number | null;

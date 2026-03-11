@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { useRouter } from "expo-router";
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { Stack, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useWebSession, useWhoami } from "../../src/lib/api";
@@ -13,7 +22,12 @@ import {
   SPORTS,
   SPORTS_ROLES,
 } from "../../src/constants/opportunities";
-import { getMunicipalities, getProvinces, getRegions, type LocationOption } from "../../src/lib/geo/location";
+import {
+  getMunicipalities,
+  getProvinces,
+  getRegions,
+  type LocationOption,
+} from "../../src/lib/geo/location";
 import { createOpportunity } from "../../src/lib/opportunities/createOpportunity";
 import type { CreateOpportunityPayload } from "../../src/types/opportunity";
 import { theme } from "../../src/theme";
@@ -22,36 +36,37 @@ function normalizeRole(role: unknown): string {
   return String(role ?? "").trim().toLowerCase();
 }
 
-function OptionButtons({
-  options,
+function SelectorField({
+  label,
   value,
-  onChange,
+  placeholder,
+  disabled,
+  onPress,
 }: {
-  options: readonly string[];
+  label: string;
   value: string;
-  onChange: (next: string) => void;
+  placeholder: string;
+  disabled?: boolean;
+  onPress: () => void;
 }) {
   return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-      {options.map((option) => {
-        const active = option === value;
-        return (
-          <Pressable
-            key={option}
-            onPress={() => onChange(option)}
-            style={{
-              borderWidth: 1,
-              borderColor: active ? theme.colors.primary : theme.colors.neutral200,
-              backgroundColor: active ? "#F0F7FF" : theme.colors.background,
-              borderRadius: 999,
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-            }}
-          >
-            <Text style={{ color: theme.colors.text }}>{option}</Text>
-          </Pressable>
-        );
-      })}
+    <View style={{ gap: 6 }}>
+      <Text style={{ fontWeight: "700", color: theme.colors.text }}>{label}</Text>
+      <Pressable
+        onPress={onPress}
+        disabled={disabled}
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 10,
+          paddingHorizontal: 12,
+          paddingVertical: 12,
+          backgroundColor: disabled ? theme.colors.neutral100 : theme.colors.background,
+          opacity: disabled ? 0.7 : 1,
+        }}
+      >
+        <Text style={{ color: value ? theme.colors.text : theme.colors.muted }}>{value || placeholder}</Text>
+      </Pressable>
     </View>
   );
 }
@@ -80,12 +95,19 @@ export default function CreateOpportunityScreen() {
   const [provinces, setProvinces] = useState<LocationOption[]>([]);
   const [cities, setCities] = useState<LocationOption[]>([]);
 
+  const [activeSelector, setActiveSelector] = useState<
+    "country" | "region" | "province" | "city" | "sport" | "role" | "category" | "age" | "gender" | null
+  >(null);
+
   const roleValue = normalizeRole((whoami.data as { role?: unknown } | null)?.role);
   const isClub = roleValue === "club";
   const isItaly = country === "IT";
 
   useEffect(() => {
     if (!isItaly) {
+      setRegion("");
+      setProvince("");
+      setCity("");
       setRegions([]);
       setProvinces([]);
       setCities([]);
@@ -98,9 +120,15 @@ export default function CreateOpportunityScreen() {
     if (!isItaly) return;
     const selectedRegion = regions.find((item) => item.name === region);
     if (!selectedRegion) {
+      setProvince("");
+      setCity("");
       setProvinces([]);
+      setCities([]);
       return;
     }
+    setProvince("");
+    setCity("");
+    setCities([]);
     void getProvinces(selectedRegion.id).then(setProvinces);
   }, [isItaly, region, regions]);
 
@@ -108,9 +136,11 @@ export default function CreateOpportunityScreen() {
     if (!isItaly) return;
     const selectedProvince = provinces.find((item) => item.name === province);
     if (!selectedProvince) {
+      setCity("");
       setCities([]);
       return;
     }
+    setCity("");
     void getMunicipalities(selectedProvince.id).then(setCities);
   }, [isItaly, province, provinces]);
 
@@ -127,6 +157,66 @@ export default function CreateOpportunityScreen() {
     [isClub, submitting, web.loading, whoami.loading],
   );
 
+  const selectorOptions = useMemo(() => {
+    switch (activeSelector) {
+      case "country":
+        return COUNTRIES.map((item) => ({ label: item.label, value: item.value }));
+      case "region":
+        return regions.map((item) => ({ label: item.name, value: item.name }));
+      case "province":
+        return provinces.map((item) => ({ label: item.name, value: item.name }));
+      case "city":
+        return cities.map((item) => ({ label: item.name, value: item.name }));
+      case "sport":
+        return SPORTS.map((item) => ({ label: item, value: item }));
+      case "role":
+        return roles.map((item) => ({ label: item, value: item }));
+      case "category":
+        return categories.map((item) => ({ label: item, value: item }));
+      case "age":
+        return AGE_BRACKETS.map((item) => ({ label: item, value: item }));
+      case "gender":
+        return GENDERS.map((item) => ({ label: item.label, value: item.value }));
+      default:
+        return [];
+    }
+  }, [activeSelector, regions, provinces, cities, roles, categories]);
+
+  const onSelectValue = (value: string) => {
+    switch (activeSelector) {
+      case "country":
+        setCountry(value);
+        break;
+      case "region":
+        setRegion(value);
+        break;
+      case "province":
+        setProvince(value);
+        break;
+      case "city":
+        setCity(value);
+        break;
+      case "sport":
+        setSport(value);
+        break;
+      case "role":
+        setRole(value);
+        break;
+      case "category":
+        setCategory(value);
+        break;
+      case "age":
+        setAgeBracket(value as (typeof AGE_BRACKETS)[number]);
+        break;
+      case "gender":
+        setGender(value);
+        break;
+      default:
+        break;
+    }
+    setActiveSelector(null);
+  };
+
   const onSubmit = async () => {
     if (!title.trim()) return setSubmitError("Titolo obbligatorio");
     if (!gender) return setSubmitError("Gender obbligatorio");
@@ -142,7 +232,7 @@ export default function CreateOpportunityScreen() {
       city: city.trim() || null,
       sport: sport || null,
       role: role || null,
-      required_category: category || null,
+      category: category || null,
       age_bracket: ageBracket || null,
       age_min: ageRange.age_min,
       age_max: ageRange.age_max,
@@ -178,69 +268,245 @@ export default function CreateOpportunityScreen() {
   if (web.error || whoami.error || !isClub) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 20, gap: 10 }}>
-        <Text style={{ fontSize: 18, fontWeight: "700", color: theme.colors.text }}>Accesso riservato ai club</Text>
+        <Text style={{ fontSize: 18, fontWeight: "700", color: theme.colors.text }}>
+          Accesso riservato ai club
+        </Text>
       </View>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: insets.bottom + 140 }}>
-      <Text style={{ fontSize: 24, fontWeight: "800", color: theme.colors.text }}>Nuova opportunità</Text>
-      {submitError ? <Text style={{ color: theme.colors.danger }}>{submitError}</Text> : null}
-
-      <TextInput value={title} onChangeText={setTitle} editable={!formDisabled} placeholder="Titolo *" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 }} />
-      <TextInput value={description} onChangeText={setDescription} editable={!formDisabled} placeholder="Descrizione" multiline style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, minHeight: 90, textAlignVertical: "top" }} />
-
-      <Text style={{ fontWeight: "700", color: theme.colors.text }}>Paese</Text>
-      <OptionButtons options={COUNTRIES.map((item) => item.value)} value={country} onChange={setCountry} />
-
-      {isItaly ? (
-        <>
-          <Text style={{ fontWeight: "700", color: theme.colors.text }}>Regione</Text>
-          <OptionButtons options={regions.map((item) => item.name)} value={region} onChange={setRegion} />
-          <Text style={{ fontWeight: "700", color: theme.colors.text }}>Provincia</Text>
-          <OptionButtons options={provinces.map((item) => item.name)} value={province} onChange={setProvince} />
-          <Text style={{ fontWeight: "700", color: theme.colors.text }}>Città</Text>
-          <OptionButtons options={cities.map((item) => item.name)} value={city} onChange={setCity} />
-        </>
-      ) : (
-        <>
-          <TextInput value={region} onChangeText={setRegion} editable={!formDisabled} placeholder="Regione" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 }} />
-          <TextInput value={province} onChangeText={setProvince} editable={!formDisabled} placeholder="Provincia" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 }} />
-          <TextInput value={city} onChangeText={setCity} editable={!formDisabled} placeholder="Città" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 }} />
-        </>
-      )}
-
-      <Text style={{ fontWeight: "700", color: theme.colors.text }}>Sport</Text>
-      <OptionButtons options={SPORTS} value={sport} onChange={setSport} />
-
-      <Text style={{ fontWeight: "700", color: theme.colors.text }}>Ruolo</Text>
-      <OptionButtons options={roles} value={role} onChange={setRole} />
-
-      <Text style={{ fontWeight: "700", color: theme.colors.text }}>Categoria</Text>
-      <OptionButtons options={categories} value={category} onChange={setCategory} />
-
-      <Text style={{ fontWeight: "700", color: theme.colors.text }}>Fascia età</Text>
-      <OptionButtons options={AGE_BRACKETS} value={ageBracket} onChange={(v) => setAgeBracket(v as (typeof AGE_BRACKETS)[number])} />
-
-      <Text style={{ fontWeight: "700", color: theme.colors.text }}>Gender *</Text>
-      <OptionButtons options={GENDERS.map((item) => item.label)} value={GENDERS.find((item) => item.value === gender)?.label ?? ""} onChange={(label) => setGender(GENDERS.find((item) => item.label === label)?.value ?? "")} />
-
-      <Pressable
-        disabled={formDisabled}
-        onPress={() => void onSubmit()}
-        style={{
-          marginTop: 8,
-          borderRadius: 10,
-          backgroundColor: theme.colors.primary,
-          paddingHorizontal: 14,
-          paddingVertical: 12,
-          alignItems: "center",
-          opacity: formDisabled ? 0.6 : 1,
+    <>
+      <Stack.Screen options={{ title: "Opportunità" }} />
+      <ScrollView
+        contentContainerStyle={{
+          padding: 16,
+          gap: 12,
+          paddingBottom: insets.bottom + 180,
         }}
       >
-        <Text style={{ color: theme.colors.background, fontWeight: "800" }}>{submitting ? "Pubblicazione in corso..." : "Pubblica opportunità"}</Text>
-      </Pressable>
-    </ScrollView>
+        <Text style={{ fontSize: 24, fontWeight: "800", color: theme.colors.text }}>Nuova opportunità</Text>
+        {submitError ? <Text style={{ color: theme.colors.danger }}>{submitError}</Text> : null}
+
+        <TextInput
+          value={title}
+          onChangeText={setTitle}
+          editable={!formDisabled}
+          placeholder="Titolo *"
+          style={{
+            borderWidth: 1,
+            borderColor: theme.colors.neutral200,
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+          }}
+        />
+        <TextInput
+          value={description}
+          onChangeText={setDescription}
+          editable={!formDisabled}
+          placeholder="Descrizione"
+          multiline
+          style={{
+            borderWidth: 1,
+            borderColor: theme.colors.neutral200,
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            minHeight: 90,
+            textAlignVertical: "top",
+          }}
+        />
+
+        <SelectorField
+          label="Paese"
+          value={COUNTRIES.find((item) => item.value === country)?.label ?? ""}
+          placeholder="Seleziona paese"
+          disabled={formDisabled}
+          onPress={() => setActiveSelector("country")}
+        />
+
+        {isItaly ? (
+          <>
+            <SelectorField
+              label="Regione"
+              value={region}
+              placeholder="Seleziona regione"
+              disabled={formDisabled || regions.length === 0}
+              onPress={() => setActiveSelector("region")}
+            />
+            <SelectorField
+              label="Provincia"
+              value={province}
+              placeholder="Seleziona provincia"
+              disabled={formDisabled || !region || provinces.length === 0}
+              onPress={() => setActiveSelector("province")}
+            />
+            <SelectorField
+              label="Città"
+              value={city}
+              placeholder="Seleziona città"
+              disabled={formDisabled || !province || cities.length === 0}
+              onPress={() => setActiveSelector("city")}
+            />
+          </>
+        ) : (
+          <>
+            <TextInput
+              value={region}
+              onChangeText={setRegion}
+              editable={!formDisabled}
+              placeholder="Regione"
+              style={{
+                borderWidth: 1,
+                borderColor: theme.colors.neutral200,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+              }}
+            />
+            <TextInput
+              value={province}
+              onChangeText={setProvince}
+              editable={!formDisabled}
+              placeholder="Provincia"
+              style={{
+                borderWidth: 1,
+                borderColor: theme.colors.neutral200,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+              }}
+            />
+            <TextInput
+              value={city}
+              onChangeText={setCity}
+              editable={!formDisabled}
+              placeholder="Città"
+              style={{
+                borderWidth: 1,
+                borderColor: theme.colors.neutral200,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+              }}
+            />
+          </>
+        )}
+
+        <SelectorField
+          label="Sport"
+          value={sport}
+          placeholder="Seleziona sport"
+          disabled={formDisabled}
+          onPress={() => setActiveSelector("sport")}
+        />
+
+        <SelectorField
+          label="Ruolo"
+          value={role}
+          placeholder={sport ? "Seleziona ruolo" : "Seleziona prima lo sport"}
+          disabled={formDisabled || !sport || roles.length === 0}
+          onPress={() => setActiveSelector("role")}
+        />
+
+        <SelectorField
+          label="Categoria"
+          value={category}
+          placeholder={sport ? "Seleziona categoria" : "Seleziona prima lo sport"}
+          disabled={formDisabled || !sport || categories.length === 0}
+          onPress={() => setActiveSelector("category")}
+        />
+
+        <SelectorField
+          label="Fascia età"
+          value={ageBracket}
+          placeholder="Seleziona fascia età"
+          disabled={formDisabled}
+          onPress={() => setActiveSelector("age")}
+        />
+
+        <SelectorField
+          label="Gender *"
+          value={GENDERS.find((item) => item.value === gender)?.label ?? ""}
+          placeholder="Seleziona gender"
+          disabled={formDisabled}
+          onPress={() => setActiveSelector("gender")}
+        />
+
+        <Pressable
+          disabled={formDisabled}
+          onPress={() => void onSubmit()}
+          style={{
+            marginTop: 8,
+            borderRadius: 10,
+            backgroundColor: theme.colors.primary,
+            paddingHorizontal: 14,
+            paddingVertical: 12,
+            alignItems: "center",
+            opacity: formDisabled ? 0.6 : 1,
+            marginBottom: insets.bottom + 24,
+          }}
+        >
+          <Text style={{ color: theme.colors.background, fontWeight: "800" }}>
+            {submitting ? "Pubblicazione in corso..." : "Pubblica opportunità"}
+          </Text>
+        </Pressable>
+      </ScrollView>
+
+      <Modal
+        visible={activeSelector !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setActiveSelector(null)}
+      >
+        <Pressable
+          onPress={() => setActiveSelector(null)}
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" }}
+        >
+          <Pressable
+            onPress={() => {}}
+            style={{
+              maxHeight: "70%",
+              backgroundColor: theme.colors.background,
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              paddingTop: 8,
+              paddingHorizontal: 16,
+              paddingBottom: insets.bottom + 36,
+              gap: 8,
+            }}
+          >
+            <View
+              style={{
+                alignSelf: "center",
+                width: 40,
+                height: 4,
+                borderRadius: 99,
+                backgroundColor: theme.colors.neutral200,
+                marginBottom: 6,
+              }}
+            />
+            <ScrollView contentContainerStyle={{ gap: 8 }}>
+              {selectorOptions.map((option) => (
+                <Pressable
+                  key={`${activeSelector}-${option.value}`}
+                  onPress={() => onSelectValue(option.value)}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: theme.colors.neutral200,
+                    borderRadius: 10,
+                    paddingHorizontal: 12,
+                    paddingVertical: 12,
+                  }}
+                >
+                  <Text style={{ color: theme.colors.text }}>{option.label}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   );
 }
