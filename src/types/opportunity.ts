@@ -10,7 +10,6 @@ export type Opportunity = {
   sport?: string | null;
   role?: string | null;
   category?: string | null;
-  required_category?: string | null;
   age_min?: number | null;
   age_max?: number | null;
   country?: string | null;
@@ -70,11 +69,11 @@ export type CreateOpportunityPayload = {
   city?: string | null;
   sport?: string | null;
   role?: string | null;
-  required_category?: string | null;
+  category?: string | null;
+  age_bracket?: string | null;
   age_min?: number | null;
   age_max?: number | null;
   gender?: string | null;
-  status?: string | null;
 };
 
 export type CreateOpportunityResponse = {
