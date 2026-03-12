@@ -21,12 +21,27 @@ function pickString(value: unknown): string | null {
 export function resolveOpportunityClubAvatarUrl(item?: Opportunity | OpportunityDetail | null): string | null {
   if (!item) return null;
   const raw = item as Record<string, unknown>;
+  const club = raw.club as Record<string, unknown> | undefined;
+
   return (
     pickString(raw.club_avatar_url) ??
+    pickString(raw.clubAvatarUrl) ??
     pickString(raw.club_logo_url) ??
+    pickString(raw.clubLogoUrl) ??
     pickString(raw.club_image_url) ??
+    pickString(raw.clubImageUrl) ??
+    pickString(raw.club_profile_avatar_url) ??
+    pickString(raw.clubProfileAvatarUrl) ??
     pickString(raw.avatar_url) ??
-    pickString((raw.club as Record<string, unknown> | undefined)?.avatar_url)
+    pickString(raw.avatarUrl) ??
+    pickString(raw.image_url) ??
+    pickString(raw.imageUrl) ??
+    pickString(club?.avatar_url) ??
+    pickString(club?.avatarUrl) ??
+    pickString(club?.logo_url) ??
+    pickString(club?.logoUrl) ??
+    pickString(club?.image_url) ??
+    pickString(club?.imageUrl)
   );
 }
 

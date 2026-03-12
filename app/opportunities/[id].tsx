@@ -221,7 +221,7 @@ export default function OpportunityDetailScreen() {
   const safeDesc = item?.description ?? "";
   const statusLine = isLoading
     ? "..."
-    : `${(item?.status || "-").toUpperCase()} · Pubblicata il ${formatDate(item?.created_at)}`;
+    : `Pubblicata il ${formatDate(item?.created_at)}`;
 
   return (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 16, paddingBottom: 40, gap: 14 }}>
