@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { applyToOpportunity, fetchOpportunityById, useWebSession, useWhoami } from "../../src/lib/api";
 import { deleteOpportunity } from "../../src/lib/opportunities/deleteOpportunity";
 import { fetchMyAppliedOpportunityIds } from "../../src/lib/opportunities/fetchMyAppliedOpportunityIds";
+import {
+  formatOpportunityGenderLabel,
+  getOpportunityClubInitial,
+  resolveOpportunityClubAvatarUrl,
+} from "../../src/lib/opportunities/ui";
+import { supabase } from "../../src/lib/supabase";
 import type { OpportunityDetail } from "../../src/types/opportunity";
 import { theme } from "../../src/theme";
 
@@ -54,6 +60,10 @@ function formatLocation(opp: OpportunityDetail): string {
   return [opp.city, opp.province, opp.region, opp.country].filter(Boolean).join(" · ");
 }
 
+function formatCategory(opp: OpportunityDetail): string {
+  return String(opp.category ?? opp.required_category ?? "").trim();
+}
+
 function formatAgeRange(ageMin?: number | null, ageMax?: number | null): string | null {
   if (typeof ageMin === "number" && typeof ageMax === "number") return `${ageMin}-${ageMax}`;
   if (typeof ageMin === "number") return `${ageMin}+`;
@@ -85,6 +95,7 @@ export default function OpportunityDetailScreen() {
   const [alreadyApplied, setAlreadyApplied] = useState(false);
   const [checkingApplied, setCheckingApplied] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const [clubAvatarFromProfile, setClubAvatarFromProfile] = useState<string | null>(null);
   const isLoading = loading || web.loading || whoami.loading;
 
   const clubProfileId = useMemo(() => (item ? getClubProfileId(item) : null), [item]);
@@ -94,6 +105,41 @@ export default function OpportunityDetailScreen() {
     const currentIds = getCurrentUserIds(whoami.data);
     return ownerIds.some((candidate) => currentIds.includes(candidate));
   }, [item, whoami.data]);
+
+  useEffect(() => {
+    const profileId = String(clubProfileId ?? "").trim();
+    if (!profileId) {
+      setClubAvatarFromProfile(null);
+      return;
+    }
+
+    let mounted = true;
+    const loadClubAvatar = async () => {
+      const res = await supabase
+        .from("profiles")
+        .select("id,avatar_url")
+        .eq("id", profileId)
+        .maybeSingle();
+
+      if (!mounted) return;
+      if (res.error) {
+        if (__DEV__) console.log("[opportunity-detail] club avatar load error", res.error.message);
+        setClubAvatarFromProfile(null);
+        return;
+      }
+
+      const avatar = typeof (res.data as { avatar_url?: unknown } | null)?.avatar_url === "string"
+        ? String((res.data as { avatar_url?: string | null }).avatar_url ?? "").trim()
+        : "";
+      setClubAvatarFromProfile(avatar || null);
+    };
+
+    void loadClubAvatar();
+
+    return () => {
+      mounted = false;
+    };
+  }, [clubProfileId]);
 
   const load = useCallback(async () => {
     if (!id) {
@@ -204,11 +250,19 @@ export default function OpportunityDetailScreen() {
 
   const ageRange = item ? formatAgeRange(item.age_min, item.age_max) : null;
   const location = item ? formatLocation(item) : "";
+  const category = item ? formatCategory(item) : "";
+  const genderLabel = formatOpportunityGenderLabel(item?.gender);
+  const clubName = item?.club_name || item?.club_display_name || "Club";
+  const clubAvatarUrl = clubAvatarFromProfile ?? resolveOpportunityClubAvatarUrl(item);
   const safeTitle = item?.title ?? "Caricamento…";
   const safeDesc = item?.description ?? "";
   const statusLine = isLoading
     ? "..."
-    : `${(item?.status || "-").toUpperCase()} · Pubblicata il ${formatDate(item?.created_at)}`;
+    : `Pubblicata il ${formatDate(item?.created_at)}`;
+
+  const showOwnerActions = !isLoading && isOwner;
+  const showVisitClub = !isLoading && !!clubProfileId && !isOwner;
+  const showApplyAction = !isLoading && isPlayer && !isOwner;
 
   return (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 16, paddingBottom: 40, gap: 14 }}>
@@ -225,18 +279,45 @@ export default function OpportunityDetailScreen() {
       >
         <Text style={{ color: theme.colors.text, opacity: 0.7, fontSize: 13, fontWeight: "700", marginTop: 2 }}>{statusLine}</Text>
 
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          {clubAvatarUrl ? (
+            <Image
+              source={{ uri: clubAvatarUrl }}
+              style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: theme.colors.neutral100 }}
+            />
+          ) : (
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: theme.colors.neutral100,
+                borderWidth: 1,
+                borderColor: theme.colors.neutral200,
+              }}
+            >
+              <Text style={{ color: theme.colors.muted, fontWeight: "700" }}>{getOpportunityClubInitial(clubName)}</Text>
+            </View>
+          )}
+
+          <Text style={{ color: theme.colors.text, fontWeight: "700" }}>{clubName}</Text>
+        </View>
+
         <Text style={{ fontSize: 24, fontWeight: "800", color: theme.colors.text }}>{safeTitle}</Text>
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
           {item?.sport ? <Chip label={item.sport} /> : null}
+          {category ? <Chip label={category} /> : <Chip label="Categoria non specificata" />}
           {item?.role ? <Chip label={item.role} /> : null}
-          {ageRange ? <Chip label={ageRange} /> : null}
-          {item?.gender ? <Chip label={item.gender} /> : null}
-          {location ? <Chip label={location} /> : null}
+          {genderLabel ? <Chip label={genderLabel} /> : null}
+          {ageRange ? <Chip label={ageRange} /> : <Chip label="Età non specificata" />}
+          {location ? <Chip label={location} /> : <Chip label="Località non specificata" />}
         </View>
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-          {!isLoading && clubProfileId ? (
+          {showVisitClub ? (
             <Pressable
               onPress={() => router.push(`/clubs/${String(clubProfileId)}`)}
               style={{
@@ -251,7 +332,7 @@ export default function OpportunityDetailScreen() {
             </Pressable>
           ) : null}
 
-          {!isLoading && isOwner ? (
+          {showOwnerActions ? (
             <Pressable
               onPress={() => router.push({ pathname: "/opportunities/[id]/edit", params: { id } })}
               style={{
@@ -266,7 +347,7 @@ export default function OpportunityDetailScreen() {
             </Pressable>
           ) : null}
 
-          {!isLoading && isOwner ? (
+          {showOwnerActions ? (
             <Pressable
               onPress={onDelete}
               style={{
@@ -281,7 +362,7 @@ export default function OpportunityDetailScreen() {
             </Pressable>
           ) : null}
 
-          {!isLoading && isPlayer ? (
+          {showApplyAction ? (
             alreadyApplied ? (
               <View
                 style={{
@@ -317,20 +398,7 @@ export default function OpportunityDetailScreen() {
                 </Text>
               </Pressable>
             )
-          ) : (
-            <View
-              style={{
-                borderWidth: 1,
-                borderColor: theme.colors.neutral200,
-                borderRadius: 10,
-                paddingVertical: 10,
-                paddingHorizontal: 12,
-                opacity: 0.7,
-              }}
-            >
-              <Text style={{ fontWeight: "700", color: theme.colors.text }}>Candidati</Text>
-            </View>
-          )}
+          ) : null}
         </View>
       </View>
 
