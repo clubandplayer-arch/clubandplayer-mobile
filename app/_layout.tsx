@@ -120,6 +120,7 @@ export default function RootLayout() {
         <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
 
         <Stack.Screen name="posts/[id]" options={{ headerShown: true, title: "Post" }} />
+        <Stack.Screen name="opportunities/new" options={{ headerShown: true, title: "Crea opportunità" }} />
         <Stack.Screen name="opportunities/[id]" options={{ headerShown: true, title: "Opportunità" }} />
         <Stack.Screen name="opportunities/[id]/edit" options={{ headerShown: true, title: "Modifica opportunità" }} />
         <Stack.Screen name="clubs/[id]" options={{ headerShown: true, title: "Club" }} />

@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { applyToOpportunity, fetchOpportunityById, useWebSession, useWhoami } from "../../src/lib/api";
 import { deleteOpportunity } from "../../src/lib/opportunities/deleteOpportunity";
 import { fetchMyAppliedOpportunityIds } from "../../src/lib/opportunities/fetchMyAppliedOpportunityIds";
+import {
+  formatOpportunityGenderLabel,
+  getOpportunityClubInitial,
+  resolveOpportunityClubAvatarUrl,
+} from "../../src/lib/opportunities/ui";
 import type { OpportunityDetail } from "../../src/types/opportunity";
 import { theme } from "../../src/theme";
 
@@ -52,6 +57,10 @@ function getOpportunityOwnerIds(data: OpportunityDetail): string[] {
 }
 function formatLocation(opp: OpportunityDetail): string {
   return [opp.city, opp.province, opp.region, opp.country].filter(Boolean).join(" · ");
+}
+
+function formatCategory(opp: OpportunityDetail): string {
+  return String(opp.category ?? opp.required_category ?? "").trim();
 }
 
 function formatAgeRange(ageMin?: number | null, ageMax?: number | null): string | null {
@@ -204,6 +213,10 @@ export default function OpportunityDetailScreen() {
 
   const ageRange = item ? formatAgeRange(item.age_min, item.age_max) : null;
   const location = item ? formatLocation(item) : "";
+  const category = item ? formatCategory(item) : "";
+  const genderLabel = formatOpportunityGenderLabel(item?.gender);
+  const clubName = item?.club_name || item?.club_display_name || "Club";
+  const clubAvatarUrl = resolveOpportunityClubAvatarUrl(item);
   const safeTitle = item?.title ?? "Caricamento…";
   const safeDesc = item?.description ?? "";
   const statusLine = isLoading
@@ -225,14 +238,41 @@ export default function OpportunityDetailScreen() {
       >
         <Text style={{ color: theme.colors.text, opacity: 0.7, fontSize: 13, fontWeight: "700", marginTop: 2 }}>{statusLine}</Text>
 
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          {clubAvatarUrl ? (
+            <Image
+              source={{ uri: clubAvatarUrl }}
+              style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: theme.colors.neutral100 }}
+            />
+          ) : (
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: theme.colors.neutral100,
+                borderWidth: 1,
+                borderColor: theme.colors.neutral200,
+              }}
+            >
+              <Text style={{ color: theme.colors.muted, fontWeight: "700" }}>{getOpportunityClubInitial(clubName)}</Text>
+            </View>
+          )}
+
+          <Text style={{ color: theme.colors.text, fontWeight: "700" }}>{clubName}</Text>
+        </View>
+
         <Text style={{ fontSize: 24, fontWeight: "800", color: theme.colors.text }}>{safeTitle}</Text>
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
           {item?.sport ? <Chip label={item.sport} /> : null}
+          {category ? <Chip label={category} /> : <Chip label="Categoria non specificata" />}
           {item?.role ? <Chip label={item.role} /> : null}
-          {ageRange ? <Chip label={ageRange} /> : null}
-          {item?.gender ? <Chip label={item.gender} /> : null}
-          {location ? <Chip label={location} /> : null}
+          {genderLabel ? <Chip label={genderLabel} /> : null}
+          {ageRange ? <Chip label={ageRange} /> : <Chip label="Età non specificata" />}
+          {location ? <Chip label={location} /> : <Chip label="Località non specificata" />}
         </View>
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>

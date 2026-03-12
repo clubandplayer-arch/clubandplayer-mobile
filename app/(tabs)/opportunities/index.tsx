@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   Pressable,
   RefreshControl,
   Text,
@@ -19,6 +20,11 @@ import {
   useWhoami,
 } from "../../../src/lib/api";
 import { fetchMyAppliedOpportunityIds } from "../../../src/lib/opportunities/fetchMyAppliedOpportunityIds";
+import {
+  formatOpportunityGenderLabel,
+  getOpportunityClubInitial,
+  resolveOpportunityClubAvatarUrl,
+} from "../../../src/lib/opportunities/ui";
 import type { Opportunity } from "../../../src/types/opportunity";
 import { theme } from "../../../src/theme";
 
@@ -28,6 +34,10 @@ function getClubProfileId(opp: Opportunity): string | null {
 
 function formatLocation(opp: Opportunity): string {
   return [opp.city, opp.province, opp.region].filter(Boolean).join(" · ");
+}
+
+function formatCategory(opp: Opportunity): string {
+  return String(opp.category ?? opp.required_category ?? "").trim();
 }
 
 function formatDate(value?: string | null): string {
@@ -88,6 +98,10 @@ function OpportunityCard({
   const clubProfileId = getClubProfileId(item);
   const location = formatLocation(item);
   const ageRange = formatAgeRange(item.age_min, item.age_max);
+  const clubAvatarUrl = resolveOpportunityClubAvatarUrl(item);
+  const clubName = item.club_name || item.club_display_name || "Club";
+  const category = formatCategory(item);
+  const genderLabel = formatOpportunityGenderLabel(item.gender);
 
   const opportunityId = String(item.id ?? "").trim();
 
@@ -118,7 +132,29 @@ function OpportunityCard({
     >
       <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>{item.title || "Opportunità"}</Text>
 
-      <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 4 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        {clubAvatarUrl ? (
+          <Image
+            source={{ uri: clubAvatarUrl }}
+            style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: theme.colors.neutral100 }}
+          />
+        ) : (
+          <View
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: theme.colors.neutral100,
+              borderWidth: 1,
+              borderColor: theme.colors.neutral200,
+            }}
+          >
+            <Text style={{ color: theme.colors.muted, fontWeight: "700", fontSize: 12 }}>{getOpportunityClubInitial(clubName)}</Text>
+          </View>
+        )}
+
         {clubProfileId ? (
           <Pressable
             onPress={(event) => {
@@ -126,18 +162,21 @@ function OpportunityCard({
               onOpenClub();
             }}
           >
-            <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>{item.club_name || "Club"}</Text>
+            <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>{clubName}</Text>
           </Pressable>
         ) : (
-          <Text style={{ color: theme.colors.text, fontWeight: "700" }}>{item.club_name || "Club"}</Text>
+          <Text style={{ color: theme.colors.text, fontWeight: "700" }}>{clubName}</Text>
         )}
-        {location ? <Text style={{ color: theme.colors.muted }}>· {location}</Text> : null}
       </View>
+
+      {location ? <Text style={{ color: theme.colors.muted }}>{location}</Text> : <Text style={{ color: theme.colors.muted }}>Località non specificata</Text>}
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {item.sport ? <Chip label={item.sport} /> : null}
+        {category ? <Chip label={category} /> : <Chip label="Categoria non specificata" />}
         {item.role ? <Chip label={item.role} /> : null}
-        {ageRange ? <Chip label={ageRange} /> : null}
+        {genderLabel ? <Chip label={genderLabel} /> : null}
+        {ageRange ? <Chip label={ageRange} /> : <Chip label="Età non specificata" />}
       </View>
 
       {!!item.description ? (
