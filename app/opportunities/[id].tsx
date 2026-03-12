@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { applyToOpportunity, fetchOpportunityById, useWebSession, useWhoami } from "../../src/lib/api";
+import { deleteOpportunity } from "../../src/lib/opportunities/deleteOpportunity";
 import { fetchMyAppliedOpportunityIds } from "../../src/lib/opportunities/fetchMyAppliedOpportunityIds";
 import type { OpportunityDetail } from "../../src/types/opportunity";
 import { theme } from "../../src/theme";
@@ -33,6 +34,22 @@ function getClubProfileId(data: OpportunityDetail): string | null {
   return v ? String(v) : null;
 }
 
+
+function getCurrentUserIds(data: any): string[] {
+  const user = data?.user ?? {};
+  return [data?.id, data?.user_id, data?.profile_id, user?.id, user?.user_id].map((x) => String(x ?? "").trim()).filter(Boolean);
+}
+
+function getOpportunityOwnerIds(data: OpportunityDetail): string[] {
+  return [
+    data.owner_id,
+    data.created_by,
+    data.club_id,
+    data.club_profile_id,
+  ]
+    .map((x) => String(x ?? "").trim())
+    .filter(Boolean);
+}
 function formatLocation(opp: OpportunityDetail): string {
   return [opp.city, opp.province, opp.region, opp.country].filter(Boolean).join(" · ");
 }
@@ -71,6 +88,12 @@ export default function OpportunityDetailScreen() {
   const isLoading = loading || web.loading || whoami.loading;
 
   const clubProfileId = useMemo(() => (item ? getClubProfileId(item) : null), [item]);
+  const isOwner = useMemo(() => {
+    if (!item) return false;
+    const ownerIds = getOpportunityOwnerIds(item);
+    const currentIds = getCurrentUserIds(whoami.data);
+    return ownerIds.some((candidate) => currentIds.includes(candidate));
+  }, [item, whoami.data]);
 
   const load = useCallback(async () => {
     if (!id) {
@@ -142,6 +165,31 @@ export default function OpportunityDetailScreen() {
     setIsApplying(false);
   }, [alreadyApplied, id, isPlayer]);
 
+
+  const onDelete = useCallback(() => {
+    if (!id || !isOwner) return;
+
+    Alert.alert("Elimina opportunità", "Questa azione non è reversibile. Vuoi continuare?", [
+      { text: "Annulla", style: "cancel" },
+      {
+        text: "Elimina",
+        style: "destructive",
+        onPress: () => {
+          void (async () => {
+            const response = await deleteOpportunity(id);
+            if (!response.ok) {
+              Alert.alert("Errore", response.errorText ?? "Eliminazione non riuscita");
+              return;
+            }
+            Alert.alert("Opportunità eliminata", "L'opportunità è stata rimossa.", [
+              { text: "OK", onPress: () => router.replace("/(tabs)/opportunities") },
+            ]);
+          })();
+        },
+      },
+    ]);
+  }, [id, isOwner, router]);
+
   if (!isLoading && (error || !item)) {
     return (
       <View style={{ flex: 1, padding: 20, justifyContent: "center", gap: 12 }}>
@@ -200,6 +248,36 @@ export default function OpportunityDetailScreen() {
               }}
             >
               <Text style={{ fontWeight: "700", color: theme.colors.primary }}>Visita club</Text>
+            </Pressable>
+          ) : null}
+
+          {!isLoading && isOwner ? (
+            <Pressable
+              onPress={() => router.push({ pathname: "/opportunities/[id]/edit", params: { id } })}
+              style={{
+                borderWidth: 1,
+                borderColor: theme.colors.neutral200,
+                borderRadius: 10,
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+              }}
+            >
+              <Text style={{ fontWeight: "700", color: theme.colors.text }}>Modifica</Text>
+            </Pressable>
+          ) : null}
+
+          {!isLoading && isOwner ? (
+            <Pressable
+              onPress={onDelete}
+              style={{
+                borderWidth: 1,
+                borderColor: theme.colors.danger,
+                borderRadius: 10,
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+              }}
+            >
+              <Text style={{ fontWeight: "700", color: theme.colors.danger }}>Elimina</Text>
             </Pressable>
           ) : null}
 
