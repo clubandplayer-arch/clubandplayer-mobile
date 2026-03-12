@@ -26,6 +26,7 @@ import {
   resolveOpportunityClubAvatarUrl,
 } from "../../../src/lib/opportunities/ui";
 import type { Opportunity } from "../../../src/types/opportunity";
+import { supabase } from "../../../src/lib/supabase";
 import { theme } from "../../../src/theme";
 
 function getClubProfileId(opp: Opportunity): string | null {
@@ -83,6 +84,7 @@ function OpportunityCard({
   isApplying,
   onChangeNote,
   onApply,
+  clubAvatarUrl,
 }: {
   item: Opportunity;
   showApplyActions: boolean;
@@ -92,13 +94,13 @@ function OpportunityCard({
   isApplying: boolean;
   onChangeNote: (value: string) => void;
   onApply: () => void;
+  clubAvatarUrl: string | null;
 }) {
   const router = useRouter();
 
   const clubProfileId = getClubProfileId(item);
   const location = formatLocation(item);
   const ageRange = formatAgeRange(item.age_min, item.age_max);
-  const clubAvatarUrl = resolveOpportunityClubAvatarUrl(item);
   const clubName = item.club_name || item.club_display_name || "Club";
   const category = formatCategory(item);
   const genderLabel = formatOpportunityGenderLabel(item.gender);
@@ -255,6 +257,7 @@ export default function OpportunitiesScreen() {
   const whoami = useWhoami(web.ready);
 
   const [items, setItems] = useState<Opportunity[]>([]);
+  const [clubAvatarById, setClubAvatarById] = useState<Record<string, string | null>>({});
   const [appliedOpportunityIds, setAppliedOpportunityIds] = useState<Set<string>>(new Set());
   const [notesByOpportunityId, setNotesByOpportunityId] = useState<Record<string, string>>({});
   const [errorsByOpportunityId, setErrorsByOpportunityId] = useState<Record<string, string | null>>({});
@@ -328,6 +331,54 @@ export default function OpportunitiesScreen() {
     if (web.loading || whoami.loading) return;
     void loadPage(1, "replace");
   }, [loadPage, web.loading, whoami.loading]);
+
+  useEffect(() => {
+    const clubIds = Array.from(
+      new Set(
+        items
+          .map((opp) => String(getClubProfileId(opp) ?? "").trim())
+          .filter((id) => id.length > 0)
+      )
+    );
+
+    const missingIds = clubIds.filter((id) => !(id in clubAvatarById));
+    if (missingIds.length === 0) return;
+
+    let mounted = true;
+    const loadClubAvatars = async () => {
+      const res = await supabase.from("profiles").select("id,avatar_url").in("id", missingIds);
+      if (!mounted) return;
+
+      if (res.error) {
+        if (__DEV__) console.log("[opportunities] club avatar load error", res.error.message);
+        setClubAvatarById((prev) => {
+          const next = { ...prev };
+          for (const id of missingIds) next[id] = prev[id] ?? null;
+          return next;
+        });
+        return;
+      }
+
+      const rows = Array.isArray(res.data) ? res.data : [];
+      setClubAvatarById((prev) => {
+        const next = { ...prev };
+        for (const id of missingIds) next[id] = null;
+        for (const row of rows as Array<{ id?: string | null; avatar_url?: string | null }>) {
+          const id = String(row?.id ?? "").trim();
+          if (!id) continue;
+          const avatar = typeof row?.avatar_url === "string" && row.avatar_url.trim() ? row.avatar_url.trim() : null;
+          next[id] = avatar;
+        }
+        return next;
+      });
+    };
+
+    void loadClubAvatars();
+
+    return () => {
+      mounted = false;
+    };
+  }, [clubAvatarById, items]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -470,6 +521,9 @@ export default function OpportunitiesScreen() {
         const opportunityId = String(item.id ?? "").trim();
         const alreadyApplied = appliedOpportunityIds.has(opportunityId);
 
+        const clubProfileId = String(getClubProfileId(item) ?? "").trim();
+        const profileAvatar = clubProfileId ? clubAvatarById[clubProfileId] ?? null : null;
+
         return (
           <OpportunityCard
             item={item}
@@ -478,6 +532,7 @@ export default function OpportunitiesScreen() {
             note={notesByOpportunityId[opportunityId] ?? ""}
             applyError={errorsByOpportunityId[opportunityId] ?? null}
             isApplying={actingOpportunityId === opportunityId}
+            clubAvatarUrl={profileAvatar ?? resolveOpportunityClubAvatarUrl(item)}
             onChangeNote={(value) => {
               setNotesByOpportunityId((prev) => ({ ...prev, [opportunityId]: value }));
               setErrorsByOpportunityId((prev) => ({ ...prev, [opportunityId]: null }));

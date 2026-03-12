@@ -10,6 +10,7 @@ import {
   getOpportunityClubInitial,
   resolveOpportunityClubAvatarUrl,
 } from "../../src/lib/opportunities/ui";
+import { supabase } from "../../src/lib/supabase";
 import type { OpportunityDetail } from "../../src/types/opportunity";
 import { theme } from "../../src/theme";
 
@@ -94,6 +95,7 @@ export default function OpportunityDetailScreen() {
   const [alreadyApplied, setAlreadyApplied] = useState(false);
   const [checkingApplied, setCheckingApplied] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const [clubAvatarFromProfile, setClubAvatarFromProfile] = useState<string | null>(null);
   const isLoading = loading || web.loading || whoami.loading;
 
   const clubProfileId = useMemo(() => (item ? getClubProfileId(item) : null), [item]);
@@ -103,6 +105,41 @@ export default function OpportunityDetailScreen() {
     const currentIds = getCurrentUserIds(whoami.data);
     return ownerIds.some((candidate) => currentIds.includes(candidate));
   }, [item, whoami.data]);
+
+  useEffect(() => {
+    const profileId = String(clubProfileId ?? "").trim();
+    if (!profileId) {
+      setClubAvatarFromProfile(null);
+      return;
+    }
+
+    let mounted = true;
+    const loadClubAvatar = async () => {
+      const res = await supabase
+        .from("profiles")
+        .select("id,avatar_url")
+        .eq("id", profileId)
+        .maybeSingle();
+
+      if (!mounted) return;
+      if (res.error) {
+        if (__DEV__) console.log("[opportunity-detail] club avatar load error", res.error.message);
+        setClubAvatarFromProfile(null);
+        return;
+      }
+
+      const avatar = typeof (res.data as { avatar_url?: unknown } | null)?.avatar_url === "string"
+        ? String((res.data as { avatar_url?: string | null }).avatar_url ?? "").trim()
+        : "";
+      setClubAvatarFromProfile(avatar || null);
+    };
+
+    void loadClubAvatar();
+
+    return () => {
+      mounted = false;
+    };
+  }, [clubProfileId]);
 
   const load = useCallback(async () => {
     if (!id) {
@@ -216,12 +253,16 @@ export default function OpportunityDetailScreen() {
   const category = item ? formatCategory(item) : "";
   const genderLabel = formatOpportunityGenderLabel(item?.gender);
   const clubName = item?.club_name || item?.club_display_name || "Club";
-  const clubAvatarUrl = resolveOpportunityClubAvatarUrl(item);
+  const clubAvatarUrl = clubAvatarFromProfile ?? resolveOpportunityClubAvatarUrl(item);
   const safeTitle = item?.title ?? "Caricamento…";
   const safeDesc = item?.description ?? "";
   const statusLine = isLoading
     ? "..."
     : `Pubblicata il ${formatDate(item?.created_at)}`;
+
+  const showOwnerActions = !isLoading && isOwner;
+  const showVisitClub = !isLoading && !!clubProfileId && !isOwner;
+  const showApplyAction = !isLoading && isPlayer && !isOwner;
 
   return (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 16, paddingBottom: 40, gap: 14 }}>
@@ -276,7 +317,7 @@ export default function OpportunityDetailScreen() {
         </View>
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-          {!isLoading && clubProfileId ? (
+          {showVisitClub ? (
             <Pressable
               onPress={() => router.push(`/clubs/${String(clubProfileId)}`)}
               style={{
@@ -291,7 +332,7 @@ export default function OpportunityDetailScreen() {
             </Pressable>
           ) : null}
 
-          {!isLoading && isOwner ? (
+          {showOwnerActions ? (
             <Pressable
               onPress={() => router.push({ pathname: "/opportunities/[id]/edit", params: { id } })}
               style={{
@@ -306,7 +347,7 @@ export default function OpportunityDetailScreen() {
             </Pressable>
           ) : null}
 
-          {!isLoading && isOwner ? (
+          {showOwnerActions ? (
             <Pressable
               onPress={onDelete}
               style={{
@@ -321,7 +362,7 @@ export default function OpportunityDetailScreen() {
             </Pressable>
           ) : null}
 
-          {!isLoading && isPlayer ? (
+          {showApplyAction ? (
             alreadyApplied ? (
               <View
                 style={{
@@ -357,20 +398,7 @@ export default function OpportunityDetailScreen() {
                 </Text>
               </Pressable>
             )
-          ) : (
-            <View
-              style={{
-                borderWidth: 1,
-                borderColor: theme.colors.neutral200,
-                borderRadius: 10,
-                paddingVertical: 10,
-                paddingHorizontal: 12,
-                opacity: 0.7,
-              }}
-            >
-              <Text style={{ fontWeight: "700", color: theme.colors.text }}>Candidati</Text>
-            </View>
-          )}
+          ) : null}
         </View>
       </View>
 
