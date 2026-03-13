@@ -4,6 +4,7 @@ export const theme = {
     // WEB tokens (globals.css)
     primary: "#00527a", // --brand
     primarySoft: "#3ba3d4", // --brand-soft
+    primaryTint: "#eaf4fb", // light brand tint for subtle highlights
     borderBrand: "rgba(0, 82, 122, 0.18)", // --brand-border
     accent: "#EF2B2D", // --accent
     background: "#ffffff", // --bg

@@ -363,15 +363,18 @@ export default function FollowingScreen() {
           <Pressable
             onPress={() => setTab("club")}
             style={{
+              minHeight: 34,
               paddingVertical: 6,
               paddingHorizontal: 14,
               borderRadius: theme.radius.pill,
+              alignItems: "center",
+              justifyContent: "center",
               backgroundColor: tab === "club" ? theme.colors.primary : "transparent",
             }}
           >
             <Text
               style={{
-                color: tab === "club" ? theme.colors.background : theme.colors.text,
+                color: tab === "club" ? theme.colors.background : theme.colors.muted,
                 fontWeight: "800",
               }}
             >
@@ -382,15 +385,18 @@ export default function FollowingScreen() {
           <Pressable
             onPress={() => setTab("player")}
             style={{
+              minHeight: 34,
               paddingVertical: 6,
               paddingHorizontal: 14,
               borderRadius: theme.radius.pill,
+              alignItems: "center",
+              justifyContent: "center",
               backgroundColor: tab === "player" ? theme.colors.primary : "transparent",
             }}
           >
             <Text
               style={{
-                color: tab === "player" ? theme.colors.background : theme.colors.text,
+                color: tab === "player" ? theme.colors.background : theme.colors.muted,
                 fontWeight: "800",
               }}
             >

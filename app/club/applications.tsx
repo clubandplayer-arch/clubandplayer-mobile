@@ -178,25 +178,41 @@ export default function ClubApplicationsScreen() {
 
   return (
     <View style={{ flex: 1, paddingBottom: insets.bottom + 12 }}>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 12 }}>
-        {FILTERS.map((filter) => {
-          const active = filter === status;
-          return (
-            <Pressable
-              key={filter}
-              onPress={() => setStatus(filter)}
-              style={{
-                borderWidth: 1,
-                borderRadius: 999,
-                paddingVertical: 6,
-                paddingHorizontal: 12,
-                backgroundColor: active ? theme.colors.text : theme.colors.background,
-              }}
-            >
-              <Text style={{ color: active ? theme.colors.background : theme.colors.text, fontWeight: "600" }}>{labelForFilter(filter)}</Text>
-            </Pressable>
-          );
-        })}
+      <View style={{ padding: 12 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            borderWidth: 1,
+            borderColor: theme.colors.neutral200,
+            borderRadius: theme.radius.pill,
+            padding: 4,
+            gap: 6,
+            backgroundColor: theme.colors.neutral50,
+            alignSelf: "flex-start",
+          }}
+        >
+          {FILTERS.map((filter) => {
+            const active = filter === status;
+            return (
+              <Pressable
+                key={filter}
+                onPress={() => setStatus(filter)}
+                style={{
+                  minHeight: 34,
+                  paddingVertical: 6,
+                  paddingHorizontal: 14,
+                  borderRadius: theme.radius.pill,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: active ? theme.colors.primary : "transparent",
+                }}
+              >
+                <Text style={{ color: active ? theme.colors.background : theme.colors.muted, fontWeight: "800" }}>{labelForFilter(filter)}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
       {error ? (

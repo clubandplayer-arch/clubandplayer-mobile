@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } fr
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 
 import { fetchMyApplications } from "../../src/lib/api";
+import { theme } from "../../src/theme";
 
 type ApplicationStatus =
   | "all"
@@ -203,25 +204,40 @@ export default function MyApplicationsScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6 }}>
-        {FILTERS.map((filter) => {
-          const active = filter === selectedFilter;
-          return (
-            <Pressable
-              key={filter}
-              onPress={() => setSelectedFilter(filter)}
-              style={{
-                paddingVertical: 6,
-                paddingHorizontal: 10,
-                borderRadius: 999,
-                borderWidth: 1,
-                opacity: active ? 1 : 0.7,
-              }}
-            >
-              <Text style={{ fontWeight: active ? "700" : "500" }}>{filterLabel(filter)}</Text>
-            </Pressable>
-          );
-        })}
+      <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            borderWidth: 1,
+            borderColor: theme.colors.neutral200,
+            borderRadius: theme.radius.pill,
+            padding: 4,
+            gap: 6,
+            backgroundColor: theme.colors.neutral50,
+            alignSelf: "flex-start",
+          }}
+        >
+          {FILTERS.map((filter) => {
+            const active = filter === selectedFilter;
+            return (
+              <Pressable
+                key={filter}
+                onPress={() => setSelectedFilter(filter)}
+                style={{
+                  minHeight: 34,
+                  paddingVertical: 6,
+                  paddingHorizontal: 14,
+                  borderRadius: theme.radius.pill,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: active ? theme.colors.primary : "transparent",
+                }}
+              >
+                <Text style={{ color: active ? theme.colors.background : theme.colors.muted, fontWeight: "800" }}>{filterLabel(filter)}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
       <FlatList
@@ -250,12 +266,12 @@ export default function MyApplicationsScreen() {
                 paddingVertical: 12,
                 borderBottomWidth: 1,
                 opacity: item.opportunity_id ? 1 : 0.6,
-                backgroundColor: isFocused ? "#fff7ed" : "transparent",
+                backgroundColor: isFocused ? theme.colors.primaryTint : "transparent",
               }}
             >
               <Text style={{ fontSize: 16, fontWeight: "700" }}>{title}</Text>
               <Text style={{ marginTop: 4, opacity: 0.8 }}>
-                {club}
+                <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>{club}</Text>
                 {role ? ` • ${role}` : ""}
               </Text>
               <View style={{ flexDirection: "row", alignItems: "center", marginTop: 8 }}>
