@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 
 import { fetchMyApplications } from "../../src/lib/api";
 
@@ -89,14 +89,42 @@ function sortByCreatedAtDesc(items: ApplicationItem[]): ApplicationItem[] {
   });
 }
 
+function mapNotificationStatusToFilter(status: string | null): ApplicationsFilter {
+  const normalized = String(status ?? "").trim().toLowerCase();
+  if (normalized === "accepted") return "accepted";
+  if (normalized === "rejected") return "rejected";
+  if (normalized === "submitted" || normalized === "seen" || normalized === "pending" || normalized === "in_review") {
+    return "submitted";
+  }
+  return "all";
+}
+
 export default function MyApplicationsScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ application_id?: string | string[]; opportunity_id?: string | string[]; status?: string | string[] }>();
+
+  const focusedApplicationId = useMemo(() => {
+    const raw = Array.isArray(params.application_id) ? params.application_id[0] : params.application_id;
+    return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+  }, [params.application_id]);
+
+  const focusedOpportunityId = useMemo(() => {
+    const raw = Array.isArray(params.opportunity_id) ? params.opportunity_id[0] : params.opportunity_id;
+    return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+  }, [params.opportunity_id]);
+
+  const focusedStatus = useMemo(() => {
+    const raw = Array.isArray(params.status) ? params.status[0] : params.status;
+    return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+  }, [params.status]);
+
+  const initialFilter = useMemo<ApplicationsFilter>(() => mapNotificationStatusToFilter(focusedStatus), [focusedStatus]);
 
   const [items, setItems] = useState<ApplicationItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedFilter, setSelectedFilter] = useState<ApplicationsFilter>("all");
+  const [selectedFilter, setSelectedFilter] = useState<ApplicationsFilter>(initialFilter);
 
   const fetchMine = useCallback(async (mode: "initial" | "refresh") => {
     try {
@@ -128,6 +156,14 @@ export default function MyApplicationsScreen() {
       void fetchMine("initial");
     }, [fetchMine]),
   );
+
+  const displayedItems = useMemo(() => {
+    if (!focusedApplicationId && !focusedOpportunityId) return items;
+
+    const focused = items.filter((item) => item.id === focusedApplicationId || item.opportunity_id === focusedOpportunityId);
+    const others = items.filter((item) => item.id !== focusedApplicationId && item.opportunity_id !== focusedOpportunityId);
+    return [...focused, ...others];
+  }, [items, focusedApplicationId, focusedOpportunityId]);
 
   const emptyState = useMemo(() => {
     if (loading) return null;
@@ -189,7 +225,7 @@ export default function MyApplicationsScreen() {
       </View>
 
       <FlatList
-        data={items}
+        data={displayedItems}
         keyExtractor={(it) => it.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void fetchMine("refresh")} />}
         ListEmptyComponent={emptyState}
@@ -200,6 +236,7 @@ export default function MyApplicationsScreen() {
           const role = item.opportunity?.role ?? "";
           const when = formatDate(item.created_at);
           const status = statusLabel(item.status);
+          const isFocused = item.id === focusedApplicationId || item.opportunity_id === focusedOpportunityId;
 
           return (
             <Pressable
@@ -213,6 +250,7 @@ export default function MyApplicationsScreen() {
                 paddingVertical: 12,
                 borderBottomWidth: 1,
                 opacity: item.opportunity_id ? 1 : 0.6,
+                backgroundColor: isFocused ? "#fff7ed" : "transparent",
               }}
             >
               <Text style={{ fontSize: 16, fontWeight: "700" }}>{title}</Text>
@@ -225,6 +263,7 @@ export default function MyApplicationsScreen() {
                   <Text style={{ fontWeight: "600" }}>{status}</Text>
                 </View>
                 {!!when && <Text style={{ opacity: 0.7 }}>{when}</Text>}
+                {isFocused ? <Text style={{ marginLeft: 8, fontWeight: "700" }}>• Aggiornata</Text> : null}
               </View>
             </Pressable>
           );

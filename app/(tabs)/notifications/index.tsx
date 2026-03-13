@@ -240,7 +240,17 @@ function resolveNotificationTarget(item: NotificationItem): NotificationTapResol
   }
 
   if (kind === "application_status" || kind === "application_status_changed") {
-    return { targetRoute: "/my/applications" };
+    const applicationId = getPayloadId(payload, ["application_id", "id"]);
+    const opportunityId = getPayloadId(payload, ["opportunity_id"]);
+    const status = getPayloadId(payload, ["status", "application_status"]);
+
+    const query = new URLSearchParams();
+    if (applicationId) query.set("application_id", applicationId);
+    if (opportunityId) query.set("opportunity_id", opportunityId);
+    if (status) query.set("status", status);
+
+    const queryString = query.toString();
+    return { targetRoute: queryString ? `/my/applications?${queryString}` : "/my/applications" };
   }
 
   return {
