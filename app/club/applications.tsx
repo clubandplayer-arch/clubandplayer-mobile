@@ -182,12 +182,12 @@ export default function ClubApplicationsScreen() {
         <View
           style={{
             flexDirection: "row",
-            flexWrap: "wrap",
+            flexWrap: "nowrap",
             borderWidth: 1,
             borderColor: theme.colors.neutral200,
             borderRadius: theme.radius.pill,
             padding: 4,
-            gap: 6,
+            gap: 4,
             backgroundColor: theme.colors.neutral50,
             alignSelf: "flex-start",
           }}
@@ -201,14 +201,15 @@ export default function ClubApplicationsScreen() {
                 style={{
                   minHeight: 34,
                   paddingVertical: 6,
-                  paddingHorizontal: 14,
+                  paddingHorizontal: 10,
                   borderRadius: theme.radius.pill,
                   alignItems: "center",
                   justifyContent: "center",
                   backgroundColor: active ? theme.colors.primary : "transparent",
+                  flexShrink: 1,
                 }}
               >
-                <Text style={{ color: active ? theme.colors.background : theme.colors.muted, fontWeight: "800" }}>{labelForFilter(filter)}</Text>
+                <Text numberOfLines={1} style={{ color: active ? theme.colors.background : theme.colors.muted, fontWeight: "800" }}>{labelForFilter(filter)}</Text>
               </Pressable>
             );
           })}
