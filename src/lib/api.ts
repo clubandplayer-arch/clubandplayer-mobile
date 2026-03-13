@@ -659,12 +659,20 @@ export async function fetchSearch(params: {
   type?: SearchKind;
   page?: number;
   limit?: number;
+  sport?: string;
+  role?: string;
+  location?: string;
+  category?: string;
 }): Promise<SearchApiResult> {
   const sp = new URLSearchParams();
   sp.set("q", params.q);
   sp.set("type", params.type ?? "all");
   sp.set("page", String(params.page ?? 1));
   sp.set("limit", String(params.limit ?? 20));
+  if (typeof params.sport === "string" && params.sport.trim()) sp.set("sport", params.sport.trim());
+  if (typeof params.role === "string" && params.role.trim()) sp.set("role", params.role.trim());
+  if (typeof params.location === "string" && params.location.trim()) sp.set("location", params.location.trim());
+  if (typeof params.category === "string" && params.category.trim()) sp.set("category", params.category.trim());
 
   const url = buildUrl(`/api/search?${sp.toString()}`);
   const response = await fetch(url, {
