@@ -127,12 +127,17 @@ function mergeWithLocalReadState(serverItems: NotificationItem[]): NotificationI
 
 function getNotificationMessage(kind: string): string {
   switch (kind) {
+    case "comment":
     case "new_comment":
       return "ha commentato un post";
+    case "reaction":
     case "new_reaction":
       return "ha reagito a un post";
+    case "follower":
     case "follow":
       return "ha iniziato a seguirti";
+    case "new_opportunity":
+      return "ha pubblicato una nuova opportunità";
     case "application_status":
     case "application_status_changed":
       return "ha aggiornato una candidatura";
@@ -156,8 +161,7 @@ function getInitial(name: string): string {
 function getPayloadId(payload: Record<string, unknown>, keys: string[]): string | null {
   for (const key of keys) {
     const raw = payload[key];
-    if (typeof raw !== "string") continue;
-    const value = raw.trim();
+    const value = typeof raw === "string" ? raw.trim() : typeof raw === "number" ? String(raw).trim() : "";
     if (value) return value;
   }
   return null;
@@ -165,12 +169,40 @@ function getPayloadId(payload: Record<string, unknown>, keys: string[]): string 
 
 function resolveNotificationTarget(item: NotificationItem): NotificationTapResolution {
   const payload = (item.payload ?? {}) as Record<string, unknown>;
+  const kind = String(item.kind ?? "").trim().toLowerCase();
 
-  if ((item.kind === "new_comment" || item.kind === "new_reaction") && typeof payload.post_id === "string") {
-    return { targetRoute: `/posts/${payload.post_id}` };
+  if (kind === "message" || kind === "new_message") {
+    const profileId =
+      getPayloadId(payload, [
+        "profile_id",
+        "other_profile_id",
+        "sender_profile_id",
+        "recipient_profile_id",
+        "actor_profile_id",
+      ]) ??
+      (typeof item.actor_profile_id === "string" && item.actor_profile_id.trim().length > 0 ? item.actor_profile_id : null);
+
+    if (profileId) {
+      return { targetRoute: `/(tabs)/messages/${encodeURIComponent(profileId)}` };
+    }
+
+    return {
+      targetRoute: "/(tabs)/messages",
+      blockedReason: "missing_profile_id_in_message_payload",
+    };
   }
 
-  if (item.kind === "follow") {
+  if (kind === "comment" || kind === "new_comment" || kind === "reaction" || kind === "new_reaction") {
+    const postId = getPayloadId(payload, ["post_id", "postId", "target_post_id"]);
+    if (postId) return { targetRoute: `/posts/${encodeURIComponent(postId)}` };
+
+    return {
+      targetRoute: null,
+      blockedReason: "missing_post_id_in_notification_payload",
+    };
+  }
+
+  if (kind === "follow" || kind === "follower") {
     const profileId = getPayloadId(payload, ["profile_id", "target_profile_id", "follower_profile_id", "actor_profile_id"]);
     if (profileId) {
       return { targetRoute: `/profiles/${profileId}` };
@@ -182,11 +214,23 @@ function resolveNotificationTarget(item: NotificationItem): NotificationTapResol
 
     return {
       targetRoute: null,
-      blockedReason: "missing_profile_id_in_follow_payload",
+      blockedReason: "missing_profile_id_in_follow_notification_payload",
     };
   }
 
-  if (item.kind === "application_received" || item.kind === "new_application_received") {
+  if (kind === "new_opportunity") {
+    const opportunityId = getPayloadId(payload, ["opportunity_id", "id", "opportunityId"]);
+    if (opportunityId) {
+      return { targetRoute: `/opportunities/${encodeURIComponent(opportunityId)}` };
+    }
+
+    return {
+      targetRoute: null,
+      blockedReason: "missing_opportunity_id_in_new_opportunity_payload",
+    };
+  }
+
+  if (kind === "application_received" || kind === "new_application_received") {
     const opportunityId = getPayloadId(payload, ["opportunity_id"]);
     if (opportunityId) {
       return { targetRoute: `/club/applications?opportunity_id=${encodeURIComponent(opportunityId)}` };
@@ -195,8 +239,18 @@ function resolveNotificationTarget(item: NotificationItem): NotificationTapResol
     return { targetRoute: "/club/applications" };
   }
 
-  if (item.kind === "application_status" || item.kind === "application_status_changed") {
-    return { targetRoute: "/my/applications" };
+  if (kind === "application_status" || kind === "application_status_changed") {
+    const applicationId = getPayloadId(payload, ["application_id", "id"]);
+    const opportunityId = getPayloadId(payload, ["opportunity_id"]);
+    const status = getPayloadId(payload, ["status", "application_status"]);
+
+    const query = new URLSearchParams();
+    if (applicationId) query.set("application_id", applicationId);
+    if (opportunityId) query.set("opportunity_id", opportunityId);
+    if (status) query.set("status", status);
+
+    const queryString = query.toString();
+    return { targetRoute: queryString ? `/my/applications?${queryString}` : "/my/applications" };
   }
 
   return {

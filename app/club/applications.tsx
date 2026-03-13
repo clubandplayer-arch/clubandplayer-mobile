@@ -12,37 +12,51 @@ import {
   type ReceivedApplicationItem,
 } from "../../src/lib/api";
 
-type ClubFilterStatus = "pending" | "accepted" | "rejected" | "all";
+type ClubFilterStatus = "all" | "in_review" | "accepted" | "rejected";
+type NormalizedApplicationStatus = "in_review" | "accepted" | "rejected";
 
-const FILTERS: ClubFilterStatus[] = ["pending", "accepted", "rejected", "all"];
+const FILTERS: ClubFilterStatus[] = ["all", "in_review", "accepted", "rejected"];
 
 function labelForFilter(status: ClubFilterStatus): string {
-  if (status === "pending") return "In valutazione";
-  if (status === "accepted") return "Accettate";
   if (status === "all") return "Tutte";
+  if (status === "in_review") return "In valutazione";
+  if (status === "accepted") return "Accettate";
   return "Rifiutate";
 }
 
+function normalizeApplicationStatus(status?: string | null): NormalizedApplicationStatus {
+  const v = String(status || "").toLowerCase().trim();
+  if (v === "accepted") return "accepted";
+  if (v === "rejected") return "rejected";
+  if (v === "submitted" || v === "seen" || v === "pending" || v === "in_review") return "in_review";
+  return "in_review";
+}
+
+function matchesFilter(item: ReceivedApplicationItem, filter: ClubFilterStatus): boolean {
+  const normalized = normalizeApplicationStatus(item.status);
+  if (filter === "all") return true;
+  if (filter === "in_review") return normalized === "in_review";
+  if (filter === "accepted") return normalized === "accepted";
+  return normalized === "rejected";
+}
+
 function labelForStatus(status?: string | null): string {
-  const v = String(status || "").toLowerCase();
-  if (v === "submitted") return "In valutazione";
-  if (v === "pending" || v === "in_review") return "In valutazione";
-  if (v === "seen") return "Visualizzata";
-  if (v === "accepted") return "Accettata";
-  if (v === "rejected") return "Rifiutata";
-  return status ? String(status) : "-";
+  const normalized = normalizeApplicationStatus(status);
+  if (normalized === "in_review") return "In valutazione";
+  if (normalized === "accepted") return "Accettata";
+  return "Rifiutata";
 }
 
 function statusBadgeColors(status?: string | null): { textColor: string; backgroundColor: string; borderColor: string } {
-  const v = String(status || "").toLowerCase();
-  if (v === "accepted") return { textColor: "#166534", backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" };
-  if (v === "rejected") return { textColor: "#991b1b", backgroundColor: "#fef2f2", borderColor: "#fecaca" };
+  const normalized = normalizeApplicationStatus(status);
+  if (normalized === "accepted") return { textColor: "#166534", backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" };
+  if (normalized === "rejected") return { textColor: "#991b1b", backgroundColor: "#fef2f2", borderColor: "#fecaca" };
   return { textColor: "#854d0e", backgroundColor: "#fefce8", borderColor: "#fde68a" };
 }
 
 function isFinalStatus(status?: string | null): boolean {
-  const v = String(status || "").toLowerCase();
-  return v === "accepted" || v === "rejected";
+  const normalized = normalizeApplicationStatus(status);
+  return normalized === "accepted" || normalized === "rejected";
 }
 
 function athleteName(item: ReceivedApplicationItem): string {
@@ -76,7 +90,7 @@ export default function ClubApplicationsScreen() {
     ? params.opportunity_id[0]?.trim() || ""
     : String(params.opportunity_id ?? "").trim();
 
-  const [status, setStatus] = useState<ClubFilterStatus>("pending");
+  const [status, setStatus] = useState<ClubFilterStatus>("all");
   const [items, setItems] = useState<ReceivedApplicationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -98,7 +112,7 @@ export default function ClubApplicationsScreen() {
           return;
         }
 
-        const response = await fetchClubApplicationsReceived({ status, opportunityId });
+        const response = await fetchClubApplicationsReceived({ status: "all", opportunityId });
         if (!response.ok || !response.data) {
           throw new Error(response.errorText || "Errore nel caricamento");
         }
@@ -112,7 +126,7 @@ export default function ClubApplicationsScreen() {
         setRefreshing(false);
       }
     },
-    [opportunityId, router, status],
+    [opportunityId, router],
   );
 
   useFocusEffect(
@@ -125,7 +139,9 @@ export default function ClubApplicationsScreen() {
   useEffect(() => {
     if (!hasFocusedOnceRef.current) return;
     void load("refresh");
-  }, [opportunityId, status, load]);
+  }, [opportunityId, load]);
+
+  const filteredItems = useMemo(() => items.filter((item) => matchesFilter(item, status)), [items, status]);
 
   const empty = useMemo(() => {
     if (loading || error) return null;
@@ -162,25 +178,42 @@ export default function ClubApplicationsScreen() {
 
   return (
     <View style={{ flex: 1, paddingBottom: insets.bottom + 12 }}>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 12 }}>
-        {FILTERS.map((filter) => {
-          const active = filter === status;
-          return (
-            <Pressable
-              key={filter}
-              onPress={() => setStatus(filter)}
-              style={{
-                borderWidth: 1,
-                borderRadius: 999,
-                paddingVertical: 6,
-                paddingHorizontal: 12,
-                backgroundColor: active ? theme.colors.text : theme.colors.background,
-              }}
-            >
-              <Text style={{ color: active ? theme.colors.background : theme.colors.text, fontWeight: "600" }}>{labelForFilter(filter)}</Text>
-            </Pressable>
-          );
-        })}
+      <View style={{ padding: 12 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "nowrap",
+            borderWidth: 1,
+            borderColor: theme.colors.neutral200,
+            borderRadius: theme.radius.pill,
+            padding: 4,
+            gap: 4,
+            backgroundColor: theme.colors.neutral50,
+            alignSelf: "flex-start",
+          }}
+        >
+          {FILTERS.map((filter) => {
+            const active = filter === status;
+            return (
+              <Pressable
+                key={filter}
+                onPress={() => setStatus(filter)}
+                style={{
+                  minHeight: 34,
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                  borderRadius: theme.radius.pill,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: active ? theme.colors.primary : "transparent",
+                  flexShrink: 1,
+                }}
+              >
+                <Text numberOfLines={1} style={{ color: active ? theme.colors.background : theme.colors.muted, fontWeight: "800" }}>{labelForFilter(filter)}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
       {error ? (
@@ -190,7 +223,7 @@ export default function ClubApplicationsScreen() {
       ) : null}
 
       <FlatList
-        data={items}
+        data={filteredItems}
         keyExtractor={(item) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load("refresh")} />}
         ListEmptyComponent={empty}

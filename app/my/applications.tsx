@@ -1,8 +1,9 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 
 import { fetchMyApplications } from "../../src/lib/api";
+import { theme } from "../../src/theme";
 
 type ApplicationStatus =
   | "all"
@@ -89,14 +90,42 @@ function sortByCreatedAtDesc(items: ApplicationItem[]): ApplicationItem[] {
   });
 }
 
+function mapNotificationStatusToFilter(status: string | null): ApplicationsFilter {
+  const normalized = String(status ?? "").trim().toLowerCase();
+  if (normalized === "accepted") return "accepted";
+  if (normalized === "rejected") return "rejected";
+  if (normalized === "submitted" || normalized === "seen" || normalized === "pending" || normalized === "in_review") {
+    return "submitted";
+  }
+  return "all";
+}
+
 export default function MyApplicationsScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ application_id?: string | string[]; opportunity_id?: string | string[]; status?: string | string[] }>();
+
+  const focusedApplicationId = useMemo(() => {
+    const raw = Array.isArray(params.application_id) ? params.application_id[0] : params.application_id;
+    return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+  }, [params.application_id]);
+
+  const focusedOpportunityId = useMemo(() => {
+    const raw = Array.isArray(params.opportunity_id) ? params.opportunity_id[0] : params.opportunity_id;
+    return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+  }, [params.opportunity_id]);
+
+  const focusedStatus = useMemo(() => {
+    const raw = Array.isArray(params.status) ? params.status[0] : params.status;
+    return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+  }, [params.status]);
+
+  const initialFilter = useMemo<ApplicationsFilter>(() => mapNotificationStatusToFilter(focusedStatus), [focusedStatus]);
 
   const [items, setItems] = useState<ApplicationItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedFilter, setSelectedFilter] = useState<ApplicationsFilter>("all");
+  const [selectedFilter, setSelectedFilter] = useState<ApplicationsFilter>(initialFilter);
 
   const fetchMine = useCallback(async (mode: "initial" | "refresh") => {
     try {
@@ -128,6 +157,14 @@ export default function MyApplicationsScreen() {
       void fetchMine("initial");
     }, [fetchMine]),
   );
+
+  const displayedItems = useMemo(() => {
+    if (!focusedApplicationId && !focusedOpportunityId) return items;
+
+    const focused = items.filter((item) => item.id === focusedApplicationId || item.opportunity_id === focusedOpportunityId);
+    const others = items.filter((item) => item.id !== focusedApplicationId && item.opportunity_id !== focusedOpportunityId);
+    return [...focused, ...others];
+  }, [items, focusedApplicationId, focusedOpportunityId]);
 
   const emptyState = useMemo(() => {
     if (loading) return null;
@@ -167,29 +204,44 @@ export default function MyApplicationsScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6 }}>
-        {FILTERS.map((filter) => {
-          const active = filter === selectedFilter;
-          return (
-            <Pressable
-              key={filter}
-              onPress={() => setSelectedFilter(filter)}
-              style={{
-                paddingVertical: 6,
-                paddingHorizontal: 10,
-                borderRadius: 999,
-                borderWidth: 1,
-                opacity: active ? 1 : 0.7,
-              }}
-            >
-              <Text style={{ fontWeight: active ? "700" : "500" }}>{filterLabel(filter)}</Text>
-            </Pressable>
-          );
-        })}
+      <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            borderWidth: 1,
+            borderColor: theme.colors.neutral200,
+            borderRadius: theme.radius.pill,
+            padding: 4,
+            gap: 6,
+            backgroundColor: theme.colors.neutral50,
+            alignSelf: "flex-start",
+          }}
+        >
+          {FILTERS.map((filter) => {
+            const active = filter === selectedFilter;
+            return (
+              <Pressable
+                key={filter}
+                onPress={() => setSelectedFilter(filter)}
+                style={{
+                  minHeight: 34,
+                  paddingVertical: 6,
+                  paddingHorizontal: 14,
+                  borderRadius: theme.radius.pill,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: active ? theme.colors.primary : "transparent",
+                }}
+              >
+                <Text style={{ color: active ? theme.colors.background : theme.colors.muted, fontWeight: "800" }}>{filterLabel(filter)}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
       <FlatList
-        data={items}
+        data={displayedItems}
         keyExtractor={(it) => it.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void fetchMine("refresh")} />}
         ListEmptyComponent={emptyState}
@@ -200,6 +252,7 @@ export default function MyApplicationsScreen() {
           const role = item.opportunity?.role ?? "";
           const when = formatDate(item.created_at);
           const status = statusLabel(item.status);
+          const isFocused = item.id === focusedApplicationId || item.opportunity_id === focusedOpportunityId;
 
           return (
             <Pressable
@@ -213,11 +266,12 @@ export default function MyApplicationsScreen() {
                 paddingVertical: 12,
                 borderBottomWidth: 1,
                 opacity: item.opportunity_id ? 1 : 0.6,
+                backgroundColor: isFocused ? theme.colors.primaryTint : "transparent",
               }}
             >
               <Text style={{ fontSize: 16, fontWeight: "700" }}>{title}</Text>
               <Text style={{ marginTop: 4, opacity: 0.8 }}>
-                {club}
+                <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>{club}</Text>
                 {role ? ` • ${role}` : ""}
               </Text>
               <View style={{ flexDirection: "row", alignItems: "center", marginTop: 8 }}>
@@ -225,6 +279,7 @@ export default function MyApplicationsScreen() {
                   <Text style={{ fontWeight: "600" }}>{status}</Text>
                 </View>
                 {!!when && <Text style={{ opacity: 0.7 }}>{when}</Text>}
+                {isFocused ? <Text style={{ marginLeft: 8, fontWeight: "700" }}>• Aggiornata</Text> : null}
               </View>
             </Pressable>
           );
