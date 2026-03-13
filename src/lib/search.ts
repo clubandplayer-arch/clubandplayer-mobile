@@ -15,6 +15,10 @@ export async function fetchSearchWithFilters(params: {
   role?: string;
   location?: string;
   category?: string;
+  country?: string;
+  region?: string;
+  province?: string;
+  city?: string;
 }): Promise<SearchApiResult> {
   const sp = new URLSearchParams();
   sp.set("q", params.q);
@@ -25,6 +29,10 @@ export async function fetchSearchWithFilters(params: {
   if (typeof params.role === "string" && params.role.trim()) sp.set("role", params.role.trim());
   if (typeof params.location === "string" && params.location.trim()) sp.set("location", params.location.trim());
   if (typeof params.category === "string" && params.category.trim()) sp.set("category", params.category.trim());
+  if (typeof params.country === "string" && params.country.trim()) sp.set("country", params.country.trim());
+  if (typeof params.region === "string" && params.region.trim()) sp.set("region", params.region.trim());
+  if (typeof params.province === "string" && params.province.trim()) sp.set("province", params.province.trim());
+  if (typeof params.city === "string" && params.city.trim()) sp.set("city", params.city.trim());
 
   const url = buildSearchUrl(`/api/search?${sp.toString()}`);
   const response = await fetch(url, {
