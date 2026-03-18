@@ -15,6 +15,7 @@ import { useNotificationsBadgeCount } from "../../src/lib/notificationsBadge";
 import { clearAllLocallyReadNotifications } from "../../src/lib/notificationsLocalRead";
 import { supabase } from "../../src/lib/supabase";
 import { useIsClub } from "../../src/lib/useIsClub";
+import MobileSearchOverlay from "../../src/components/search/MobileSearchOverlay";
 
 const BRAND_DARK = "#00527a"; // blu scuro logo
 const BRAND_LIGHT = "#2a7aa0"; // blu chiaro logo (lo rifiniamo dopo)
@@ -32,6 +33,8 @@ export default function TabsLayout() {
   const [messagesUnreadCount, setMessagesUnreadCount] = useState<number>(0);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isSearchOverlayOpen, setIsSearchOverlayOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const pathname = usePathname();
   useNotificationsUnreadPoller();
 
@@ -72,6 +75,7 @@ export default function TabsLayout() {
 
   useEffect(() => {
     setAvatarMenuOpen(false);
+    setIsSearchOverlayOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -203,7 +207,7 @@ export default function TabsLayout() {
 
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => router.push("/search")}
+            onPress={() => setIsSearchOverlayOpen(true)}
             style={styles.iconBtn}
           >
             <Ionicons name="search-outline" size={22} color={BRAND_DARK} />
@@ -241,6 +245,19 @@ export default function TabsLayout() {
       </View>
 
       {avatarMenuOpen ? <Pressable style={styles.avatarOverlay} onPress={closeAvatarMenu} /> : null}
+
+      <MobileSearchOverlay
+        isOpen={isSearchOverlayOpen}
+        query={searchQuery}
+        onQueryChange={setSearchQuery}
+        onClose={() => setIsSearchOverlayOpen(false)}
+        onSubmit={() => {
+          const trimmed = searchQuery.trim();
+          if (!trimmed) return;
+          setIsSearchOverlayOpen(false);
+          router.push(`/search?q=${encodeURIComponent(trimmed)}&type=all` as any);
+        }}
+      />
 
       {/* ICON ROW (fase 2 farà routing+active indicator) */}
       <View style={styles.iconRow}>

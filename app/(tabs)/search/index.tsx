@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   Linking,
   Pressable,
   RefreshControl,
@@ -11,10 +10,46 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { fetchSearch, type SearchApiPayload, type SearchItem, type SearchKind } from "../../../src/lib/api";
+
+import SearchResultRow from "../../../src/components/search/SearchResultRow";
+import {
+  fetchSearch,
+  type SearchApiPayload,
+  type SearchFilters,
+  type SearchItem,
+  type SearchKind,
+} from "../../../src/lib/api";
+import { getMunicipalities, getProvinces, getRegions, type LocationOption } from "../../../src/lib/geo/location";
+import { SPORTS, SPORTS_ROLES } from "../../../src/lib/opportunities/formOptions";
 import { theme } from "../../../src/theme";
 
-const SEARCH_TYPES: SearchKind[] = ["all", "clubs", "players", "opportunities", "posts", "events"];
+const SEARCH_TYPES: SearchKind[] = ["all", "opportunities", "clubs", "players", "posts", "events"];
+const PAGE_LIMIT = 20;
+const EMPTY_RESULTS: NonNullable<SearchApiPayload["results"]> = {
+  all: [],
+  opportunities: [],
+  clubs: [],
+  players: [],
+  posts: [],
+  events: [],
+};
+const EMPTY_FILTERS: Required<SearchFilters> = {
+  country: "",
+  region: "",
+  province: "",
+  city: "",
+  sport: "",
+  role: "",
+  status: "",
+};
+const COUNTRY_OPTIONS = [
+  { label: "Tutti i paesi", value: "" },
+  { label: "Italia", value: "IT" },
+];
+
+type FilterKey = keyof typeof EMPTY_FILTERS;
+
+type PickerType = "country" | "region" | "province" | "city" | "sport" | "role";
 
 function asSingleString(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] ?? "";
@@ -22,7 +57,13 @@ function asSingleString(value: string | string[] | undefined): string {
 }
 
 function normalizeKind(raw: string): SearchKind {
-  return SEARCH_TYPES.includes(raw as SearchKind) ? (raw as SearchKind) : "all";
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === "opportunity") return "opportunities";
+  if (normalized === "club") return "clubs";
+  if (normalized === "player") return "players";
+  if (normalized === "post") return "posts";
+  if (normalized === "event") return "events";
+  return SEARCH_TYPES.includes(normalized as SearchKind) ? (normalized as SearchKind) : "all";
 }
 
 function normalizeNumber(raw: string, fallback: number): number {
@@ -30,38 +71,100 @@ function normalizeNumber(raw: string, fallback: number): number {
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
 }
 
-function Avatar({ url, label }: { url: string | null; label: string }) {
-  const safeUrl = url && url.trim() ? url.trim() : null;
-
-  if (safeUrl) {
-    return (
-      <Image
-        source={{ uri: safeUrl }}
+function FilterSelect({
+  label,
+  value,
+  placeholder,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <View style={{ gap: 6, flex: 1, minWidth: 150 }}>
+      <Text style={{ fontWeight: "600", color: theme.colors.text }}>{label}</Text>
+      <Pressable
+        disabled={disabled}
+        onPress={onPress}
         style={{
-          width: 42,
-          height: 42,
-          borderRadius: 999,
-          backgroundColor: theme.colors.neutral200,
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          paddingHorizontal: 12,
+          paddingVertical: 11,
+          backgroundColor: disabled ? theme.colors.neutral100 : theme.colors.background,
         }}
-      />
-    );
-  }
+      >
+        <Text style={{ color: value ? theme.colors.text : theme.colors.muted }}>{value || placeholder}</Text>
+      </Pressable>
+    </View>
+  );
+}
 
-  const letter = (label.trim().slice(0, 1) || "U").toUpperCase();
+function FilterPicker({
+  title,
+  options,
+  selected,
+  onSelect,
+  onClose,
+}: {
+  title: string;
+  options: Array<{ label: string; value: string }>;
+  selected: string;
+  onSelect: (value: string) => void;
+  onClose: () => void;
+}) {
   return (
     <View
       style={{
-        width: 42,
-        height: 42,
-        borderRadius: 999,
-        backgroundColor: theme.colors.neutral200,
-        alignItems: "center",
-        justifyContent: "center",
+        borderWidth: 1,
+        borderColor: theme.colors.neutral200,
+        borderRadius: 16,
+        padding: 16,
+        gap: 10,
       }}
     >
-      <Text style={{ fontWeight: "800", color: theme.colors.text }}>{letter}</Text>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+        <Text style={{ fontWeight: "700", color: theme.colors.text }}>{title}</Text>
+        <Pressable onPress={onClose}>
+          <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>Chiudi</Text>
+        </Pressable>
+      </View>
+
+      <View style={{ gap: 8 }}>
+        {options.map((option) => {
+          const active = option.value === selected;
+          return (
+            <Pressable
+              key={`${title}:${option.value || "empty"}`}
+              onPress={() => {
+                onSelect(option.value);
+                onClose();
+              }}
+              style={{
+                borderWidth: 1,
+                borderColor: active ? theme.colors.text : theme.colors.neutral200,
+                borderRadius: 12,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                backgroundColor: active ? theme.colors.neutral100 : theme.colors.background,
+              }}
+            >
+              <Text style={{ color: theme.colors.text }}>{option.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
+}
+
+function compactFilterValue(value: string) {
+  return value.trim();
 }
 
 export default function SearchScreen() {
@@ -71,132 +174,222 @@ export default function SearchScreen() {
     type?: string | string[];
     page?: string | string[];
     limit?: string | string[];
+    country?: string | string[];
+    region?: string | string[];
+    province?: string | string[];
+    city?: string | string[];
+    sport?: string | string[];
+    role?: string | string[];
+    status?: string | string[];
   }>();
 
   const q = asSingleString(params.q);
   const type = normalizeKind(asSingleString(params.type));
   const page = normalizeNumber(asSingleString(params.page), 1);
-  const limit = normalizeNumber(asSingleString(params.limit), 20);
+  const limit = normalizeNumber(asSingleString(params.limit), PAGE_LIMIT);
+  const filtersFromParams = useMemo(
+    () => ({
+      country: asSingleString(params.country).trim().toUpperCase(),
+      region: asSingleString(params.region).trim(),
+      province: asSingleString(params.province).trim(),
+      city: asSingleString(params.city).trim(),
+      sport: asSingleString(params.sport).trim(),
+      role: asSingleString(params.role).trim(),
+      status: asSingleString(params.status).trim(),
+    }),
+    [params.city, params.country, params.province, params.region, params.role, params.sport, params.status],
+  );
 
-  const [input, setInput] = useState(q);
-  const [refreshing, setRefreshing] = useState(false);
+  const [inputValue, setInputValue] = useState(q);
+  const [filters, setFilters] = useState<Required<SearchFilters>>(filtersFromParams);
   const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [payload, setPayload] = useState<SearchApiPayload | null>(null);
-
-  const prevTypeRef = useRef<SearchKind>(type);
+  const [results, setResults] = useState<SearchApiPayload["results"]>(EMPTY_RESULTS);
+  const [counts, setCounts] = useState<SearchApiPayload["counts"] | null>(null);
+  const [regions, setRegions] = useState<LocationOption[]>([]);
+  const [provinces, setProvinces] = useState<LocationOption[]>([]);
+  const [cities, setCities] = useState<LocationOption[]>([]);
+  const [openPicker, setOpenPicker] = useState<PickerType | null>(null);
 
   useEffect(() => {
-    setInput(q);
+    setInputValue(q);
   }, [q]);
 
-  const query = useMemo(() => q.trim(), [q]);
+  useEffect(() => {
+    setFilters(filtersFromParams);
+  }, [filtersFromParams]);
+
+  useEffect(() => {
+    void getRegions().then(setRegions);
+  }, []);
+
+  useEffect(() => {
+    const nextRegion = regions.find((item) => item.name === filters.region);
+    if (!nextRegion) {
+      setProvinces([]);
+      return;
+    }
+    void getProvinces(nextRegion.id).then(setProvinces);
+  }, [filters.region, regions]);
+
+  useEffect(() => {
+    const nextProvince = provinces.find((item) => item.name === filters.province);
+    if (!nextProvince) {
+      setCities([]);
+      return;
+    }
+    void getMunicipalities(nextProvince.id).then(setCities);
+  }, [filters.province, provinces]);
+
+  const isItalySelected = filters.country === "IT";
+  const queryParam = q.trim();
+  const roleOptions = useMemo(() => (filters.sport ? SPORTS_ROLES[filters.sport] ?? [] : []), [filters.sport]);
 
   const updateUrl = useCallback(
-    (
-      next: Partial<{ q: string; type: SearchKind; page: number; limit: number }>,
-      mode: "push" | "replace" = "replace",
-    ) => {
-      const nextQ = (next.q ?? q).trim();
-      const nextType = next.type ?? type;
-      const nextPage = next.page ?? page;
-      const nextLimit = next.limit ?? limit;
-
+    (nextQuery: string, nextType: SearchKind, nextFilters: Required<SearchFilters>, nextPage = 1, mode: "push" | "replace" = "push") => {
       const sp = new URLSearchParams();
-      if (nextQ) sp.set("q", nextQ);
-      if (nextType !== "all") sp.set("type", nextType);
-      if (nextPage !== 1) sp.set("page", String(nextPage));
-      if (nextLimit !== 20) sp.set("limit", String(nextLimit));
-
-      const target = sp.toString() ? `/search?${sp.toString()}` : "/search";
-      if (mode === "push") router.push(target as any);
-      else router.replace(target as any);
+      if (nextQuery) sp.set("q", nextQuery);
+      sp.set("type", nextType);
+      Object.entries(nextFilters).forEach(([key, value]) => {
+        const nextValue = compactFilterValue(String(value ?? ""));
+        if (nextValue) sp.set(key, nextValue);
+      });
+      if (nextPage > 1) sp.set("page", String(nextPage));
+      if (limit !== PAGE_LIMIT) sp.set("limit", String(limit));
+      const href = `/search?${sp.toString()}`;
+      if (mode === "replace") router.replace(href as any);
+      else router.push(href as any);
     },
-    [limit, page, q, router, type],
+    [limit, router],
   );
 
   useEffect(() => {
-    let cancelled = false;
-    const search = async () => {
-      if (query.length < 2) {
-        setPayload(null);
-        setError(null);
-        setLoading(false);
-        setLoadingMore(false);
-        return;
-      }
-
-      const isLoadMore = type !== "all" && prevTypeRef.current === type && page > 1;
-      if (isLoadMore) setLoadingMore(true);
-      else setLoading(true);
+    if (!queryParam) {
+      setResults(EMPTY_RESULTS);
+      setCounts(null);
       setError(null);
+      setLoading(false);
+      return;
+    }
+    if (queryParam.length < 2) {
+      setResults(EMPTY_RESULTS);
+      setCounts(null);
+      setError("Inserisci almeno 2 caratteri per avviare la ricerca.");
+      setLoading(false);
+      return;
+    }
 
-      const response = await fetchSearch({ q: query, type, page, limit });
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      const response = await fetchSearch({ q: queryParam, type, page, limit, ...filters });
       if (cancelled) return;
 
       if (response.ok === false) {
-        setPayload(null);
-        if (response.status === 429 || response.code === "RATE_LIMITED") setError("Too Many Requests");
-        else setError(response.message || "Errore nella ricerca");
+        setError(response.message || "Errore nel caricamento dei risultati");
         setLoading(false);
-        setLoadingMore(false);
         return;
       }
 
-      setPayload((prev) => {
-        if (!isLoadMore || !prev) return response.data;
-
-        const currentItems = Array.isArray(prev.results?.[type]) ? prev.results?.[type] ?? [] : [];
-        const incomingItems = Array.isArray(response.data.results?.[type]) ? response.data.results?.[type] ?? [] : [];
+      setCounts(response.data.counts ?? null);
+      const nextResults = response.data.results ?? EMPTY_RESULTS;
+      setResults((prev) => {
+        if (type === "all" || page === 1) return nextResults;
         return {
-          ...response.data,
-          counts: response.data.counts ?? prev.counts,
-          results: {
-            ...(response.data.results ?? {}),
-            [type]: [...currentItems, ...incomingItems],
-          },
+          ...(prev ?? EMPTY_RESULTS),
+          [type]: [...(((prev ?? EMPTY_RESULTS)[type] as SearchItem[] | undefined) ?? []), ...((nextResults[type] as SearchItem[] | undefined) ?? [])],
         };
       });
-
       setLoading(false);
-      setLoadingMore(false);
     };
 
-    void search();
-    prevTypeRef.current = type;
-
+    void load();
     return () => {
       cancelled = true;
     };
-  }, [limit, page, query, type]);
-
-  const onRefresh = useCallback(async () => {
-    if (query.length < 2) return;
-    setRefreshing(true);
-    updateUrl({ page: 1 }, "replace");
-  }, [query.length, updateUrl]);
+  }, [filters, limit, page, queryParam, type]);
 
   useEffect(() => {
-    if (!refreshing) return;
-    if (loading || loadingMore) return;
-    setRefreshing(false);
-  }, [refreshing, loading, loadingMore]);
+    if (refreshing && !loading) setRefreshing(false);
+  }, [loading, refreshing]);
 
-  const onSubmitSearch = useCallback(() => {
-    updateUrl({ q: input, page: 1 }, "push");
-  }, [input, updateUrl]);
+  const activeResults = useMemo(() => {
+    if (type === "all") return [] as SearchItem[];
+    return (results?.[type] as SearchItem[] | undefined) ?? [];
+  }, [results, type]);
 
-  const onChangeType = useCallback(
-    (nextType: SearchKind) => {
-      updateUrl({ type: nextType, page: 1 }, "push");
+  const hasMore = useMemo(() => {
+    if (type === "all" || !counts) return false;
+    const count = counts[type];
+    return typeof count === "number" && activeResults.length < count;
+  }, [activeResults.length, counts, type]);
+
+  const applySearch = useCallback(
+    (nextQuery: string, nextType: SearchKind, nextFilters: Required<SearchFilters>) => {
+      updateUrl(nextQuery, nextType, nextFilters, 1, "push");
     },
     [updateUrl],
   );
 
+  const handleSubmitSearch = useCallback(() => {
+    const trimmed = inputValue.trim();
+    if (!trimmed) return;
+    applySearch(trimmed, "all", filters);
+  }, [applySearch, filters, inputValue]);
+
+  const handleTabChange = useCallback(
+    (nextType: SearchKind) => {
+      if (!queryParam) return;
+      updateUrl(queryParam, nextType, filters, 1, "push");
+    },
+    [filters, queryParam, updateUrl],
+  );
+
+  const updateFilter = useCallback((key: FilterKey, value: string) => {
+    setFilters((prev) => {
+      const next = { ...prev, [key]: value };
+      if (key === "country") {
+        next.country = value.trim().toUpperCase();
+        next.region = "";
+        next.province = "";
+        next.city = "";
+      }
+      if (key === "region") {
+        next.province = "";
+        next.city = "";
+      }
+      if (key === "province") {
+        next.city = "";
+      }
+      if (key === "sport") {
+        if (prev.role && !(SPORTS_ROLES[value] ?? []).includes(prev.role)) next.role = "";
+      }
+      return next;
+    });
+  }, []);
+
+  const applyFilters = useCallback(() => {
+    if (!queryParam) return;
+    updateUrl(queryParam, type, filters, 1, "push");
+  }, [filters, queryParam, type, updateUrl]);
+
+  const clearFilters = useCallback(() => {
+    setFilters(EMPTY_FILTERS);
+    if (!queryParam) return;
+    updateUrl(queryParam, type, EMPTY_FILTERS, 1, "push");
+  }, [queryParam, type, updateUrl]);
+
+  const onRefresh = useCallback(() => {
+    if (!queryParam || queryParam.length < 2) return;
+    setRefreshing(true);
+    updateUrl(queryParam, type, filters, 1, "replace");
+  }, [filters, queryParam, type, updateUrl]);
+
   const onOpenResult = useCallback(
     async (item: SearchItem) => {
-      const href = typeof item.href === "string" ? item.href.trim() : "";
+      const href = item.href?.trim();
       if (!href) return;
       if (href.startsWith("/")) {
         router.push(href as any);
@@ -207,168 +400,214 @@ export default function SearchScreen() {
     [router],
   );
 
-  const counts = payload?.counts ?? {};
-  const listItems = type !== "all" && Array.isArray(payload?.results?.[type]) ? payload?.results?.[type] ?? [] : [];
-  const totalForType = type !== "all" && typeof counts?.[type] === "number" ? counts[type] : null;
-  const canLoadMore = totalForType !== null && listItems.length < totalForType;
+  const pickerOptions = useMemo(() => {
+    if (openPicker === "country") return COUNTRY_OPTIONS;
+    if (openPicker === "region") return [{ label: "Tutte le regioni", value: "" }, ...regions.map((item) => ({ label: item.name, value: item.name }))];
+    if (openPicker === "province") return [{ label: "Tutte le province", value: "" }, ...provinces.map((item) => ({ label: item.name, value: item.name }))];
+    if (openPicker === "city") return [{ label: "Tutte le città", value: "" }, ...cities.map((item) => ({ label: item.name, value: item.name }))];
+    if (openPicker === "sport") return [{ label: "Tutti gli sport", value: "" }, ...SPORTS.map((item) => ({ label: item, value: item }))];
+    if (openPicker === "role") return [{ label: "Tutti i ruoli", value: "" }, ...roleOptions.map((item) => ({ label: item, value: item }))];
+    return [] as Array<{ label: string; value: string }>;
+  }, [cities, openPicker, provinces, regions, roleOptions]);
 
-  const renderRow = (item: SearchItem) => (
-    <View
-      key={`${item.kind}:${item.id}`}
-      style={{
-        borderWidth: 1,
-        borderColor: theme.colors.neutral200,
-        borderRadius: 12,
-        padding: 14,
-        gap: 6,
-      }}
-    >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <Pressable onPress={() => void onOpenResult(item)}>
-          <Avatar url={item.image_url ?? null} label={item.title} />
-        </Pressable>
-
-        <Pressable onPress={() => void onOpenResult(item)} style={{ flex: 1 }}>
-          <Text style={{ fontWeight: "800", fontSize: 16 }}>{item.title || "Risultato"}</Text>
-        </Pressable>
-      </View>
-
-      {item.subtitle ? <Text style={{ color: theme.colors.text }}>{item.subtitle}</Text> : null}
-      <Text style={{ color: theme.colors.muted, fontSize: 12 }}>{item.kind}</Text>
-    </View>
-  );
+  const pickerSelected = openPicker ? filters[openPicker] : "";
+  const pickerTitle =
+    openPicker === "country"
+      ? "Nazione"
+      : openPicker === "region"
+        ? "Regione"
+        : openPicker === "province"
+          ? "Provincia"
+          : openPicker === "city"
+            ? "Città"
+            : openPicker === "sport"
+              ? "Sport"
+              : openPicker === "role"
+                ? "Ruolo"
+                : "";
 
   return (
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 32, gap: 16 }}
+      contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 32 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-
-      <View
-        style={{
-          borderWidth: 1,
-          borderColor: theme.colors.neutral200,
-          borderRadius: 12,
-          padding: 16,
-          gap: 10,
-        }}
-      >
-        <TextInput
-          placeholder="Cerca..."
-          value={input}
-          onChangeText={setInput}
-          onSubmitEditing={onSubmitSearch}
-          autoCapitalize="none"
-          autoCorrect={false}
-          style={{
-            borderWidth: 1,
-            borderColor: theme.colors.neutral200,
-            borderRadius: 12,
-            padding: 12,
-          }}
-        />
-        <Pressable
-          onPress={onSubmitSearch}
-          style={{
-            borderWidth: 1,
-            borderColor: theme.colors.primary,
-            backgroundColor: theme.colors.primary,
-            borderRadius: 10,
-            padding: 12,
-            alignItems: "center",
-          }}
-        >
-          <Text style={{ fontWeight: "700", color: theme.colors.background }}>Cerca</Text>
-        </Pressable>
-
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-          {SEARCH_TYPES.map((searchType) => {
-            const active = type === searchType;
-            const count = counts?.[searchType];
-            return (
-              <Pressable
-                key={searchType}
-                onPress={() => onChangeType(searchType)}
-                style={{
-                  borderWidth: 1,
-                  borderColor: active ? theme.colors.text : theme.colors.neutral200,
-                  borderRadius: 999,
-                  paddingVertical: 8,
-                  paddingHorizontal: 12,
-                  backgroundColor: active ? theme.colors.text : theme.colors.background,
-                }}
-              >
-                <Text style={{ fontWeight: "700", color: active ? theme.colors.background : theme.colors.text }}>
-                  {searchType}
-                  {typeof count === "number" ? ` (${count})` : ""}
-                </Text>
-              </Pressable>
-            );
-          })}
+      <View style={{ gap: 12 }}>
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <TextInput
+            value={inputValue}
+            onChangeText={setInputValue}
+            placeholder="Cerca club, player, opportunità, post, eventi…"
+            placeholderTextColor={theme.colors.muted}
+            onSubmitEditing={handleSubmitSearch}
+            returnKeyType="search"
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={{
+              flex: 1,
+              height: 46,
+              borderWidth: 1,
+              borderColor: theme.colors.neutral200,
+              borderRadius: 999,
+              paddingHorizontal: 16,
+              color: theme.colors.text,
+              backgroundColor: theme.colors.background,
+            }}
+          />
+          <Pressable
+            onPress={handleSubmitSearch}
+            style={{
+              borderRadius: 999,
+              paddingHorizontal: 18,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: theme.colors.primary,
+            }}
+          >
+            <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Cerca</Text>
+          </Pressable>
         </View>
+
+        <View style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 16, padding: 14, gap: 14 }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
+            <FilterSelect label="Nazione" value={filters.country} placeholder="Tutti i paesi" onPress={() => setOpenPicker("country")} />
+            <FilterSelect
+              label="Regione"
+              value={filters.region}
+              placeholder={isItalySelected ? "Tutte le regioni" : "Disponibile solo con Italia"}
+              disabled={!isItalySelected}
+              onPress={() => setOpenPicker("region")}
+            />
+            <FilterSelect
+              label="Provincia"
+              value={filters.province}
+              placeholder="Tutte le province"
+              disabled={!isItalySelected || !filters.region}
+              onPress={() => setOpenPicker("province")}
+            />
+            <FilterSelect
+              label="Città"
+              value={filters.city}
+              placeholder="Tutte le città"
+              disabled={!isItalySelected || !filters.province}
+              onPress={() => setOpenPicker("city")}
+            />
+            <FilterSelect label="Sport" value={filters.sport} placeholder="Tutti gli sport" onPress={() => setOpenPicker("sport")} />
+            <FilterSelect
+              label="Ruolo"
+              value={filters.role}
+              placeholder={filters.sport ? "Tutti i ruoli" : "Seleziona prima uno sport"}
+              disabled={!filters.sport}
+              onPress={() => setOpenPicker("role")}
+            />
+          </View>
+
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <Pressable
+              onPress={applyFilters}
+              disabled={!queryParam}
+              style={{
+                borderRadius: 999,
+                backgroundColor: queryParam ? theme.colors.primary : theme.colors.neutral200,
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+              }}
+            >
+              <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Applica filtri</Text>
+            </Pressable>
+            <Pressable onPress={clearFilters} style={{ borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10 }}>
+              <Text style={{ color: theme.colors.text, fontWeight: "700" }}>Reset</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {openPicker ? (
+          <FilterPicker title={pickerTitle} options={pickerOptions} selected={pickerSelected} onSelect={(value) => updateFilter(openPicker, value)} onClose={() => setOpenPicker(null)} />
+        ) : null}
       </View>
 
-      <View
-        style={{
-          borderWidth: 1,
-          borderColor: theme.colors.neutral200,
-          borderRadius: 12,
-          padding: 16,
-          gap: 10,
-        }}
-      >
-        {query.length < 2 ? (
-          <Text style={{ color: theme.colors.text }}>Inserisci almeno 2 caratteri</Text>
-        ) : loading ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+        {SEARCH_TYPES.map((itemType) => {
+          const active = type === itemType;
+          const count = counts?.[itemType];
+          return (
+            <Pressable
+              key={itemType}
+              onPress={() => handleTabChange(itemType)}
+              style={{
+                borderWidth: 1,
+                borderColor: active ? theme.colors.text : theme.colors.neutral200,
+                backgroundColor: active ? theme.colors.text : theme.colors.background,
+                borderRadius: 999,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+              }}
+            >
+              <Text style={{ color: active ? theme.colors.background : theme.colors.text, fontWeight: "700" }}>
+                {itemType}
+                {typeof count === "number" ? ` (${count})` : ""}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <View style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 16, padding: 16, gap: 12 }}>
+        {!queryParam ? (
+          <Text style={{ color: theme.colors.muted }}>Inserisci una ricerca per iniziare.</Text>
+        ) : queryParam.length < 2 ? (
+          <Text style={{ color: theme.colors.danger }}>Inserisci almeno 2 caratteri per avviare la ricerca.</Text>
+        ) : loading && page === 1 ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <ActivityIndicator size="small" />
             <Text style={{ color: theme.colors.text }}>Ricerca in corso…</Text>
           </View>
         ) : error ? (
           <Text style={{ color: theme.colors.danger }}>{error}</Text>
         ) : type === "all" ? (
-          <View style={{ gap: 14 }}>
-            {SEARCH_TYPES.filter((searchType) => searchType !== "all").map((sectionType) => {
-              const sectionItems = Array.isArray(payload?.results?.[sectionType])
-                ? payload?.results?.[sectionType] ?? []
-                : [];
+          <View style={{ gap: 18 }}>
+            {SEARCH_TYPES.filter((itemType) => itemType !== "all").map((sectionType) => {
+              const sectionItems = ((results?.[sectionType] as SearchItem[] | undefined) ?? []).slice(0, 3);
               if (sectionItems.length === 0) return null;
-
               return (
-                <View key={sectionType} style={{ gap: 8 }}>
+                <View key={sectionType} style={{ gap: 10 }}>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                    <Text style={{ fontSize: 16, fontWeight: "700" }}>{sectionType}</Text>
-                    <Pressable onPress={() => onChangeType(sectionType)}>
-                      <Text style={{ fontWeight: "700", color: theme.colors.primary }}>Vedi tutti</Text>
+                    <Text style={{ color: theme.colors.text, fontWeight: "700", fontSize: 16 }}>{sectionType}</Text>
+                    <Pressable onPress={() => handleTabChange(sectionType)}>
+                      <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>
+                        Vedi tutti{typeof counts?.[sectionType] === "number" ? ` (${counts?.[sectionType]})` : ""}
+                      </Text>
                     </Pressable>
                   </View>
-                  <View style={{ gap: 8 }}>{sectionItems.slice(0, 3).map((item) => renderRow(item))}</View>
+                  <View style={{ gap: 8 }}>
+                    {sectionItems.map((item) => (
+                      <SearchResultRow key={`${item.kind}:${item.id}`} result={item} onPress={onOpenResult} />
+                    ))}
+                  </View>
                 </View>
               );
             })}
           </View>
-        ) : listItems.length === 0 ? (
-          <Text style={{ color: theme.colors.text }}>Nessun risultato per “{query}”.</Text>
+        ) : activeResults.length === 0 ? (
+          <Text style={{ color: theme.colors.text }}>Nessun risultato per “{queryParam}”.</Text>
         ) : (
-          <View style={{ gap: 10 }}>
-            {listItems.map((item) => renderRow(item))}
-            {canLoadMore ? (
+          <View style={{ gap: 8 }}>
+            {activeResults.map((item) => (
+              <SearchResultRow key={`${item.kind}:${item.id}`} result={item} onPress={onOpenResult} />
+            ))}
+            {hasMore ? (
               <Pressable
-                onPress={() => updateUrl({ page: page + 1 }, "push")}
+                onPress={() => updateUrl(queryParam, type, filters, page + 1, "push")}
                 style={{
+                  marginTop: 8,
                   borderWidth: 1,
                   borderColor: theme.colors.neutral200,
-                  borderRadius: 10,
-                  padding: 12,
+                  borderRadius: 12,
+                  paddingVertical: 12,
                   alignItems: "center",
                 }}
               >
-                {loadingMore ? (
-                  <ActivityIndicator size="small" />
-                ) : (
-                  <Text style={{ fontWeight: "700" }}>Carica altri</Text>
-                )}
+                {loading ? <ActivityIndicator size="small" /> : <Text style={{ color: theme.colors.text, fontWeight: "700" }}>Carica altri risultati</Text>}
               </Pressable>
             ) : null}
           </View>
