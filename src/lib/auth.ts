@@ -84,7 +84,7 @@ function waitForRedirectUrl({
   });
 }
 
-async function syncWebSessionAndAudit(session: { access_token: string; refresh_token: string }) {
+export async function syncWebSessionAndAudit(session: { access_token: string; refresh_token: string }) {
   const syncRes = await syncSession({
     access_token: session.access_token,
     refresh_token: session.refresh_token,
@@ -117,6 +117,17 @@ async function syncWebSessionAndAudit(session: { access_token: string; refresh_t
   }
 }
 
+
+export async function syncCurrentSessionWithWeb() {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const session = sessionData.session;
+  if (!session) throw new Error("Sessione Supabase mancante");
+
+  await syncWebSessionAndAudit({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+  });
+}
 export async function signInWithGoogle() {
   const redirectTo = Linking.createURL("callback", { scheme: "clubandplayer" });
 

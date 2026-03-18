@@ -1,11 +1,18 @@
-import { Stack, usePathname, useRouter, useSegments } from "expo-router";
+import { Stack, usePathname, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useFonts } from "expo-font";
 import type { Session } from "@supabase/supabase-js";
 import { CrashBoundary } from "../src/components/CrashBoundary";
 import { supabase } from "../src/lib/supabase";
-import { getOnboardingSeen, subscribeOnboardingSeen } from "../src/lib/onboarding";
+import { fetchProfileMe, fetchWhoami, type ProfileMe, type WhoamiResponse } from "../src/lib/api";
+import {
+  getAuthBootstrapState,
+  getDashboardOnboardingSeen,
+  getGuestOnboardingSeen,
+  subscribeDashboardOnboardingSeen,
+  subscribeGuestOnboardingSeen,
+} from "../src/lib/authFlow";
 import { theme } from "../src/theme";
 
 function LoadingScreen() {
@@ -18,107 +25,136 @@ function LoadingScreen() {
 
 export default function RootLayout() {
   const router = useRouter();
-  const segments = useSegments();
   const pathname = usePathname();
-
-  const [fontsLoaded] = useFonts({
-    Righteous: require("../assets/fonts/Righteous-Regular.ttf"),
-  });
-
+  const [fontsLoaded] = useFonts({ Righteous: require("../assets/fonts/Righteous-Regular.ttf") });
   const [session, setSession] = useState<Session | null>(null);
-  const [onboardingSeen, setOnboardingSeen] = useState<boolean | null>(null);
+  const [guestOnboardingSeen, setGuestOnboardingSeen] = useState<boolean | null>(null);
+  const [dashboardOnboardingSeen, setDashboardOnboardingSeen] = useState<boolean>(false);
+  const [whoami, setWhoami] = useState<WhoamiResponse | null>(null);
+  const [profile, setProfile] = useState<ProfileMe | null>(null);
   const [bootstrapped, setBootstrapped] = useState(false);
+  const [sessionResolved, setSessionResolved] = useState(false);
   const lastTargetRef = useRef<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
-
     const init = async () => {
-      const [{ data }, seen] = await Promise.all([supabase.auth.getSession(), getOnboardingSeen()]);
+      const [{ data }, seen] = await Promise.all([supabase.auth.getSession(), getGuestOnboardingSeen()]);
       if (!mounted) return;
       setSession(data.session ?? null);
-      setOnboardingSeen(seen);
+      setGuestOnboardingSeen(seen);
       setBootstrapped(true);
     };
-
     void init();
-
     const { data: authListener } = supabase.auth.onAuthStateChange((_evt, next) => {
       setSession(next);
+      setSessionResolved(false);
       lastTargetRef.current = null;
     });
-
-    const unsubOnboarding = subscribeOnboardingSeen((seen) => {
-      setOnboardingSeen(seen);
+    const unsubGuest = subscribeGuestOnboardingSeen((seen) => {
+      setGuestOnboardingSeen(seen);
       lastTargetRef.current = null;
     });
-
+    const unsubDashboard = subscribeDashboardOnboardingSeen((userId, seen) => {
+      if (userId === session?.user?.id) {
+        setDashboardOnboardingSeen(seen);
+        lastTargetRef.current = null;
+      }
+    });
     return () => {
       mounted = false;
       authListener.subscription.unsubscribe();
-      unsubOnboarding();
+      unsubGuest();
+      unsubDashboard();
     };
-  }, []);
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadSessionState = async () => {
+      if (!session?.user?.id) {
+        setWhoami(null);
+        setProfile(null);
+        setDashboardOnboardingSeen(false);
+        setSessionResolved(true);
+        return;
+      }
+      setSessionResolved(false);
+      const [whoamiResponse, profileResponse, dashboardSeen] = await Promise.all([
+        fetchWhoami(),
+        fetchProfileMe(),
+        getDashboardOnboardingSeen(session.user.id),
+      ]);
+      if (cancelled) return;
+      setWhoami(whoamiResponse.ok ? whoamiResponse.data ?? null : null);
+      setProfile(profileResponse.ok ? profileResponse.data ?? null : null);
+      setDashboardOnboardingSeen(dashboardSeen);
+      setSessionResolved(true);
+    };
+    void loadSessionState();
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user?.id]);
 
   const redirectTarget = useMemo(() => {
-    if (!bootstrapped || onboardingSeen === null) return null;
+    if (!bootstrapped || guestOnboardingSeen === null || !sessionResolved) return null;
+    const state = getAuthBootstrapState({ whoami, profile, dashboardOnboardingSeen });
 
-    const group = segments[0];
-    const inTabs = group === "(tabs)";
-    const inCallback = pathname === "/callback";
+    const isGuestWelcome = pathname === "/";
+    const isAuthRoute = pathname === "/callback" || pathname === "/login" || pathname === "/signup";
+    const isChooseRoleRoute = pathname === "/onboarding/choose-role";
+    const isDashboardOnboardingRoute = pathname === "/onboarding";
+    const isPlayerProfileRoute = pathname === "/player/profile";
+    const isClubProfileRoute = pathname === "/club/profile";
 
-    const allowAuthedOutsideTabs =
-      pathname.startsWith("/posts/") ||
-      pathname.startsWith("/clubs/") ||
-      pathname.startsWith("/players/") ||
-      pathname.startsWith("/opportunities/") ||
-      pathname.startsWith("/my/") ||
-      pathname.startsWith("/club/") ||
-      pathname.startsWith("/player/") ||
-      pathname.startsWith("/applications");
-
-    if (session) {
-      if (!inTabs && !allowAuthedOutsideTabs) return "/(tabs)/feed";
+    if (!session) {
+      if (!guestOnboardingSeen && !isGuestWelcome) return "/(onboarding)";
+      if (guestOnboardingSeen && !isAuthRoute) return "/(auth)/login";
       return null;
     }
 
-    if (inCallback) return null;
-    if (!onboardingSeen) return "/(onboarding)";
-    return "/(auth)/login";
-  }, [bootstrapped, onboardingSeen, pathname, segments, session]);
+    if (state.shouldChooseRole && !isChooseRoleRoute) return "/onboarding/choose-role";
+    if (!state.shouldChooseRole && isChooseRoleRoute) {
+      return state.accountType === "club" ? "/club/profile" : "/player/profile";
+    }
+
+    if (state.shouldCompleteAthleteProfile && !isPlayerProfileRoute) return "/player/profile";
+
+    if (state.accountType === "club" && !state.shouldShowLoggedInOnboarding && isAuthRoute) return "/club/profile";
+    if (state.accountType === "athlete" && !state.shouldCompleteAthleteProfile && !state.shouldShowLoggedInOnboarding && isAuthRoute) return "/(tabs)/feed";
+
+    if (state.shouldShowLoggedInOnboarding && !isDashboardOnboardingRoute) return "/onboarding";
+    if (!state.shouldShowLoggedInOnboarding && isDashboardOnboardingRoute) {
+      return state.accountType === "club" ? "/club/profile" : "/(tabs)/feed";
+    }
+
+    if (state.accountType === "club" && isPlayerProfileRoute) return "/club/profile";
+    if (state.accountType === "athlete" && isClubProfileRoute) return state.shouldCompleteAthleteProfile ? "/player/profile" : "/(tabs)/feed";
+
+    return null;
+  }, [bootstrapped, dashboardOnboardingSeen, guestOnboardingSeen, pathname, profile, session, sessionResolved, whoami]);
 
   useEffect(() => {
     if (!redirectTarget) {
       lastTargetRef.current = null;
       return;
     }
-
     if (lastTargetRef.current === redirectTarget) return;
     lastTargetRef.current = redirectTarget;
     router.replace(redirectTarget as any);
   }, [redirectTarget, router]);
 
-  // Keep the navigator mounted even while a redirect is pending.
-  // Unmounting the Stack here can prevent router.replace() from settling on some devices,
-  // leaving the app on a blank loading screen.
-  if (!fontsLoaded || !bootstrapped || onboardingSeen === null) {
-    return <LoadingScreen />;
-  }
+  if (!fontsLoaded || !bootstrapped || guestOnboardingSeen === null || !sessionResolved) return <LoadingScreen />;
 
   return (
     <CrashBoundary>
-      <Stack
-        screenOptions={{
-          headerTitleStyle: { fontFamily: theme.fonts.brand, color: theme.colors.primary },
-          headerTintColor: theme.colors.primary,
-          headerShadowVisible: false,
-          headerStyle: { backgroundColor: theme.colors.background },
-        }}
-      >
+      <Stack screenOptions={{ headerTitleStyle: { fontFamily: theme.fonts.brand, color: theme.colors.primary }, headerTintColor: theme.colors.primary, headerShadowVisible: false, headerStyle: { backgroundColor: theme.colors.background } }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
-
+        <Stack.Screen name="onboarding/choose-role" options={{ headerShown: true, title: "Scegli ruolo" }} />
+        <Stack.Screen name="(dashboard)/onboarding" options={{ headerShown: true, title: "Onboarding" }} />
         <Stack.Screen name="posts/[id]" options={{ headerShown: true, title: "Post" }} />
         <Stack.Screen name="opportunities/new" options={{ headerShown: true, title: "Crea opportunità" }} />
         <Stack.Screen name="opportunities/[id]" options={{ headerShown: true, title: "Opportunità" }} />
