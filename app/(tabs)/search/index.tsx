@@ -19,11 +19,20 @@ import {
   type SearchItem,
   type SearchKind,
 } from "../../../src/lib/api";
+import { COUNTRY_OPTIONS } from "../../../src/lib/geo/countries";
 import { getMunicipalities, getProvinces, getRegions, type LocationOption } from "../../../src/lib/geo/location";
 import { SPORTS, SPORTS_ROLES } from "../../../src/lib/opportunities/formOptions";
 import { theme } from "../../../src/theme";
 
 const SEARCH_TYPES: SearchKind[] = ["all", "opportunities", "clubs", "players", "posts", "events"];
+const SEARCH_TYPE_LABELS: Record<SearchKind, string> = {
+  all: "Tutti",
+  opportunities: "Opportunità",
+  clubs: "Club",
+  players: "Player",
+  posts: "Post",
+  events: "Eventi",
+};
 const PAGE_LIMIT = 10;
 const EMPTY_RESULTS: NonNullable<SearchApiPayload["results"]> = {
   all: [],
@@ -42,10 +51,7 @@ const EMPTY_FILTERS: Required<SearchFilters> = {
   role: "",
   status: "",
 };
-const COUNTRY_OPTIONS = [
-  { label: "Tutti i paesi", value: "" },
-  { label: "Italia", value: "IT" },
-];
+
 
 type FilterKey = keyof typeof EMPTY_FILTERS;
 
@@ -532,7 +538,7 @@ export default function SearchScreen() {
           const count = counts?.[itemType];
           return (
             <Pressable
-              key={itemType}
+              key={SEARCH_TYPE_LABELS[itemType]}
               onPress={() => handleTabChange(itemType)}
               style={{
                 borderWidth: 1,
@@ -544,7 +550,7 @@ export default function SearchScreen() {
               }}
             >
               <Text style={{ color: active ? theme.colors.background : theme.colors.text, fontWeight: "700" }}>
-                {itemType}
+                {SEARCH_TYPE_LABELS[itemType]}
                 {typeof count === "number" ? ` (${count})` : ""}
               </Text>
             </Pressable>
@@ -570,9 +576,9 @@ export default function SearchScreen() {
               const sectionItems = ((results?.[sectionType] as SearchItem[] | undefined) ?? []).slice(0, 3);
               if (sectionItems.length === 0) return null;
               return (
-                <View key={sectionType} style={{ gap: 10 }}>
+                <View key={SEARCH_TYPE_LABELS[sectionType]} style={{ gap: 10 }}>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                    <Text style={{ color: theme.colors.text, fontWeight: "700", fontSize: 16 }}>{sectionType}</Text>
+                    <Text style={{ color: theme.colors.text, fontWeight: "700", fontSize: 16 }}>{SEARCH_TYPE_LABELS[sectionType]}</Text>
                     <Pressable onPress={() => handleTabChange(sectionType)}>
                       <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>
                         Vedi tutti{typeof counts?.[sectionType] === "number" ? ` (${counts?.[sectionType]})` : ""}

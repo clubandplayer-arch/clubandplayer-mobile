@@ -681,7 +681,7 @@ export async function fetchSearch(params: {
   sp.set("q", params.q);
   sp.set("type", params.type ?? "all");
   sp.set("page", String(params.page ?? 1));
-  sp.set("limit", String(params.limit ?? 20));
+  sp.set("limit", String(params.limit ?? 10));
 
   (["country", "region", "province", "city", "sport", "role", "status"] as const).forEach((key) => {
     const value = params[key];
