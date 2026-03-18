@@ -221,7 +221,17 @@ export type SearchItem = {
   subtitle?: string;
   image_url?: string | null;
   href: string;
-  kind: string;
+  kind: Exclude<SearchKind, "all">;
+};
+
+export type SearchFilters = {
+  country?: string;
+  region?: string;
+  province?: string;
+  city?: string;
+  sport?: string;
+  role?: string;
+  status?: string;
 };
 
 export type SearchApiPayload = {
@@ -659,12 +669,24 @@ export async function fetchSearch(params: {
   type?: SearchKind;
   page?: number;
   limit?: number;
+  country?: string;
+  region?: string;
+  province?: string;
+  city?: string;
+  sport?: string;
+  role?: string;
+  status?: string;
 }): Promise<SearchApiResult> {
   const sp = new URLSearchParams();
   sp.set("q", params.q);
   sp.set("type", params.type ?? "all");
   sp.set("page", String(params.page ?? 1));
-  sp.set("limit", String(params.limit ?? 20));
+  sp.set("limit", String(params.limit ?? 10));
+
+  (["country", "region", "province", "city", "sport", "role", "status"] as const).forEach((key) => {
+    const value = params[key];
+    if (typeof value === "string" && value.trim()) sp.set(key, value.trim());
+  });
 
   const url = buildUrl(`/api/search?${sp.toString()}`);
   const response = await fetch(url, {
