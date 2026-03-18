@@ -24,7 +24,7 @@ import { SPORTS, SPORTS_ROLES } from "../../../src/lib/opportunities/formOptions
 import { theme } from "../../../src/theme";
 
 const SEARCH_TYPES: SearchKind[] = ["all", "opportunities", "clubs", "players", "posts", "events"];
-const PAGE_LIMIT = 20;
+const PAGE_LIMIT = 10;
 const EMPTY_RESULTS: NonNullable<SearchApiPayload["results"]> = {
   all: [],
   opportunities: [],
@@ -242,7 +242,7 @@ export default function SearchScreen() {
     void getMunicipalities(nextProvince.id).then(setCities);
   }, [filters.province, provinces]);
 
-  const isItalySelected = filters.country === "IT";
+  const isItalySelected = !filters.country || filters.country === "IT";
   const queryParam = q.trim();
   const roleOptions = useMemo(() => (filters.sport ? SPORTS_ROLES[filters.sport] ?? [] : []), [filters.sport]);
 
