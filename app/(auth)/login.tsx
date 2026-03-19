@@ -56,7 +56,10 @@ export default function LoginScreen() {
       });
 
       if (!syncRes.ok) {
-        Alert.alert("Login fallito", syncRes.errorText ?? "Sync sessione web fallita");
+        Alert.alert(
+          "Login fallito",
+          syncRes.errorText ?? "Sync sessione web fallita",
+        );
         return;
       }
 
@@ -81,7 +84,6 @@ export default function LoginScreen() {
       setLoading(false);
     }
   };
-
 
   return (
     <View
@@ -113,7 +115,12 @@ export default function LoginScreen() {
         keyboardType="email-address"
         value={email}
         onChangeText={setEmail}
-        style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, padding: 12 }}
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          padding: 12,
+        }}
       />
 
       <TextInput
@@ -123,7 +130,12 @@ export default function LoginScreen() {
         autoCorrect={false}
         value={password}
         onChangeText={setPassword}
-        style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, padding: 12 }}
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          padding: 12,
+        }}
       />
 
       <Pressable
@@ -141,7 +153,9 @@ export default function LoginScreen() {
         {loading ? (
           <ActivityIndicator color={theme.colors.background} />
         ) : (
-          <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Accedi</Text>
+          <Text style={{ color: theme.colors.background, fontWeight: "700" }}>
+            Accedi
+          </Text>
         )}
       </Pressable>
 
@@ -161,11 +175,13 @@ export default function LoginScreen() {
         }}
       >
         <Ionicons name="logo-google" size={18} color={theme.colors.primary} />
-        <Text style={{ fontWeight: "700", color: theme.colors.primary }}>Continua con Google</Text>
+        <Text style={{ fontWeight: "700", color: theme.colors.primary }}>
+          Continua con Google
+        </Text>
       </Pressable>
 
       <Pressable
-        onPress={() => router.push("/(auth)/signup")}
+        onPress={() => router.push("/signup")}
         disabled={loading}
         style={{ paddingVertical: 10, alignItems: "center" }}
       >

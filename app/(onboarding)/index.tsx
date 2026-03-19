@@ -8,7 +8,7 @@ import { theme } from "../../src/theme";
 export default function OnboardingScreen() {
   const [loading, setLoading] = useState(false);
 
-  const goTo = async (path: "/(auth)/login" | "/(auth)/signup") => {
+  const goTo = async (path: "/login" | "/signup") => {
     try {
       setLoading(true);
       await setOnboardingSeen(true);
@@ -30,20 +30,26 @@ export default function OnboardingScreen() {
     >
       <BrandLogo />
 
-      <Text style={{ fontSize: 30, color: theme.colors.primary, fontFamily: theme.fonts.brand }}>
+      <Text
+        style={{
+          fontSize: 30,
+          color: theme.colors.primary,
+          fontFamily: theme.fonts.brand,
+        }}
+      >
         Benvenuto su Club & Player
       </Text>
 
       <Text style={{ fontSize: 16, color: theme.colors.muted, lineHeight: 22 }}>
         Il social sportivo per <Text style={{ fontWeight: "800" }}>Club</Text> e{" "}
-        <Text style={{ fontWeight: "800" }}>Giocatori</Text>. Segui, pubblica, candidati e
-        resta aggiornato.
+        <Text style={{ fontWeight: "800" }}>Giocatori</Text>. Segui, pubblica,
+        candidati e resta aggiornato.
       </Text>
 
       <View style={{ height: 12 }} />
 
       <Pressable
-        onPress={() => goTo("/(auth)/login")}
+        onPress={() => goTo("/login")}
         disabled={loading}
         style={{
           backgroundColor: theme.colors.primary,
@@ -56,12 +62,14 @@ export default function OnboardingScreen() {
         {loading ? (
           <ActivityIndicator color={theme.colors.background} />
         ) : (
-          <Text style={{ color: theme.colors.background, fontWeight: "800" }}>Accedi</Text>
+          <Text style={{ color: theme.colors.background, fontWeight: "800" }}>
+            Accedi
+          </Text>
         )}
       </Pressable>
 
       <Pressable
-        onPress={() => goTo("/(auth)/signup")}
+        onPress={() => goTo("/signup")}
         disabled={loading}
         style={{
           borderWidth: 1,
@@ -80,7 +88,7 @@ export default function OnboardingScreen() {
       </Pressable>
 
       <Pressable
-        onPress={() => goTo("/(auth)/login")}
+        onPress={() => goTo("/login")}
         disabled={loading}
         style={{
           paddingVertical: 10,
@@ -92,7 +100,8 @@ export default function OnboardingScreen() {
       </Pressable>
 
       <Text style={{ fontSize: 12, color: theme.colors.muted, marginTop: 8 }}>
-        Nota: la navigazione “ospite” verrà aggiunta più avanti. Per ora è richiesto l’accesso.
+        Nota: la navigazione “ospite” verrà aggiunta più avanti. Per ora è
+        richiesto l’accesso.
       </Text>
     </View>
   );
