@@ -28,7 +28,10 @@ export default function SignupScreen() {
 
   const onSignup = async () => {
     if (!email || !password || !confirmPassword || !role) {
-      Alert.alert("Errore", "Inserisci email, password, conferma password e ruolo");
+      Alert.alert(
+        "Errore",
+        "Inserisci email, password, conferma password e ruolo",
+      );
       return;
     }
 
@@ -61,8 +64,11 @@ export default function SignupScreen() {
         return;
       }
 
-      Alert.alert("Registrazione completata", "Controlla la tua email per confermare l'account.");
-      router.replace("/(auth)/login");
+      Alert.alert(
+        "Registrazione completata",
+        "Controlla la tua email per confermare l'account.",
+      );
+      router.replace("/login");
     } catch {
       Alert.alert("Errore", "Qualcosa è andato storto");
     } finally {
@@ -80,7 +86,6 @@ export default function SignupScreen() {
       setLoading(false);
     }
   };
-
 
   return (
     <View
@@ -112,7 +117,12 @@ export default function SignupScreen() {
         keyboardType="email-address"
         value={email}
         onChangeText={setEmail}
-        style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, padding: 12 }}
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          padding: 12,
+        }}
       />
 
       <TextInput
@@ -122,7 +132,12 @@ export default function SignupScreen() {
         autoCorrect={false}
         value={password}
         onChangeText={setPassword}
-        style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, padding: 12 }}
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          padding: 12,
+        }}
       />
 
       <TextInput
@@ -132,11 +147,18 @@ export default function SignupScreen() {
         autoCorrect={false}
         value={confirmPassword}
         onChangeText={setConfirmPassword}
-        style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, padding: 12 }}
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          padding: 12,
+        }}
       />
 
       <View style={{ gap: 8 }}>
-        <Text style={{ fontWeight: "700", color: theme.colors.text }}>Seleziona ruolo</Text>
+        <Text style={{ fontWeight: "700", color: theme.colors.text }}>
+          Seleziona ruolo
+        </Text>
 
         <View style={{ flexDirection: "row", gap: 10 }}>
           <Pressable
@@ -145,15 +167,23 @@ export default function SignupScreen() {
             style={{
               flex: 1,
               borderWidth: 1,
-              borderColor: role === "athlete" ? theme.colors.primary : theme.colors.neutral200,
-              backgroundColor: role === "athlete" ? theme.colors.neutral100 : theme.colors.background,
+              borderColor:
+                role === "athlete"
+                  ? theme.colors.primary
+                  : theme.colors.neutral200,
+              backgroundColor:
+                role === "athlete"
+                  ? theme.colors.neutral100
+                  : theme.colors.background,
               padding: 14,
               borderRadius: 12,
               alignItems: "center",
               opacity: loading ? 0.8 : 1,
             }}
           >
-            <Text style={{ fontWeight: "700", color: theme.colors.text }}>Player</Text>
+            <Text style={{ fontWeight: "700", color: theme.colors.text }}>
+              Player
+            </Text>
           </Pressable>
 
           <Pressable
@@ -162,15 +192,23 @@ export default function SignupScreen() {
             style={{
               flex: 1,
               borderWidth: 1,
-              borderColor: role === "club" ? theme.colors.primary : theme.colors.neutral200,
-              backgroundColor: role === "club" ? theme.colors.neutral100 : theme.colors.background,
+              borderColor:
+                role === "club"
+                  ? theme.colors.primary
+                  : theme.colors.neutral200,
+              backgroundColor:
+                role === "club"
+                  ? theme.colors.neutral100
+                  : theme.colors.background,
               padding: 14,
               borderRadius: 12,
               alignItems: "center",
               opacity: loading ? 0.8 : 1,
             }}
           >
-            <Text style={{ fontWeight: "700", color: theme.colors.text }}>Club</Text>
+            <Text style={{ fontWeight: "700", color: theme.colors.text }}>
+              Club
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -189,7 +227,9 @@ export default function SignupScreen() {
         {loading ? (
           <ActivityIndicator color={theme.colors.background} />
         ) : (
-          <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Registrati</Text>
+          <Text style={{ color: theme.colors.background, fontWeight: "700" }}>
+            Registrati
+          </Text>
         )}
       </Pressable>
 
@@ -212,14 +252,20 @@ export default function SignupScreen() {
           <ActivityIndicator />
         ) : (
           <>
-            <Ionicons name="logo-google" size={18} color={theme.colors.primary} />
-            <Text style={{ fontWeight: "700", color: theme.colors.primary }}>Registrati con Google</Text>
+            <Ionicons
+              name="logo-google"
+              size={18}
+              color={theme.colors.primary}
+            />
+            <Text style={{ fontWeight: "700", color: theme.colors.primary }}>
+              Registrati con Google
+            </Text>
           </>
         )}
       </Pressable>
 
       <Pressable
-        onPress={() => router.replace("/(auth)/login")}
+        onPress={() => router.replace("/login")}
         disabled={loading}
         style={{ paddingVertical: 10, alignItems: "center" }}
       >
