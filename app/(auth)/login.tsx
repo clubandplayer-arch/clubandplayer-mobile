@@ -10,6 +10,7 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { BrandLogo } from "../../components/brand/BrandLogo";
+import { fetchProfileMe, fetchWhoami, syncSession } from "../../src/lib/api";
 import { supabase } from "../../src/lib/supabase";
 import { signInWithGoogle } from "../../src/lib/auth";
 import { theme } from "../../src/theme";
@@ -40,6 +41,28 @@ export default function LoginScreen() {
         Alert.alert("Login fallito", error.message);
         return;
       }
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData.session;
+
+      if (!session) {
+        Alert.alert("Login fallito", "Sessione non disponibile dopo il login");
+        return;
+      }
+
+      const syncRes = await syncSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      });
+
+      if (!syncRes.ok) {
+        Alert.alert("Login fallito", syncRes.errorText ?? "Sync sessione web fallita");
+        return;
+      }
+
+      void fetchWhoami();
+      void fetchProfileMe();
+
       // redirect gestito da layout / guard
     } catch {
       Alert.alert("Errore", "Qualcosa è andato storto");
