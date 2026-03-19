@@ -14,18 +14,21 @@ import { signInWithGoogle } from "../../src/lib/auth";
 import { supabase } from "../../src/lib/supabase";
 import { theme } from "../../src/theme";
 
+type SignupRole = "athlete" | "club";
+
 export default function SignupScreen() {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [role, setRole] = useState<SignupRole | null>(null);
   const router = useRouter();
 
   const normalizedEmail = (value: string) => value.trim().toLowerCase();
 
   const onSignup = async () => {
-    if (!email || !password || !confirmPassword) {
-      Alert.alert("Errore", "Inserisci email, password e conferma password");
+    if (!email || !password || !confirmPassword || !role) {
+      Alert.alert("Errore", "Inserisci email, password, conferma password e ruolo");
       return;
     }
 
@@ -45,6 +48,12 @@ export default function SignupScreen() {
       const { error } = await supabase.auth.signUp({
         email: normalizedEmail(email),
         password,
+        options: {
+          data: {
+            role,
+            account_type: role,
+          },
+        },
       });
 
       if (error) {
@@ -125,6 +134,46 @@ export default function SignupScreen() {
         onChangeText={setConfirmPassword}
         style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, padding: 12 }}
       />
+
+      <View style={{ gap: 8 }}>
+        <Text style={{ fontWeight: "700", color: theme.colors.text }}>Seleziona ruolo</Text>
+
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <Pressable
+            onPress={() => setRole("athlete")}
+            disabled={loading}
+            style={{
+              flex: 1,
+              borderWidth: 1,
+              borderColor: role === "athlete" ? theme.colors.primary : theme.colors.neutral200,
+              backgroundColor: role === "athlete" ? theme.colors.neutral100 : theme.colors.background,
+              padding: 14,
+              borderRadius: 12,
+              alignItems: "center",
+              opacity: loading ? 0.8 : 1,
+            }}
+          >
+            <Text style={{ fontWeight: "700", color: theme.colors.text }}>Athlete</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setRole("club")}
+            disabled={loading}
+            style={{
+              flex: 1,
+              borderWidth: 1,
+              borderColor: role === "club" ? theme.colors.primary : theme.colors.neutral200,
+              backgroundColor: role === "club" ? theme.colors.neutral100 : theme.colors.background,
+              padding: 14,
+              borderRadius: 12,
+              alignItems: "center",
+              opacity: loading ? 0.8 : 1,
+            }}
+          >
+            <Text style={{ fontWeight: "700", color: theme.colors.text }}>Club</Text>
+          </Pressable>
+        </View>
+      </View>
 
       <Pressable
         onPress={onSignup}
