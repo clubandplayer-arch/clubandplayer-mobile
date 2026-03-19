@@ -78,6 +78,7 @@ export default function RootLayout() {
       pathname.startsWith("/applications");
 
     if (session) {
+      if (pathname === "/") return null;
       if (!inTabs && !allowAuthedOutsideTabs) return "/(tabs)/feed";
       return null;
     }
