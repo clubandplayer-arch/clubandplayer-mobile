@@ -4,17 +4,62 @@ import {
   Alert,
   Pressable,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { BrandLogo } from "../../components/brand/BrandLogo";
 import { signInWithGoogle } from "../../src/lib/auth";
+import { supabase } from "../../src/lib/supabase";
 import { theme } from "../../src/theme";
 
 export default function SignupScreen() {
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const router = useRouter();
+
+  const normalizedEmail = (value: string) => value.trim().toLowerCase();
+
+  const onSignup = async () => {
+    if (!email || !password || !confirmPassword) {
+      Alert.alert("Errore", "Inserisci email, password e conferma password");
+      return;
+    }
+
+    if (password.length < 8) {
+      Alert.alert("Errore", "La password deve contenere almeno 8 caratteri");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert("Errore", "Le password non coincidono");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const { error } = await supabase.auth.signUp({
+        email: normalizedEmail(email),
+        password,
+      });
+
+      if (error) {
+        Alert.alert("Signup fallita", error.message);
+        return;
+      }
+
+      Alert.alert("Registrazione completata", "Controlla la tua email per confermare l'account.");
+      router.replace("/(auth)/login");
+    } catch {
+      Alert.alert("Errore", "Qualcosa è andato storto");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const onGoogle = async () => {
     try {
@@ -50,6 +95,54 @@ export default function SignupScreen() {
       >
         Crea il tuo account
       </Text>
+
+      <TextInput
+        placeholder="Email"
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
+        value={email}
+        onChangeText={setEmail}
+        style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, padding: 12 }}
+      />
+
+      <TextInput
+        placeholder="Password"
+        secureTextEntry
+        autoCapitalize="none"
+        autoCorrect={false}
+        value={password}
+        onChangeText={setPassword}
+        style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, padding: 12 }}
+      />
+
+      <TextInput
+        placeholder="Conferma password"
+        secureTextEntry
+        autoCapitalize="none"
+        autoCorrect={false}
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
+        style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, padding: 12 }}
+      />
+
+      <Pressable
+        onPress={onSignup}
+        disabled={loading}
+        style={{
+          backgroundColor: theme.colors.primary,
+          padding: 14,
+          borderRadius: 12,
+          alignItems: "center",
+          opacity: loading ? 0.8 : 1,
+        }}
+      >
+        {loading ? (
+          <ActivityIndicator color={theme.colors.background} />
+        ) : (
+          <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Registrati</Text>
+        )}
+      </Pressable>
 
       <Pressable
         onPress={onGoogle}
