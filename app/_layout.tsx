@@ -33,12 +33,29 @@ export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
   const [onboardingSeen, setOnboardingSeen] = useState<boolean | null>(null);
   const [profile, setProfile] = useState<ProfileMe | null>(null);
+  const [profileFetchFailed, setProfileFetchFailed] = useState(false);
   const [bootstrapped, setBootstrapped] = useState(false);
   const [profileResolved, setProfileResolved] = useState(false);
   const lastTargetRef = useRef<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
+
+    const loadProfileForRouting = async () => {
+      const profileResponse = await fetchProfileMe();
+      if (!mounted) return;
+
+      if (!profileResponse.ok) {
+        setProfile(null);
+        setProfileFetchFailed(true);
+        setProfileResolved(true);
+        return;
+      }
+
+      setProfile(profileResponse.data ?? null);
+      setProfileFetchFailed(false);
+      setProfileResolved(true);
+    };
 
     const init = async () => {
       const [{ data }, seen] = await Promise.all([
@@ -52,14 +69,13 @@ export default function RootLayout() {
       setBootstrapped(true);
       if (!nextSession) {
         setProfile(null);
+        setProfileFetchFailed(false);
         setProfileResolved(true);
         return;
       }
 
-      const profileResponse = await fetchProfileMe();
-      if (!mounted) return;
-      setProfile(profileResponse.ok ? (profileResponse.data ?? null) : null);
-      setProfileResolved(true);
+      setProfileResolved(false);
+      await loadProfileForRouting();
     };
 
     void init();
@@ -70,17 +86,13 @@ export default function RootLayout() {
         lastTargetRef.current = null;
         if (!next) {
           setProfile(null);
+          setProfileFetchFailed(false);
           setProfileResolved(true);
           return;
         }
 
         setProfileResolved(false);
-        void fetchProfileMe().then((profileResponse) => {
-          setProfile(
-            profileResponse.ok ? (profileResponse.data ?? null) : null,
-          );
-          setProfileResolved(true);
-        });
+        void loadProfileForRouting();
       },
     );
 
@@ -119,6 +131,24 @@ export default function RootLayout() {
     if (session) {
       if (!profileResolved) return null;
 
+      if (profileFetchFailed) {
+        const inAllowedAuthedPath =
+          inTabs ||
+          allowAuthedOutsideTabs ||
+          pathname === RUNTIME_PATHS.callback;
+
+        if (
+          !inAllowedAuthedPath ||
+          inAuth ||
+          inOnboardingGroup ||
+          isChooseRole
+        ) {
+          return RUNTIME_PATHS.feed;
+        }
+
+        return null;
+      }
+
       const target = resolvePostAuthPath(profile);
       const inAllowedAuthedPath =
         inTabs ||
@@ -126,13 +156,28 @@ export default function RootLayout() {
         pathname === target ||
         pathname === RUNTIME_PATHS.callback;
 
-      if (target === RUNTIME_PATHS.feed) {
-        if (!inAllowedAuthedPath || inAuth || inOnboardingGroup || isChooseRole)
+      if (target === RUNTIME_PATHS.playerProfile) {
+        if (
+          !inAllowedAuthedPath ||
+          inAuth ||
+          inOnboardingGroup ||
+          isChooseRole
+        ) {
           return target;
+        }
+
+        return pathname === target ? null : target;
+      }
+
+      if (target === RUNTIME_PATHS.clubProfile) {
+        if (pathname !== target) return target;
         return null;
       }
 
-      if (pathname !== target) return target;
+      if (!inAllowedAuthedPath || inAuth || inOnboardingGroup || isChooseRole) {
+        return target;
+      }
+
       return null;
     }
 
@@ -151,6 +196,7 @@ export default function RootLayout() {
     onboardingSeen,
     pathname,
     profile,
+    profileFetchFailed,
     profileResolved,
     segments,
     session,

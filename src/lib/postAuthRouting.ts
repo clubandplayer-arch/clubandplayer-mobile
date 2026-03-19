@@ -28,16 +28,6 @@ export function getNormalizedAccountType(
   return null;
 }
 
-export function isAthleteProfileSufficient(
-  profile: ProfileMe | null | undefined,
-): boolean {
-  return Boolean(
-    normalizedString(profile?.full_name ?? profile?.display_name) &&
-    normalizedString(profile?.sport) &&
-    normalizedString(profile?.role),
-  );
-}
-
 export function resolvePostAuthPath(
   profile: ProfileMe | null | undefined,
 ): RuntimePath {
@@ -45,6 +35,5 @@ export function resolvePostAuthPath(
 
   if (!accountType) return RUNTIME_PATHS.chooseRole;
   if (accountType === "club") return RUNTIME_PATHS.clubProfile;
-  if (!isAthleteProfileSufficient(profile)) return RUNTIME_PATHS.playerProfile;
-  return RUNTIME_PATHS.feed;
+  return RUNTIME_PATHS.playerProfile;
 }
