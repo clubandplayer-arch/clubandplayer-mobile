@@ -2,6 +2,7 @@ import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import { fetchProfileMe, fetchWhoami, syncSession } from "./api";
 import { supabase } from "./supabase";
+import type { Session } from "@supabase/supabase-js";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -29,10 +30,7 @@ const sanitizeAuthUrl = (url: string) => {
     parsed.search = params.toString();
     return parsed.toString();
   } catch {
-    return url.replace(
-      /(access_token|refresh_token|id_token|code)=([^&]+)/g,
-      "$1=<redacted>"
-    );
+    return url.replace(/(access_token|refresh_token|id_token|code)=([^&]+)/g, "$1=<redacted>");
   }
 };
 
@@ -46,20 +44,11 @@ function extractCodeFromUrl(url: string): string | null {
   }
 }
 
-function waitForRedirectUrl({
-  timeoutMs,
-  expectedScheme,
-  expectedHost,
-}: {
-  timeoutMs: number;
-  expectedScheme: string;
-  expectedHost: string;
-}): Promise<string | null> {
+function waitForRedirectUrl({ timeoutMs, expectedScheme, expectedHost }: { timeoutMs: number; expectedScheme: string; expectedHost: string; }): Promise<string | null> {
   return new Promise((resolve) => {
     let settled = false;
 
     const subscription = Linking.addEventListener("url", ({ url }) => {
-      // Expected: clubandplayer://callback?code=...
       try {
         const parsed = new URL(url);
         if (parsed.protocol.replace(":", "") !== expectedScheme) return;
@@ -84,11 +73,31 @@ function waitForRedirectUrl({
   });
 }
 
+async function waitForSupabaseSession(timeoutMs = 5000, pollIntervalMs = 200): Promise<Session | null> {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const { data, error } = await supabase.auth.getSession();
+    if (__DEV__) {
+      console.log("[auth][waitForSupabaseSession]", {
+        hasSession: Boolean(data.session),
+        userId: data.session?.user?.id ?? null,
+        error: error?.message ?? null,
+      });
+    }
+    if (data.session) return data.session;
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+  }
+
+  return null;
+}
+
 export async function syncWebSessionAndAudit(session: { access_token: string; refresh_token: string }) {
   const syncRes = await syncSession({
     access_token: session.access_token,
     refresh_token: session.refresh_token,
   });
+
   if (__DEV__) {
     console.log("[auth][syncSession]", {
       ok: syncRes.ok,
@@ -115,19 +124,40 @@ export async function syncWebSessionAndAudit(session: { access_token: string; re
       errorText: profileRes.ok ? null : profileRes.errorText ?? null,
     });
   }
+
+  return syncRes;
 }
 
+export async function syncCurrentSessionWithWeb(existingSession?: Session | null) {
+  const session = existingSession ?? (await waitForSupabaseSession());
 
-export async function syncCurrentSessionWithWeb() {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const session = sessionData.session;
-  if (!session) throw new Error("Sessione Supabase mancante");
+  if (__DEV__) {
+    console.log("[auth][syncCurrentSessionWithWeb]", {
+      sessionPresent: Boolean(session),
+      userId: session?.user?.id ?? null,
+    });
+  }
 
-  await syncWebSessionAndAudit({
+  if (!session) {
+    return {
+      ok: false as const,
+      reason: "missing_session",
+    };
+  }
+
+  const syncResult = await syncWebSessionAndAudit({
     access_token: session.access_token,
     refresh_token: session.refresh_token,
   });
+
+  return {
+    ok: syncResult.ok,
+    reason: syncResult.ok ? "synced" as const : "sync_failed" as const,
+    status: syncResult.status,
+    errorText: syncResult.ok ? undefined : syncResult.errorText ?? "Sync session failed",
+  };
 }
+
 export async function signInWithGoogle() {
   const redirectTo = Linking.createURL("callback", { scheme: "clubandplayer" });
 
@@ -150,7 +180,6 @@ export async function signInWithGoogle() {
     console.log("[auth] oauth url:", sanitizeAuthUrl(data.url));
   }
 
-  // Listener BEFORE opening the browser (prevents missing event on Android warm resume).
   const redirectPromise = waitForRedirectUrl({
     timeoutMs: 45_000,
     expectedScheme: "clubandplayer",
@@ -161,12 +190,10 @@ export async function signInWithGoogle() {
 
   let finalUrl: string | null = null;
 
-  // 1) Prefer result.url if provided
   if (result.type === "success" && "url" in result && result.url) {
     finalUrl = result.url;
     if (__DEV__) console.log("[auth] result.url:", sanitizeAuthUrl(finalUrl));
   } else {
-    // 2) Otherwise rely on Linking event (Android warm resume)
     const eventUrl = await redirectPromise;
     if (eventUrl) {
       finalUrl = eventUrl;
@@ -183,9 +210,7 @@ export async function signInWithGoogle() {
     throw new Error("OAuth code mancante nel ritorno dal browser");
   }
 
-  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(
-    code
-  );
+  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
   if (exchangeError) {
     throw new Error(`Scambio sessione fallito: ${String(exchangeError)}`);

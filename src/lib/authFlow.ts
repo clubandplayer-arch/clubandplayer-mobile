@@ -33,7 +33,11 @@ function profileHasDisplayIdentity(profile: ProfileMe | null | undefined) {
 }
 
 export function getAccountTypeFromSources(whoami?: WhoamiResponse | null, profile?: ProfileMe | null): string | null {
-  return normalize(profile?.account_type) ?? normalize(whoami?.profile && (whoami.profile as Record<string, unknown>)?.account_type) ?? normalize(whoami?.role);
+  return (
+    normalize(profile?.account_type) ??
+    normalize(whoami?.profile && (whoami.profile as Record<string, unknown>)?.account_type) ??
+    normalize(whoami?.role)
+  );
 }
 
 export async function getGuestOnboardingSeen(): Promise<boolean> {
@@ -83,22 +87,24 @@ export function subscribeDashboardOnboardingSeen(listener: (userId: string, seen
   return () => dashboardOnboardingListeners.delete(listener);
 }
 
-export function getAuthBootstrapState(args: {
-  whoami?: WhoamiResponse | null;
-  profile?: ProfileMe | null;
-  dashboardOnboardingSeen?: boolean;
-}): AuthBootstrapState {
+export function getAuthBootstrapState(args: { whoami?: WhoamiResponse | null; profile?: ProfileMe | null; dashboardOnboardingSeen?: boolean; }): AuthBootstrapState {
   const accountType = getAccountTypeFromSources(args.whoami ?? null, args.profile ?? null);
   const role: AuthRole = accountType === "club" ? "club" : accountType === "athlete" ? "athlete" : accountType ? "unknown" : "guest";
   const shouldChooseRole = !accountType;
   const shouldCompleteAthleteProfile = accountType === "athlete" && !profileHasDisplayIdentity(args.profile ?? null);
   const shouldShowLoggedInOnboarding = Boolean(accountType) && !shouldCompleteAthleteProfile && !args.dashboardOnboardingSeen;
 
-  return {
+  const state = {
     role,
     accountType,
     shouldChooseRole,
     shouldCompleteAthleteProfile,
     shouldShowLoggedInOnboarding,
   };
+
+  if (__DEV__) {
+    console.log("[authFlow] getAuthBootstrapState", state);
+  }
+
+  return state;
 }

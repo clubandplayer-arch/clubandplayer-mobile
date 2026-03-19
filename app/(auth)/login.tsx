@@ -23,17 +23,42 @@ export default function LoginScreen() {
 
     try {
       setLoading(true);
-      const { error } = await supabase.auth.signInWithPassword({
+      const payload = {
         email: normalizedEmail(email),
         password,
-      });
+      };
+
+      if (__DEV__) {
+        console.log("[login] before signInWithPassword", {
+          email: payload.email,
+          passwordLength: password.length,
+        });
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword(payload);
+
+      if (__DEV__) {
+        console.log("[login] after signInWithPassword", {
+          error: error?.message ?? null,
+          sessionPresent: Boolean(data.session),
+          userId: data.session?.user?.id ?? null,
+        });
+      }
 
       if (error) {
         Alert.alert("Login fallito", error.message);
         return;
       }
 
-      await syncCurrentSessionWithWeb();
+      const syncResult = await syncCurrentSessionWithWeb(data.session ?? null);
+
+      if (__DEV__) {
+        console.log("[login] syncCurrentSessionWithWeb result", syncResult);
+      }
+
+      if (!syncResult.ok && syncResult.reason !== "missing_session") {
+        Alert.alert("Login parziale", syncResult.errorText ?? "Sessione web non sincronizzata");
+      }
     } catch (error: any) {
       Alert.alert("Errore", error?.message ?? "Qualcosa è andato storto");
     } finally {

@@ -1,6 +1,6 @@
 import { Stack, usePathname, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 import { useFonts } from "expo-font";
 import type { Session } from "@supabase/supabase-js";
 import { CrashBoundary } from "../src/components/CrashBoundary";
@@ -15,12 +15,29 @@ import {
 } from "../src/lib/authFlow";
 import { theme } from "../src/theme";
 
-function LoadingScreen() {
+function LoadingScreen({ message }: { message?: string }) {
   return (
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}>
       <ActivityIndicator />
+      {message ? <Text style={{ marginTop: 12, color: theme.colors.muted, textAlign: "center" }}>{message}</Text> : null}
     </View>
   );
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timeout after ${timeoutMs}ms`)), timeoutMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
 }
 
 export default function RootLayout() {
@@ -34,33 +51,74 @@ export default function RootLayout() {
   const [profile, setProfile] = useState<ProfileMe | null>(null);
   const [bootstrapped, setBootstrapped] = useState(false);
   const [sessionResolved, setSessionResolved] = useState(false);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const lastTargetRef = useRef<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
+
     const init = async () => {
-      const [{ data }, seen] = await Promise.all([supabase.auth.getSession(), getGuestOnboardingSeen()]);
-      if (!mounted) return;
-      setSession(data.session ?? null);
-      setGuestOnboardingSeen(seen);
-      setBootstrapped(true);
+      try {
+        const [{ data }, seen] = await Promise.all([supabase.auth.getSession(), getGuestOnboardingSeen()]);
+        if (!mounted) return;
+
+        if (__DEV__) {
+          console.log("[rootLayout] init", {
+            sessionPresent: Boolean(data.session),
+            userId: data.session?.user?.id ?? null,
+            guestOnboardingSeen: seen,
+          });
+        }
+
+        setSession(data.session ?? null);
+        setGuestOnboardingSeen(seen);
+      } catch (error: any) {
+        if (!mounted) return;
+        setSession(null);
+        setGuestOnboardingSeen(true);
+        setBootstrapError(error?.message ?? "Bootstrap init failed");
+        if (__DEV__) {
+          console.log("[rootLayout] init error", error?.message ?? error);
+        }
+      } finally {
+        if (mounted) setBootstrapped(true);
+      }
     };
+
     void init();
-    const { data: authListener } = supabase.auth.onAuthStateChange((_evt, next) => {
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, next) => {
+      if (__DEV__) {
+        console.log("[rootLayout] onAuthStateChange", {
+          event,
+          sessionPresent: Boolean(next),
+          userId: next?.user?.id ?? null,
+        });
+      }
       setSession(next);
+      setBootstrapError(null);
       setSessionResolved(false);
       lastTargetRef.current = null;
     });
+
     const unsubGuest = subscribeGuestOnboardingSeen((seen) => {
+      if (__DEV__) {
+        console.log("[rootLayout] guest onboarding changed", { seen });
+      }
       setGuestOnboardingSeen(seen);
       lastTargetRef.current = null;
     });
+
     const unsubDashboard = subscribeDashboardOnboardingSeen((userId, seen) => {
+      if (__DEV__) {
+        console.log("[rootLayout] dashboard onboarding changed", { userId, seen, currentUserId: session?.user?.id ?? null });
+      }
       if (userId === session?.user?.id) {
         setDashboardOnboardingSeen(seen);
         lastTargetRef.current = null;
       }
     });
+
     return () => {
       mounted = false;
       authListener.subscription.unsubscribe();
@@ -71,35 +129,99 @@ export default function RootLayout() {
 
   useEffect(() => {
     let cancelled = false;
+
     const loadSessionState = async () => {
       if (!session?.user?.id) {
+        if (__DEV__) {
+          console.log("[rootLayout] loadSessionState: no session, resolving immediately", {
+            pathname,
+            sessionPresent: false,
+          });
+        }
         setWhoami(null);
         setProfile(null);
         setDashboardOnboardingSeen(false);
+        setBootstrapError(null);
         setSessionResolved(true);
         return;
       }
+
       setSessionResolved(false);
-      const [whoamiResponse, profileResponse, dashboardSeen] = await Promise.all([
-        fetchWhoami(),
-        fetchProfileMe(),
-        getDashboardOnboardingSeen(session.user.id),
-      ]);
-      if (cancelled) return;
-      setWhoami(whoamiResponse.ok ? whoamiResponse.data ?? null : null);
-      setProfile(profileResponse.ok ? profileResponse.data ?? null : null);
-      setDashboardOnboardingSeen(dashboardSeen);
-      setSessionResolved(true);
+      setBootstrapError(null);
+
+      try {
+        if (__DEV__) {
+          console.log("[rootLayout] loadSessionState:start", {
+            userId: session.user.id,
+            pathname,
+          });
+        }
+
+        const [whoamiResponse, profileResponse, dashboardSeen] = await Promise.all([
+          withTimeout(fetchWhoami(), 8000, "fetchWhoami"),
+          withTimeout(fetchProfileMe(), 8000, "fetchProfileMe"),
+          withTimeout(getDashboardOnboardingSeen(session.user.id), 3000, "getDashboardOnboardingSeen"),
+        ]);
+
+        if (cancelled) return;
+
+        if (__DEV__) {
+          console.log("[rootLayout] loadSessionState:responses", {
+            whoamiOk: whoamiResponse.ok,
+            whoamiRole: whoamiResponse.ok ? whoamiResponse.data?.role ?? null : null,
+            profileOk: profileResponse.ok,
+            profileAccountType: profileResponse.ok ? profileResponse.data?.account_type ?? null : null,
+            dashboardSeen,
+          });
+        }
+
+        setWhoami(whoamiResponse.ok ? whoamiResponse.data ?? null : null);
+        setProfile(profileResponse.ok ? profileResponse.data ?? null : null);
+        setDashboardOnboardingSeen(dashboardSeen);
+
+        if (!whoamiResponse.ok || !profileResponse.ok) {
+          setBootstrapError(whoamiResponse.errorText ?? profileResponse.errorText ?? "Bootstrap API failure");
+        }
+      } catch (error: any) {
+        if (cancelled) return;
+        setWhoami(null);
+        setProfile(null);
+        setDashboardOnboardingSeen(false);
+        setBootstrapError(error?.message ?? "Bootstrap failure");
+        if (__DEV__) {
+          console.log("[rootLayout] loadSessionState:error", error?.message ?? error);
+        }
+      } finally {
+        if (!cancelled) {
+          setSessionResolved(true);
+          if (__DEV__) {
+            console.log("[rootLayout] loadSessionState:done", {
+              userId: session.user.id,
+              bootstrapError,
+            });
+          }
+        }
+      }
     };
+
     void loadSessionState();
     return () => {
       cancelled = true;
     };
-  }, [session?.user?.id]);
+  }, [pathname, session?.user?.id]);
 
   const redirectTarget = useMemo(() => {
-    if (!bootstrapped || guestOnboardingSeen === null || !sessionResolved) return null;
-    const state = getAuthBootstrapState({ whoami, profile, dashboardOnboardingSeen });
+    if (!bootstrapped || guestOnboardingSeen === null || !sessionResolved) {
+      if (__DEV__) {
+        console.log("[rootLayout] redirect deferred", {
+          bootstrapped,
+          guestOnboardingSeen,
+          sessionResolved,
+          pathname,
+        });
+      }
+      return null;
+    }
 
     const isGuestWelcome = pathname === "/";
     const isAuthRoute = pathname === "/callback" || pathname === "/login" || pathname === "/signup";
@@ -109,43 +231,80 @@ export default function RootLayout() {
     const isClubProfileRoute = pathname === "/club/profile";
 
     if (!session) {
-      if (!guestOnboardingSeen && !isGuestWelcome) return "/(onboarding)";
-      if (guestOnboardingSeen && !isAuthRoute) return "/(auth)/login";
-      return null;
+      const guestTarget = !guestOnboardingSeen && !isGuestWelcome ? "/(onboarding)" : guestOnboardingSeen && !isAuthRoute ? "/(auth)/login" : null;
+      if (__DEV__) {
+        console.log("[rootLayout] redirect decision guest", {
+          pathname,
+          guestOnboardingSeen,
+          target: guestTarget,
+        });
+      }
+      return guestTarget;
     }
 
-    if (state.shouldChooseRole && !isChooseRoleRoute) return "/onboarding/choose-role";
-    if (!state.shouldChooseRole && isChooseRoleRoute) {
-      return state.accountType === "club" ? "/club/profile" : "/player/profile";
+    if (bootstrapError) {
+      const fallbackTarget = isAuthRoute ? null : "/(auth)/login";
+      if (__DEV__) {
+        console.log("[rootLayout] redirect decision bootstrap fallback", {
+          pathname,
+          userId: session.user.id,
+          bootstrapError,
+          target: fallbackTarget,
+        });
+      }
+      return fallbackTarget;
     }
 
-    if (state.shouldCompleteAthleteProfile && !isPlayerProfileRoute) return "/player/profile";
+    const state = getAuthBootstrapState({ whoami, profile, dashboardOnboardingSeen });
 
-    if (state.accountType === "club" && !state.shouldShowLoggedInOnboarding && isAuthRoute) return "/club/profile";
-    if (state.accountType === "athlete" && !state.shouldCompleteAthleteProfile && !state.shouldShowLoggedInOnboarding && isAuthRoute) return "/(tabs)/feed";
+    let target: string | null = null;
+    if (state.shouldChooseRole && !isChooseRoleRoute) target = "/onboarding/choose-role";
+    else if (!state.shouldChooseRole && isChooseRoleRoute) target = state.accountType === "club" ? "/club/profile" : "/player/profile";
+    else if (state.shouldCompleteAthleteProfile && !isPlayerProfileRoute) target = "/player/profile";
+    else if (state.accountType === "club" && !state.shouldShowLoggedInOnboarding && isAuthRoute) target = "/club/profile";
+    else if (state.accountType === "athlete" && !state.shouldCompleteAthleteProfile && !state.shouldShowLoggedInOnboarding && isAuthRoute) target = "/(tabs)/feed";
+    else if (state.shouldShowLoggedInOnboarding && !isDashboardOnboardingRoute) target = "/onboarding";
+    else if (!state.shouldShowLoggedInOnboarding && isDashboardOnboardingRoute) target = state.accountType === "club" ? "/club/profile" : "/(tabs)/feed";
+    else if (state.accountType === "club" && isPlayerProfileRoute) target = "/club/profile";
+    else if (state.accountType === "athlete" && isClubProfileRoute) target = state.shouldCompleteAthleteProfile ? "/player/profile" : "/(tabs)/feed";
 
-    if (state.shouldShowLoggedInOnboarding && !isDashboardOnboardingRoute) return "/onboarding";
-    if (!state.shouldShowLoggedInOnboarding && isDashboardOnboardingRoute) {
-      return state.accountType === "club" ? "/club/profile" : "/(tabs)/feed";
+    if (__DEV__) {
+      console.log("[rootLayout] redirect decision authed", {
+        pathname,
+        userId: session.user.id,
+        target,
+        state,
+      });
     }
 
-    if (state.accountType === "club" && isPlayerProfileRoute) return "/club/profile";
-    if (state.accountType === "athlete" && isClubProfileRoute) return state.shouldCompleteAthleteProfile ? "/player/profile" : "/(tabs)/feed";
-
-    return null;
-  }, [bootstrapped, dashboardOnboardingSeen, guestOnboardingSeen, pathname, profile, session, sessionResolved, whoami]);
+    return target;
+  }, [bootstrapped, bootstrapError, dashboardOnboardingSeen, guestOnboardingSeen, pathname, profile, session, sessionResolved, whoami]);
 
   useEffect(() => {
     if (!redirectTarget) {
       lastTargetRef.current = null;
       return;
     }
-    if (lastTargetRef.current === redirectTarget) return;
+    if (lastTargetRef.current === redirectTarget) {
+      if (__DEV__) {
+        console.log("[rootLayout] skip duplicate redirect", { redirectTarget, pathname });
+      }
+      return;
+    }
     lastTargetRef.current = redirectTarget;
+    if (__DEV__) {
+      console.log("[rootLayout] router.replace", { from: pathname, to: redirectTarget });
+    }
     router.replace(redirectTarget as any);
-  }, [redirectTarget, router]);
+  }, [pathname, redirectTarget, router]);
 
-  if (!fontsLoaded || !bootstrapped || guestOnboardingSeen === null || !sessionResolved) return <LoadingScreen />;
+  if (!fontsLoaded || !bootstrapped || guestOnboardingSeen === null) {
+    return <LoadingScreen message="Bootstrap auth in corso…" />;
+  }
+
+  if (!sessionResolved) {
+    return <LoadingScreen message={session ? "Verifico sessione e profilo…" : "Verifico stato accesso…"} />;
+  }
 
   return (
     <CrashBoundary>
