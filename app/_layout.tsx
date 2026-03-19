@@ -53,6 +53,7 @@ export default function RootLayout() {
   const [sessionResolved, setSessionResolved] = useState(false);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const lastTargetRef = useRef<string | null>(null);
+  const sessionKey = session?.access_token ?? session?.user?.id ?? "guest";
 
   useEffect(() => {
     let mounted = true;
@@ -91,14 +92,26 @@ export default function RootLayout() {
       if (__DEV__) {
         console.log("[rootLayout] onAuthStateChange", {
           event,
+          pathname,
           sessionPresent: Boolean(next),
           userId: next?.user?.id ?? null,
         });
       }
+
       setSession(next);
       setBootstrapError(null);
-      setSessionResolved(false);
       lastTargetRef.current = null;
+
+      if (!next?.user?.id) {
+        setWhoami(null);
+        setProfile(null);
+        setDashboardOnboardingSeen(false);
+        setBootstrapError(null);
+        setSessionResolved(true);
+        return;
+      }
+
+      setSessionResolved(false);
     });
 
     const unsubGuest = subscribeGuestOnboardingSeen((seen) => {
@@ -125,7 +138,13 @@ export default function RootLayout() {
       unsubGuest();
       unsubDashboard();
     };
-  }, [session?.user?.id]);
+  }, [pathname, sessionKey]);
+
+  useEffect(() => {
+    if (__DEV__) {
+      console.log("[rootLayout] pathname", { pathname, sessionPresent: Boolean(session), userId: session?.user?.id ?? null });
+    }
+  }, [pathname, session, session?.user?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -208,7 +227,7 @@ export default function RootLayout() {
     return () => {
       cancelled = true;
     };
-  }, [pathname, session?.user?.id]);
+  }, [pathname, sessionKey]);
 
   const redirectTarget = useMemo(() => {
     if (!bootstrapped || guestOnboardingSeen === null || !sessionResolved) {
