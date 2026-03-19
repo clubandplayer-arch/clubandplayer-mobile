@@ -1,4 +1,4 @@
-import { Stack, usePathname, useRouter } from "expo-router";
+import { Stack, usePathname, useRouter, useSegments } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import { useFonts } from "expo-font";
@@ -43,6 +43,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): 
 export default function RootLayout() {
   const router = useRouter();
   const pathname = usePathname();
+  const segments = useSegments();
   const [fontsLoaded] = useFonts({ Righteous: require("../assets/fonts/Righteous-Regular.ttf") });
   const [session, setSession] = useState<Session | null>(null);
   const [guestOnboardingSeen, setGuestOnboardingSeen] = useState<boolean | null>(null);
@@ -242,7 +243,8 @@ export default function RootLayout() {
       return null;
     }
 
-    const isGuestWelcome = pathname === "/";
+    const guestOnboardingRoute = "/(onboarding)";
+    const isGuestWelcome = segments[0] === "(onboarding)";
     const isAuthRoute = pathname === "/callback" || pathname === "/login" || pathname === "/signup";
     const isChooseRoleRoute = pathname === "/onboarding/choose-role";
     const isDashboardOnboardingRoute = pathname === "/onboarding";
@@ -250,10 +252,13 @@ export default function RootLayout() {
     const isClubProfileRoute = pathname === "/club/profile";
 
     if (!session) {
-      const guestTarget = !guestOnboardingSeen && !isGuestWelcome ? "/(onboarding)" : guestOnboardingSeen && !isAuthRoute ? "/(auth)/login" : null;
+      const guestTarget = !guestOnboardingSeen ? guestOnboardingRoute : !isAuthRoute ? "/(auth)/login" : null;
       if (__DEV__) {
         console.log("[rootLayout] redirect decision guest", {
           pathname,
+          segments,
+          guestOnboardingRoute,
+          isGuestWelcome,
           guestOnboardingSeen,
           target: guestTarget,
         });
@@ -297,7 +302,7 @@ export default function RootLayout() {
     }
 
     return target;
-  }, [bootstrapped, bootstrapError, dashboardOnboardingSeen, guestOnboardingSeen, pathname, profile, session, sessionResolved, whoami]);
+  }, [bootstrapped, bootstrapError, dashboardOnboardingSeen, guestOnboardingSeen, pathname, profile, segments, session, sessionResolved, whoami]);
 
   useEffect(() => {
     if (!redirectTarget) {
