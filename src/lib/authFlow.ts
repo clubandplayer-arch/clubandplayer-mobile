@@ -2,7 +2,7 @@ import * as SecureStore from "expo-secure-store";
 import type { ProfileMe, WhoamiResponse } from "./api";
 
 const GUEST_ONBOARDING_KEY = "onboarding_seen";
-const DASHBOARD_ONBOARDING_PREFIX = "dashboard_onboarding_seen:";
+const DASHBOARD_ONBOARDING_PREFIX = "dashboard_onboarding_seen_";
 
 let cachedGuestOnboardingSeen: boolean | null = null;
 const guestOnboardingListeners = new Set<(seen: boolean) => void>();

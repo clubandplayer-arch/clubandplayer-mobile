@@ -243,8 +243,8 @@ export default function RootLayout() {
       return null;
     }
 
-    const guestOnboardingRoute = "/(onboarding)";
-    const isGuestWelcome = segments[0] === "(onboarding)";
+    const guestOnboardingRoute = "/onboarding";
+    const isGuestWelcome = pathname === guestOnboardingRoute;
     const isAuthRoute = pathname === "/callback" || pathname === "/login" || pathname === "/signup";
     const isChooseRoleRoute = pathname === "/onboarding/choose-role";
     const isDashboardOnboardingRoute = pathname === "/onboarding";
@@ -252,7 +252,7 @@ export default function RootLayout() {
     const isClubProfileRoute = pathname === "/club/profile";
 
     if (!session) {
-      const guestTarget = !guestOnboardingSeen ? guestOnboardingRoute : !isAuthRoute ? "/(auth)/login" : null;
+      const guestTarget = !guestOnboardingSeen ? guestOnboardingRoute : !isAuthRoute ? "/login" : null;
       if (__DEV__) {
         console.log("[rootLayout] redirect decision guest", {
           pathname,
@@ -261,19 +261,21 @@ export default function RootLayout() {
           isGuestWelcome,
           guestOnboardingSeen,
           target: guestTarget,
+          expectedPathname: guestTarget,
         });
       }
       return guestTarget;
     }
 
     if (bootstrapError) {
-      const fallbackTarget = isAuthRoute ? null : "/(auth)/login";
+      const fallbackTarget = isAuthRoute ? null : "/login";
       if (__DEV__) {
         console.log("[rootLayout] redirect decision bootstrap fallback", {
           pathname,
           userId: session.user.id,
           bootstrapError,
           target: fallbackTarget,
+          expectedPathname: fallbackTarget,
         });
       }
       return fallbackTarget;
@@ -286,17 +288,18 @@ export default function RootLayout() {
     else if (!state.shouldChooseRole && isChooseRoleRoute) target = state.accountType === "club" ? "/club/profile" : "/player/profile";
     else if (state.shouldCompleteAthleteProfile && !isPlayerProfileRoute) target = "/player/profile";
     else if (state.accountType === "club" && !state.shouldShowLoggedInOnboarding && isAuthRoute) target = "/club/profile";
-    else if (state.accountType === "athlete" && !state.shouldCompleteAthleteProfile && !state.shouldShowLoggedInOnboarding && isAuthRoute) target = "/(tabs)/feed";
+    else if (state.accountType === "athlete" && !state.shouldCompleteAthleteProfile && !state.shouldShowLoggedInOnboarding && isAuthRoute) target = "/feed";
     else if (state.shouldShowLoggedInOnboarding && !isDashboardOnboardingRoute) target = "/onboarding";
-    else if (!state.shouldShowLoggedInOnboarding && isDashboardOnboardingRoute) target = state.accountType === "club" ? "/club/profile" : "/(tabs)/feed";
+    else if (!state.shouldShowLoggedInOnboarding && isDashboardOnboardingRoute) target = state.accountType === "club" ? "/club/profile" : "/feed";
     else if (state.accountType === "club" && isPlayerProfileRoute) target = "/club/profile";
-    else if (state.accountType === "athlete" && isClubProfileRoute) target = state.shouldCompleteAthleteProfile ? "/player/profile" : "/(tabs)/feed";
+    else if (state.accountType === "athlete" && isClubProfileRoute) target = state.shouldCompleteAthleteProfile ? "/player/profile" : "/feed";
 
     if (__DEV__) {
       console.log("[rootLayout] redirect decision authed", {
         pathname,
         userId: session.user.id,
         target,
+        expectedPathname: target,
         state,
       });
     }
@@ -317,7 +320,7 @@ export default function RootLayout() {
     }
     lastTargetRef.current = redirectTarget;
     if (__DEV__) {
-      console.log("[rootLayout] router.replace", { from: pathname, to: redirectTarget });
+      console.log("[rootLayout] router.replace", { from: pathname, to: redirectTarget, expectedPathname: redirectTarget });
     }
     router.replace(redirectTarget as any);
   }, [pathname, redirectTarget, router]);
