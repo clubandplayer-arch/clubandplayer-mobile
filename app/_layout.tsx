@@ -62,6 +62,7 @@ export default function RootLayout() {
 
   const redirectTarget = useMemo(() => {
     if (!bootstrapped || onboardingSeen === null) return null;
+    if (pathname === "/") return null;
 
     const group = segments[0];
     const inTabs = group === "(tabs)";
@@ -78,7 +79,6 @@ export default function RootLayout() {
       pathname.startsWith("/applications");
 
     if (session) {
-      if (pathname === "/") return null;
       if (!inTabs && !allowAuthedOutsideTabs) return "/(tabs)/feed";
       return null;
     }
