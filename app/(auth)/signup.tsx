@@ -153,7 +153,7 @@ export default function SignupScreen() {
               opacity: loading ? 0.8 : 1,
             }}
           >
-            <Text style={{ fontWeight: "700", color: theme.colors.text }}>Athlete</Text>
+            <Text style={{ fontWeight: "700", color: theme.colors.text }}>Player</Text>
           </Pressable>
 
           <Pressable
