@@ -76,7 +76,9 @@ export default function RootLayout() {
       pathname.startsWith("/my/") ||
       pathname.startsWith("/club/") ||
       pathname.startsWith("/player/") ||
-      pathname.startsWith("/applications");
+      pathname.startsWith("/applications") ||
+      pathname.startsWith("/settings") ||
+      pathname.startsWith("/profile/");
 
     if (session) {
       if (!inTabs && !allowAuthedOutsideTabs) return "/(tabs)/feed";
@@ -128,6 +130,8 @@ export default function RootLayout() {
         <Stack.Screen name="players/[id]" options={{ headerShown: true, title: "Player" }} />
         <Stack.Screen name="club/profile" options={{ headerShown: true, title: "Profilo Club" }} />
         <Stack.Screen name="player/profile" options={{ headerShown: true, title: "Profilo" }} />
+        <Stack.Screen name="settings" options={{ headerShown: true, title: "Settings" }} />
+        <Stack.Screen name="profile/location-settings" options={{ headerShown: true, title: "Location settings" }} />
         <Stack.Screen name="applications/index" options={{ headerShown: false }} />
         <Stack.Screen name="my/applications" options={{ headerShown: true, title: "Le mie candidature" }} />
         <Stack.Screen name="club/applications" options={{ headerShown: true, title: "Candidature ricevute" }} />
