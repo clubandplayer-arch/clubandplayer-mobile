@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AvatarUploader } from "../../components/profiles/AvatarUploader";
 import { LocationFields } from "../../components/profiles/LocationFields";
@@ -309,6 +309,14 @@ export default function ClubProfileScreen() {
 
   const disabled = useMemo(() => saving || loading || !web.ready, [loading, saving, web.ready]);
 
+  const handleHeaderBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/(tabs)/feed");
+  }, [router]);
+
   if (web.loading || loading) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
@@ -319,6 +327,16 @@ export default function ClubProfileScreen() {
 
   return (
     <>
+      <Stack.Screen
+        options={{
+          title: "Profilo Club",
+          headerLeft: () => (
+            <Pressable onPress={handleHeaderBack} hitSlop={12} style={{ paddingHorizontal: 4, paddingVertical: 4 }}>
+              <Text style={{ fontSize: 28, lineHeight: 28, color: theme.colors.primary }}>‹</Text>
+            </Pressable>
+          ),
+        }}
+      />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 24, gap: 12, paddingBottom: 48, paddingTop: 12 }} style={{ backgroundColor: theme.colors.background }}>
         {web.error ? <Text style={{ color: theme.colors.danger }}>{web.error}</Text> : null}
         {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
