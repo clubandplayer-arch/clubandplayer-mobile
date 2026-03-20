@@ -36,6 +36,35 @@ export type WhoamiResponse = {
   admin?: boolean;
 };
 
+export type PublicProfileSkillSummary = {
+  name: string;
+  endorsementsCount: number;
+  endorsedByMe: boolean;
+};
+
+export type PublicProfileSummary = {
+  id: string;
+  user_id?: string | null;
+  display_name?: string | null;
+  full_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  headline?: string | null;
+  bio?: string | null;
+  sport?: string | null;
+  role?: string | null;
+  country?: string | null;
+  region?: string | null;
+  province?: string | null;
+  city?: string | null;
+  avatar_url?: string | null;
+  account_type?: string | null;
+  type?: string | null;
+  skills?: unknown;
+  links?: unknown;
+  skill_endorsements?: unknown;
+};
+
 export type ProfileMe = {
   id?: string;
   user_id?: string | null;
@@ -1018,6 +1047,21 @@ function buildIdsQuery(ids: string[]): string {
   const sp = new URLSearchParams();
   sp.set("ids", uniq.join(","));
   return sp.toString();
+}
+
+export async function fetchPublicProfiles(ids: string[]): Promise<ApiResponse<{ data: PublicProfileSummary[] } | PublicProfileSummary[]>> {
+  const uniqueIds = Array.from(new Set(ids.map((id) => String(id ?? "").trim()).filter(Boolean)));
+  const sp = new URLSearchParams();
+  for (const id of uniqueIds) sp.append("id", id);
+  const path = sp.toString() ? `/api/profiles/public?${sp.toString()}` : "/api/profiles/public";
+  return apiFetch<{ data: PublicProfileSummary[] } | PublicProfileSummary[]>(path, { method: "GET" });
+}
+
+export async function toggleProfileSkillEndorsement(profileId: string, skillName: string): Promise<ApiResponse<{ ok: boolean; endorsementsCount?: number }>> {
+  return apiFetch<{ ok: boolean; endorsementsCount?: number }>(`/api/profiles/${encodeURIComponent(profileId)}/skills/endorse`, {
+    method: "POST",
+    body: JSON.stringify({ skillName }),
+  });
 }
 
 export async function fetchFollowState(targetIds: string[]): Promise<ApiResponse<FollowStateGetResponse>> {

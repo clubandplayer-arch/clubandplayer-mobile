@@ -9,30 +9,31 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { router } from "expo-router";
 import { AvatarUploader } from "../../components/profiles/AvatarUploader";
 import { LocationFields } from "../../components/profiles/LocationFields";
-import { fetchProfileMe, patchProfileMe, type ProfileMe, useWebSession } from "../../src/lib/api";
+import { fetchProfileMe, patchProfileMe, type ProfileMe, useWebSession, useWhoami } from "../../src/lib/api";
+import { ProfileSocialInputs } from "../../src/components/profiles/ProfileSections";
+import { parseProfileLinks, stringifyProfileLinks } from "../../src/components/profiles/profileShared";
 import { theme } from "../../src/theme";
 
-function asText(v: unknown) {
-  return typeof v === "string" ? v : "";
-}
-
-function asNumText(v: unknown) {
-  if (v === null || v === undefined) return "";
-  return String(v);
-}
+function asText(v: unknown) { return typeof v === "string" ? v : ""; }
+function asNumText(v: unknown) { return v === null || v === undefined ? "" : String(v); }
+const emptyLocation = { region_id: null as number | null, province_id: null as number | null, municipality_id: null as number | null, region_label: null as string | null, province_label: null as string | null, city_label: null as string | null };
 
 export default function PlayerProfileScreen() {
   const web = useWebSession();
+  const whoami = useWhoami(web.ready);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+  const [profile, setProfile] = useState<ProfileMe | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [fullName, setFullName] = useState("");
   const [birthYear, setBirthYear] = useState("");
+  const [birthPlace, setBirthPlace] = useState("");
   const [country, setCountry] = useState("");
+  const [city, setCity] = useState("");
   const [sport, setSport] = useState("");
   const [role, setRole] = useState("");
   const [bio, setBio] = useState("");
@@ -40,17 +41,18 @@ export default function PlayerProfileScreen() {
   const [heightCm, setHeightCm] = useState("");
   const [weightKg, setWeightKg] = useState("");
   const [skills, setSkills] = useState("");
-  const [links, setLinks] = useState("");
   const [notifyEmail, setNotifyEmail] = useState(false);
+  const [birthCountry, setBirthCountry] = useState("IT");
   const [interestCountry, setInterestCountry] = useState("IT");
-  const [interest, setInterest] = useState({
-    region_id: null as number | null,
-    province_id: null as number | null,
-    municipality_id: null as number | null,
-    region_label: null as string | null,
-    province_label: null as string | null,
-    city_label: null as string | null,
-  });
+  const [links, setLinks] = useState(parseProfileLinks(null));
+  const [residence, setResidence] = useState({ ...emptyLocation });
+  const [birthLocation, setBirthLocation] = useState({ ...emptyLocation });
+  const [interest, setInterest] = useState({ ...emptyLocation });
+
+  useEffect(() => {
+    const role = String(whoami.data?.role ?? "").trim().toLowerCase();
+    if (role === "club") router.replace("/club/profile");
+  }, [whoami.data?.role]);
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -61,12 +63,14 @@ export default function PlayerProfileScreen() {
       setLoading(false);
       return;
     }
-
     const data = (response.data ?? {}) as ProfileMe;
+    setProfile(data);
     setAvatarUrl(data.avatar_url ?? null);
     setFullName(asText(data.full_name || data.display_name));
     setBirthYear(asNumText(data.birth_year));
+    setBirthPlace(asText(data.birth_place));
     setCountry(asText(data.country));
+    setCity(asText(data.city));
     setSport(asText(data.sport));
     setRole(asText(data.role));
     setBio(asText(data.bio));
@@ -74,33 +78,34 @@ export default function PlayerProfileScreen() {
     setHeightCm(asNumText(data.height_cm));
     setWeightKg(asNumText(data.weight_kg));
     setSkills(Array.isArray(data.skills) ? data.skills.join(", ") : asText(data.skills));
-    setLinks(data.links == null ? "" : JSON.stringify(data.links));
+    setLinks(parseProfileLinks(data.links));
     setNotifyEmail(Boolean(data.notify_email_new_message));
+    setBirthCountry(asText(data.birth_country || "IT") || "IT");
     setInterestCountry(asText(data.interest_country || "IT") || "IT");
-    setInterest({
-      region_id: data.interest_region_id ?? null,
-      province_id: data.interest_province_id ?? null,
-      municipality_id: data.interest_municipality_id ?? null,
-      region_label: data.interest_region ?? null,
-      province_label: data.interest_province ?? null,
-      city_label: data.interest_city ?? null,
-    });
+    setResidence({ region_id: data.residence_region_id ?? null, province_id: data.residence_province_id ?? null, municipality_id: data.residence_municipality_id ?? null, region_label: data.region ?? null, province_label: data.province ?? null, city_label: data.city ?? null });
+    setBirthLocation({ region_id: data.birth_region_id ?? null, province_id: data.birth_province_id ?? null, municipality_id: data.birth_municipality_id ?? null, region_label: null, province_label: null, city_label: null });
+    setInterest({ region_id: data.interest_region_id ?? null, province_id: data.interest_province_id ?? null, municipality_id: data.interest_municipality_id ?? null, region_label: data.interest_region ?? null, province_label: data.interest_province ?? null, city_label: data.interest_city ?? null });
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    if (!web.ready) return;
-    void loadProfile();
-  }, [loadProfile, web.ready]);
+  useEffect(() => { if (web.ready) void loadProfile(); }, [loadProfile, web.ready]);
 
   const onSave = useCallback(async () => {
     setSaving(true);
     const response = await patchProfileMe({
+      account_type: profile?.account_type ?? "player",
       avatar_url: avatarUrl,
       full_name: fullName,
       display_name: fullName,
       birth_year: birthYear,
+      birth_place: birthPlace,
       country,
+      city,
+      region: residence.region_label,
+      province: residence.province_label,
+      residence_region_id: residence.region_id,
+      residence_province_id: residence.province_id,
+      residence_municipality_id: residence.municipality_id,
       sport,
       role,
       bio,
@@ -108,8 +113,12 @@ export default function PlayerProfileScreen() {
       height_cm: heightCm,
       weight_kg: weightKg,
       skills,
-      links,
+      links: stringifyProfileLinks(links),
       notify_email_new_message: notifyEmail,
+      birth_country: birthCountry,
+      birth_region_id: birthLocation.region_id,
+      birth_province_id: birthLocation.province_id,
+      birth_municipality_id: birthLocation.municipality_id,
       interest_country: interestCountry,
       interest_region_id: interest.region_id,
       interest_province_id: interest.province_id,
@@ -119,85 +128,58 @@ export default function PlayerProfileScreen() {
       interest_city: interest.city_label,
     });
     setSaving(false);
-
-    if (!response.ok) {
-      Alert.alert("Errore", response.errorText ?? "Salvataggio fallito");
-      return;
-    }
+    if (!response.ok) return Alert.alert("Errore", response.errorText ?? "Salvataggio fallito");
     Alert.alert("Salvato", "Profilo aggiornato");
     await loadProfile();
-  }, [
-    avatarUrl,
-    bio,
-    birthYear,
-    country,
-    foot,
-    fullName,
-    heightCm,
-    interest.city_label,
-    interest.municipality_id,
-    interest.province_id,
-    interest.province_label,
-    interest.region_id,
-    interest.region_label,
-    interestCountry,
-    links,
-    loadProfile,
-    notifyEmail,
-    role,
-    skills,
-    sport,
-    weightKg,
-  ]);
+  }, [profile, avatarUrl, fullName, birthYear, birthPlace, country, city, residence, sport, role, bio, foot, heightCm, weightKg, skills, links, notifyEmail, birthCountry, birthLocation, interestCountry, interest, loadProfile]);
 
   const disabled = useMemo(() => saving || loading || !web.ready, [loading, saving, web.ready]);
-
-  if (web.loading || loading) {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator />
-      </View>
-    );
-  }
+  if (web.loading || whoami.loading || loading) return <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><ActivityIndicator /></View>;
 
   return (
     <ScrollView contentContainerStyle={{ paddingHorizontal: 24, gap: 12, paddingBottom: 48, paddingTop: 12 }} style={{ backgroundColor: theme.colors.background }}>
       {web.error ? <Text style={{ color: theme.colors.danger }}>{web.error}</Text> : null}
       {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
-
       <AvatarUploader value={avatarUrl} onChange={setAvatarUrl} />
-
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
-        <TextInput placeholder="Nome completo" value={fullName} onChangeText={setFullName} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Anno nascita" value={birthYear} onChangeText={setBirthYear} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Country" value={country} onChangeText={setCountry} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Sport" value={sport} onChangeText={setSport} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Role" value={role} onChangeText={setRole} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Bio" value={bio} onChangeText={setBio} multiline style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10, minHeight: 80 }} />
-        <TextInput placeholder="Foot" value={foot} onChangeText={setFoot} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Height cm" value={heightCm} onChangeText={setHeightCm} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Weight kg" value={weightKg} onChangeText={setWeightKg} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Skills (comma separated)" value={skills} onChangeText={setSkills} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Nome completo" value={fullName} onChangeText={setFullName} style={styles.input} />
+        <TextInput placeholder="Anno nascita" value={birthYear} onChangeText={setBirthYear} keyboardType="numeric" style={styles.input} />
+        <TextInput placeholder="Luogo di nascita" value={birthPlace} onChangeText={setBirthPlace} style={styles.input} />
+        <TextInput placeholder="Country" value={country} onChangeText={setCountry} style={styles.input} />
+        <TextInput placeholder="Città" value={city} onChangeText={setCity} style={styles.input} />
+        <TextInput placeholder="Sport" value={sport} onChangeText={setSport} style={styles.input} />
+        <TextInput placeholder="Role" value={role} onChangeText={setRole} style={styles.input} />
+        <TextInput placeholder="Bio" value={bio} onChangeText={setBio} multiline style={[styles.input, { minHeight: 80 }]} />
+        <TextInput placeholder="Foot" value={foot} onChangeText={setFoot} style={styles.input} />
+        <TextInput placeholder="Height cm" value={heightCm} onChangeText={setHeightCm} keyboardType="numeric" style={styles.input} />
+        <TextInput placeholder="Weight kg" value={weightKg} onChangeText={setWeightKg} keyboardType="numeric" style={styles.input} />
+        <TextInput placeholder="Skills (comma separated)" value={skills} onChangeText={setSkills} style={styles.input} />
       </View>
-
+      <LocationFields mode="player" title="Residenza" values={residence} onChange={setResidence} />
+      <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
+        <Text style={{ fontWeight: "700" }}>Birth country</Text>
+        <TextInput placeholder="Birth country" value={birthCountry} onChangeText={setBirthCountry} style={styles.input} />
+      </View>
+      <LocationFields mode="player" title="Luogo di nascita" values={birthLocation} onChange={setBirthLocation} />
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
         <Text style={{ fontWeight: "700" }}>Interest country</Text>
-        <TextInput placeholder="Interest country" value={interestCountry} onChangeText={setInterestCountry} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Interest country" value={interestCountry} onChangeText={setInterestCountry} style={styles.input} />
       </View>
-
       <LocationFields mode="player" title="Interest location" values={interest} onChange={setInterest} />
-
+      <ProfileSocialInputs value={links} onChange={setLinks} />
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
-        <TextInput placeholder='Links JSON (es: [{"label":"Sito","url":"https://..."}])' value={links} onChangeText={setLinks} multiline style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10, minHeight: 80 }} />
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <Text>Notifica email nuovi messaggi</Text>
           <Switch value={notifyEmail} onValueChange={setNotifyEmail} />
         </View>
       </View>
-
       <Pressable disabled={disabled} onPress={() => void onSave()} style={{ backgroundColor: disabled ? theme.colors.muted : theme.colors.text, borderRadius: 10, paddingVertical: 12, alignItems: "center" }}>
         <Text style={{ color: theme.colors.background, fontWeight: "700" }}>{saving ? "Salvo..." : "Salva"}</Text>
       </Pressable>
     </ScrollView>
   );
 }
+
+const styles = {
+  input: { borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 },
+} as const;
