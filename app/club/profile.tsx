@@ -4,11 +4,11 @@ import {
   Alert,
   Pressable,
   ScrollView,
-  Switch,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { AvatarUploader } from "../../components/profiles/AvatarUploader";
 import { LocationFields } from "../../components/profiles/LocationFields";
 import { fetchProfileMe, patchProfileMe, type ProfileMe, useWebSession } from "../../src/lib/api";
@@ -24,6 +24,7 @@ function asNumText(v: unknown) {
 }
 
 export default function ClubProfileScreen() {
+  const router = useRouter();
   const web = useWebSession();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -38,11 +39,7 @@ export default function ClubProfileScreen() {
   const [clubFoundationYear, setClubFoundationYear] = useState("");
   const [clubStadium, setClubStadium] = useState("");
   const [clubStadiumAddress, setClubStadiumAddress] = useState("");
-  const [clubStadiumLat, setClubStadiumLat] = useState("");
-  const [clubStadiumLng, setClubStadiumLng] = useState("");
   const [bio, setBio] = useState("");
-  const [links, setLinks] = useState("");
-  const [notifyEmail, setNotifyEmail] = useState(false);
 
   const [residence, setResidence] = useState({
     region_id: null as number | null,
@@ -75,6 +72,13 @@ export default function ClubProfileScreen() {
     }
 
     const data = (response.data ?? {}) as ProfileMe;
+    const accountType = typeof data.account_type === "string" ? data.account_type : null;
+
+    if (accountType === "athlete") {
+      router.replace("/player/profile");
+      return;
+    }
+
     setAvatarUrl(data.avatar_url ?? null);
     setFullName(asText(data.full_name || data.display_name));
     setCountry(asText(data.country));
@@ -84,11 +88,7 @@ export default function ClubProfileScreen() {
     setClubFoundationYear(asNumText(data.club_foundation_year));
     setClubStadium(asText(data.club_stadium));
     setClubStadiumAddress(asText(data.club_stadium_address));
-    setClubStadiumLat(asNumText(data.club_stadium_lat));
-    setClubStadiumLng(asNumText(data.club_stadium_lng));
     setBio(asText(data.bio));
-    setLinks(data.links == null ? "" : JSON.stringify(data.links));
-    setNotifyEmail(Boolean(data.notify_email_new_message));
     setInterestCountry(asText(data.interest_country || "IT") || "IT");
 
     setResidence({
@@ -110,7 +110,7 @@ export default function ClubProfileScreen() {
     });
 
     setLoading(false);
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (!web.ready) return;
@@ -143,11 +143,7 @@ export default function ClubProfileScreen() {
       club_foundation_year: clubFoundationYear,
       club_stadium: clubStadium,
       club_stadium_address: clubStadiumAddress,
-      club_stadium_lat: clubStadiumLat,
-      club_stadium_lng: clubStadiumLng,
       bio,
-      links,
-      notify_email_new_message: notifyEmail,
     });
     setSaving(false);
     if (!response.ok) {
@@ -165,8 +161,6 @@ export default function ClubProfileScreen() {
     clubMotto,
     clubStadium,
     clubStadiumAddress,
-    clubStadiumLat,
-    clubStadiumLng,
     country,
     fullName,
     interest.city_label,
@@ -176,9 +170,7 @@ export default function ClubProfileScreen() {
     interest.region_id,
     interest.region_label,
     interestCountry,
-    links,
     loadProfile,
-    notifyEmail,
     residence.city_label,
     residence.municipality_id,
     residence.province_id,
@@ -206,35 +198,20 @@ export default function ClubProfileScreen() {
       <AvatarUploader value={avatarUrl} onChange={setAvatarUrl} />
 
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
-        <TextInput placeholder="Nome completo" value={fullName} onChangeText={setFullName} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Country" value={country} onChangeText={setCountry} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Nome club" value={fullName} onChangeText={setFullName} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Paese" value={country} onChangeText={setCountry} autoCapitalize="characters" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
         <TextInput placeholder="Motto" value={clubMotto} onChangeText={setClubMotto} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
         <TextInput placeholder="Sport" value={sport} onChangeText={setSport} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="League category" value={clubLeagueCategory} onChangeText={setClubLeagueCategory} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Foundation year" value={clubFoundationYear} onChangeText={setClubFoundationYear} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Stadium" value={clubStadium} onChangeText={setClubStadium} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Stadium address" value={clubStadiumAddress} onChangeText={setClubStadiumAddress} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Stadium lat" value={clubStadiumLat} onChangeText={setClubStadiumLat} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Stadium lng" value={clubStadiumLng} onChangeText={setClubStadiumLng} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Categoria campionato" value={clubLeagueCategory} onChangeText={setClubLeagueCategory} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Anno di fondazione" value={clubFoundationYear} onChangeText={setClubFoundationYear} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Stadio" value={clubStadium} onChangeText={setClubStadium} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Indirizzo stadio" value={clubStadiumAddress} onChangeText={setClubStadiumAddress} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
         <TextInput placeholder="Bio" value={bio} onChangeText={setBio} multiline style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10, minHeight: 80 }} />
       </View>
 
-      <LocationFields mode="club" title="Location" values={residence} onChange={setResidence} />
+      <LocationFields mode="club" title="Sede club" values={residence} onChange={setResidence} />
 
-      <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
-        <Text style={{ fontWeight: "700" }}>Interest country</Text>
-        <TextInput placeholder="Interest country" value={interestCountry} onChangeText={setInterestCountry} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-      </View>
-
-      <LocationFields mode="club" title="Interest location" values={interest} onChange={setInterest} />
-
-      <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
-        <TextInput placeholder='Links JSON (es: [{"label":"Sito","url":"https://..."}])' value={links} onChangeText={setLinks} multiline style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10, minHeight: 80 }} />
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          <Text>Notifica email nuovi messaggi</Text>
-          <Switch value={notifyEmail} onValueChange={setNotifyEmail} />
-        </View>
-      </View>
+      <LocationFields mode="club" title="Area di interesse" values={interest} onChange={setInterest} />
 
       <Pressable disabled={disabled} onPress={() => void onSave()} style={{ backgroundColor: disabled ? theme.colors.muted : theme.colors.text, borderRadius: 10, paddingVertical: 12, alignItems: "center" }}>
         <Text style={{ color: theme.colors.background, fontWeight: "700" }}>{saving ? "Salvo..." : "Salva"}</Text>

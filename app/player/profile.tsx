@@ -4,11 +4,11 @@ import {
   Alert,
   Pressable,
   ScrollView,
-  Switch,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { AvatarUploader } from "../../components/profiles/AvatarUploader";
 import { LocationFields } from "../../components/profiles/LocationFields";
 import { fetchProfileMe, patchProfileMe, type ProfileMe, useWebSession } from "../../src/lib/api";
@@ -24,6 +24,7 @@ function asNumText(v: unknown) {
 }
 
 export default function PlayerProfileScreen() {
+  const router = useRouter();
   const web = useWebSession();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -40,8 +41,6 @@ export default function PlayerProfileScreen() {
   const [heightCm, setHeightCm] = useState("");
   const [weightKg, setWeightKg] = useState("");
   const [skills, setSkills] = useState("");
-  const [links, setLinks] = useState("");
-  const [notifyEmail, setNotifyEmail] = useState(false);
   const [interestCountry, setInterestCountry] = useState("IT");
   const [interest, setInterest] = useState({
     region_id: null as number | null,
@@ -63,6 +62,13 @@ export default function PlayerProfileScreen() {
     }
 
     const data = (response.data ?? {}) as ProfileMe;
+    const accountType = typeof data.account_type === "string" ? data.account_type : null;
+
+    if (accountType === "club") {
+      router.replace("/club/profile");
+      return;
+    }
+
     setAvatarUrl(data.avatar_url ?? null);
     setFullName(asText(data.full_name || data.display_name));
     setBirthYear(asNumText(data.birth_year));
@@ -74,8 +80,6 @@ export default function PlayerProfileScreen() {
     setHeightCm(asNumText(data.height_cm));
     setWeightKg(asNumText(data.weight_kg));
     setSkills(Array.isArray(data.skills) ? data.skills.join(", ") : asText(data.skills));
-    setLinks(data.links == null ? "" : JSON.stringify(data.links));
-    setNotifyEmail(Boolean(data.notify_email_new_message));
     setInterestCountry(asText(data.interest_country || "IT") || "IT");
     setInterest({
       region_id: data.interest_region_id ?? null,
@@ -86,7 +90,7 @@ export default function PlayerProfileScreen() {
       city_label: data.interest_city ?? null,
     });
     setLoading(false);
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (!web.ready) return;
@@ -108,8 +112,6 @@ export default function PlayerProfileScreen() {
       height_cm: heightCm,
       weight_kg: weightKg,
       skills,
-      links,
-      notify_email_new_message: notifyEmail,
       interest_country: interestCountry,
       interest_region_id: interest.region_id,
       interest_province_id: interest.province_id,
@@ -141,9 +143,7 @@ export default function PlayerProfileScreen() {
     interest.region_id,
     interest.region_label,
     interestCountry,
-    links,
     loadProfile,
-    notifyEmail,
     role,
     skills,
     sport,
@@ -170,30 +170,21 @@ export default function PlayerProfileScreen() {
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
         <TextInput placeholder="Nome completo" value={fullName} onChangeText={setFullName} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
         <TextInput placeholder="Anno nascita" value={birthYear} onChangeText={setBirthYear} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Country" value={country} onChangeText={setCountry} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Paese" value={country} onChangeText={setCountry} autoCapitalize="characters" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
         <TextInput placeholder="Sport" value={sport} onChangeText={setSport} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Role" value={role} onChangeText={setRole} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Ruolo" value={role} onChangeText={setRole} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
         <TextInput placeholder="Bio" value={bio} onChangeText={setBio} multiline style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10, minHeight: 80 }} />
-        <TextInput placeholder="Foot" value={foot} onChangeText={setFoot} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Height cm" value={heightCm} onChangeText={setHeightCm} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Weight kg" value={weightKg} onChangeText={setWeightKg} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Skills (comma separated)" value={skills} onChangeText={setSkills} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
       </View>
 
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
-        <Text style={{ fontWeight: "700" }}>Interest country</Text>
-        <TextInput placeholder="Interest country" value={interestCountry} onChangeText={setInterestCountry} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+        <Text style={{ fontSize: 16, fontWeight: "700" }}>Dettagli atleta</Text>
+        <TextInput placeholder="Piede" value={foot} onChangeText={setFoot} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Altezza (cm)" value={heightCm} onChangeText={setHeightCm} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Peso (kg)" value={weightKg} onChangeText={setWeightKg} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+        <TextInput placeholder="Skills (separate da virgola)" value={skills} onChangeText={setSkills} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
       </View>
 
-      <LocationFields mode="player" title="Interest location" values={interest} onChange={setInterest} />
-
-      <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
-        <TextInput placeholder='Links JSON (es: [{"label":"Sito","url":"https://..."}])' value={links} onChangeText={setLinks} multiline style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10, minHeight: 80 }} />
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          <Text>Notifica email nuovi messaggi</Text>
-          <Switch value={notifyEmail} onValueChange={setNotifyEmail} />
-        </View>
-      </View>
+      <LocationFields mode="player" title="Località di interesse" values={interest} onChange={setInterest} />
 
       <Pressable disabled={disabled} onPress={() => void onSave()} style={{ backgroundColor: disabled ? theme.colors.muted : theme.colors.text, borderRadius: 10, paddingVertical: 12, alignItems: "center" }}>
         <Text style={{ color: theme.colors.background, fontWeight: "700" }}>{saving ? "Salvo..." : "Salva"}</Text>
