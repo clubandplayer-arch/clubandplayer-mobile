@@ -99,7 +99,7 @@ export default function SettingsScreen() {
 
   const publicProfileLabel = useMemo(() => {
     if (accountType === "club") return "Club";
-    if (accountType === "player") return "Athlete";
+    if (accountType === "player") return "Player";
     return "—";
   }, [accountType]);
 
@@ -209,7 +209,7 @@ export default function SettingsScreen() {
         <LocationFields mode={accountType === "club" ? "club" : "player"} title="Interest area" values={interest} onChange={setInterest} />
         <Link href="/profile/location-settings" asChild>
           <Pressable style={{ alignSelf: "flex-start", paddingTop: 4 }}>
-            <Text style={{ color: theme.colors.primary, fontWeight: "600" }}>Dettagli location settings</Text>
+            <Text style={{ color: theme.colors.primary, fontWeight: "600" }}>Dettagli località</Text>
           </Pressable>
         </Link>
       </View>
@@ -218,7 +218,7 @@ export default function SettingsScreen() {
         <Text style={{ fontSize: 16, fontWeight: "700" }}>Notifiche</Text>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
           <View style={{ flex: 1, gap: 4 }}>
-            <Text style={{ fontWeight: "600" }}>notify_email_new_message</Text>
+            <Text style={{ fontWeight: "600" }}>Ricevi email per nuovi messaggi</Text>
             <Text style={{ color: theme.colors.muted }}>Invia email quando arriva un nuovo messaggio.</Text>
           </View>
           <Switch value={notifyEmail} onValueChange={setNotifyEmail} />

@@ -156,7 +156,7 @@ export default function TabsLayout() {
 
   const avatarMenuItems = [
     { label: "Profilo", onPress: () => navigateFromAvatarMenu(isClub ? "/club/profile" : "/player/profile"), danger: false },
-    { label: "Settings", onPress: () => navigateFromAvatarMenu("/settings"), danger: false },
+    { label: "Impostazioni", onPress: () => navigateFromAvatarMenu("/settings"), danger: false },
     { label: "Logout", onPress: onLogoutFromAvatarMenu, danger: true },
   ];
 
