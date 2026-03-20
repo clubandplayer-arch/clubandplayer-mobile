@@ -47,12 +47,15 @@ export default function PlayerProfileScreen() {
     const load = async () => {
       if (!id) return setLoading(false);
       setLoading(true);
-      const res = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
-      let nextProfile = res.data ? (res.data as ProfileRow) : null;
       const publicRes = await fetchPublicProfiles([id]);
       const publicItems = Array.isArray(publicRes.data) ? publicRes.data : publicRes.data?.data;
       const publicProfile = Array.isArray(publicItems) ? publicItems.find((item) => item.id === id) : null;
-      if (nextProfile && publicProfile) nextProfile = { ...nextProfile, ...publicProfile };
+      const supplemental = await supabase
+        .from("profiles")
+        .select("id,birth_year,height_cm,weight_kg,foot,interest_city,interest_province,interest_region,interest_country,skill_endorsements")
+        .eq("id", id)
+        .maybeSingle();
+      const nextProfile = publicProfile ? ({ ...publicProfile, ...(supplemental.data ?? {}) } as ProfileRow) : (supplemental.data ? (supplemental.data as ProfileRow) : null);
       if (mounted) {
         setProfile(nextProfile);
         setLoading(false);
@@ -84,7 +87,7 @@ export default function PlayerProfileScreen() {
   if (!id) return <View style={{ flex: 1, padding: 24, gap: 12, justifyContent: "center" }}><Text style={{ fontSize: 18, fontWeight: "800" }}>Profilo non valido</Text><Pressable onPress={() => router.back()}><Text>Indietro</Text></Pressable></View>;
   if (loading || web.loading || whoami.loading) return <SafeAreaView style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><ActivityIndicator /></SafeAreaView>;
 
-  const displayName = getProfileDisplayName({ ...(profile ?? {}), account_type: "athlete" });
+  const displayName = getProfileDisplayName({ ...(profile ?? {}), account_type: profile?.account_type ?? "athlete" });
   const sportRole = [getTextValue(profile?.sport), getTextValue(profile?.role)].filter(Boolean).join(" • ") || "—";
   const interestLocation = [getTextValue(profile?.interest_city), getTextValue(profile?.interest_province), getTextValue(profile?.interest_region), [iso2ToFlagEmoji(getTextValue(profile?.interest_country)), getTextValue(profile?.interest_country)].filter(Boolean).join(" ")].filter(Boolean).join(" • ") || "—";
   const biography = getTextValue(profile?.bio) || "—";

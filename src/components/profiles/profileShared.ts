@@ -56,6 +56,15 @@ export function parseProfileSkills(value: unknown): string[] {
   return [];
 }
 
+
+export function stringifyProfileSkills(value: unknown): string {
+  return parseProfileSkills(value).join("\n");
+}
+
+export function normalizeProfileSkills(value: unknown): string[] {
+  return parseProfileSkills(value);
+}
+
 export function buildProfileSkillItems(skills: unknown, endorsementsRaw: unknown): ProfileSkillItem[] {
   const names = parseProfileSkills(skills);
   const map = new Map<string, ProfileSkillItem>();

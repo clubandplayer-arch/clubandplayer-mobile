@@ -76,7 +76,7 @@ export function ProfileSocialLinksSection({ links }: { links: ProfileLinksMap })
 
   return (
     <View style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, backgroundColor: theme.colors.background, padding: 16, gap: 10 }}>
-      <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Social</Text>
+      <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Social network</Text>
       {items.map((item) => (
         <Text key={item.key} style={{ color: theme.colors.text }}>{item.label}: {item.value}</Text>
       ))}
@@ -98,7 +98,7 @@ export function ProfileSkillsSection({
   if (!items.length) return null;
   return (
     <View style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, backgroundColor: theme.colors.background, padding: 16, gap: 12 }}>
-      <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Skills</Text>
+      <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Competenze</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
         {items.map((skill) => {
           const active = skill.endorsedByMe;
@@ -130,7 +130,7 @@ export function ProfileSocialInputs({
   const fields: Array<keyof ProfileLinksMap> = ["instagram", "facebook", "tiktok", "x"];
   return (
     <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
-      <Text style={{ fontWeight: "700" }}>Social links</Text>
+      <Text style={{ fontWeight: "700" }}>Link social</Text>
       {fields.map((field) => (
         <TextInput
           key={field}

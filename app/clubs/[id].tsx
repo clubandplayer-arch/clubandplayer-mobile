@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
-import FollowButton from "../../src/components/follow/FollowButton";
 import { fetchPublicProfiles, isUuid, useWebSession, useWhoami } from "../../src/lib/api";
 import { getFeedPosts, type FeedPost } from "../../src/lib/feed/getFeedPosts";
 import FeedCard from "../../src/components/feed/FeedCard";
@@ -14,7 +13,7 @@ import { ProfileHeaderCard, ProfileSocialLinksSection } from "../../src/componen
 import { parseProfileLinks } from "../../src/components/profiles/profileShared";
 
 type ProfileRow = {
-  id: string; display_name?: string | null; full_name?: string | null; avatar_url?: string | null; country?: string | null; city?: string | null; sport?: string | null; club_league_category?: string | null; category?: string | null; level?: string | null; club_stadium?: string | null; club_stadium_address?: string | null; club_motto?: string | null; bio?: string | null; description?: string | null; links?: unknown; verified?: boolean | null; certified?: boolean | null; is_certified?: boolean | null; certification?: string | boolean | null;
+  id: string; account_type?: string | null; display_name?: string | null; full_name?: string | null; avatar_url?: string | null; country?: string | null; city?: string | null; sport?: string | null; club_league_category?: string | null; category?: string | null; level?: string | null; club_stadium?: string | null; club_stadium_address?: string | null; club_motto?: string | null; bio?: string | null; description?: string | null; links?: unknown; verified?: boolean | null; certified?: boolean | null; is_certified?: boolean | null; certification?: string | boolean | null;
 };
 const getTextValue = (value: unknown): string | null => typeof value === "string" && value.trim() ? value.trim() : null;
 
@@ -35,12 +34,15 @@ export default function ClubProfileScreen() {
     const load = async () => {
       if (!id) return setLoading(false);
       setLoading(true);
-      const res = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
-      let nextProfile = res.data ? (res.data as ProfileRow) : null;
       const publicRes = await fetchPublicProfiles([id]);
       const publicItems = Array.isArray(publicRes.data) ? publicRes.data : publicRes.data?.data;
       const publicProfile = Array.isArray(publicItems) ? publicItems.find((item) => item.id === id) : null;
-      if (nextProfile && publicProfile) nextProfile = { ...nextProfile, ...publicProfile };
+      const supplemental = await supabase
+        .from("profiles")
+        .select("id,club_league_category,category,level,club_stadium,club_stadium_address,club_motto,description,links,verified,certified,is_certified,certification")
+        .eq("id", id)
+        .maybeSingle();
+      const nextProfile = publicProfile ? ({ ...publicProfile, ...(supplemental.data ?? {}) } as ProfileRow) : (supplemental.data ? (supplemental.data as ProfileRow) : null);
       if (mounted) { setProfile(nextProfile); setLoading(false); }
     };
     void load();
@@ -65,7 +67,7 @@ export default function ClubProfileScreen() {
   if (!id) return <View style={{ flex: 1, padding: 24, gap: 12, justifyContent: "center" }}><Text style={{ fontSize: 18, fontWeight: "800" }}>Profilo non valido</Text><Pressable onPress={() => router.back()}><Text>Indietro</Text></Pressable></View>;
   if (loading || web.loading || whoami.loading) return <SafeAreaView style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><ActivityIndicator /></SafeAreaView>;
 
-  const displayName = getProfileDisplayName({ ...(profile ?? {}), account_type: "club" });
+  const displayName = getProfileDisplayName({ ...(profile ?? {}), account_type: profile?.account_type ?? "club" });
   const category = getTextValue(profile?.club_league_category) || getTextValue(profile?.category) || getTextValue(profile?.level) || "—";
   const location = [[iso2ToFlagEmoji(getTextValue(profile?.country)), getTextValue(profile?.country)].filter(Boolean).join(" "), getTextValue(profile?.city)].filter(Boolean).join(" • ") || "—";
   const facility = [getTextValue(profile?.club_stadium), getTextValue(profile?.club_stadium_address)].filter(Boolean).join(" • ") || "—";

@@ -14,7 +14,7 @@ import { AvatarUploader } from "../../components/profiles/AvatarUploader";
 import { LocationFields } from "../../components/profiles/LocationFields";
 import { fetchProfileMe, patchProfileMe, type ProfileMe, useWebSession, useWhoami } from "../../src/lib/api";
 import { ProfileSocialInputs } from "../../src/components/profiles/ProfileSections";
-import { parseProfileLinks, stringifyProfileLinks } from "../../src/components/profiles/profileShared";
+import { normalizeProfileSkills, parseProfileLinks, stringifyProfileLinks, stringifyProfileSkills } from "../../src/components/profiles/profileShared";
 import { theme } from "../../src/theme";
 
 function asText(v: unknown) { return typeof v === "string" ? v : ""; }
@@ -77,7 +77,7 @@ export default function PlayerProfileScreen() {
     setFoot(asText(data.foot));
     setHeightCm(asNumText(data.height_cm));
     setWeightKg(asNumText(data.weight_kg));
-    setSkills(Array.isArray(data.skills) ? data.skills.join(", ") : asText(data.skills));
+    setSkills(stringifyProfileSkills(data.skills));
     setLinks(parseProfileLinks(data.links));
     setNotifyEmail(Boolean(data.notify_email_new_message));
     setBirthCountry(asText(data.birth_country || "IT") || "IT");
@@ -93,7 +93,7 @@ export default function PlayerProfileScreen() {
   const onSave = useCallback(async () => {
     setSaving(true);
     const response = await patchProfileMe({
-      account_type: profile?.account_type ?? "player",
+      account_type: profile?.account_type ?? "athlete",
       avatar_url: avatarUrl,
       full_name: fullName,
       display_name: fullName,
@@ -112,7 +112,7 @@ export default function PlayerProfileScreen() {
       foot,
       height_cm: heightCm,
       weight_kg: weightKg,
-      skills,
+      skills: normalizeProfileSkills(skills),
       links: stringifyProfileLinks(links),
       notify_email_new_message: notifyEmail,
       birth_country: birthCountry,
@@ -145,27 +145,27 @@ export default function PlayerProfileScreen() {
         <TextInput placeholder="Nome completo" value={fullName} onChangeText={setFullName} style={styles.input} />
         <TextInput placeholder="Anno nascita" value={birthYear} onChangeText={setBirthYear} keyboardType="numeric" style={styles.input} />
         <TextInput placeholder="Luogo di nascita" value={birthPlace} onChangeText={setBirthPlace} style={styles.input} />
-        <TextInput placeholder="Country" value={country} onChangeText={setCountry} style={styles.input} />
+        <TextInput placeholder="Paese" value={country} onChangeText={setCountry} style={styles.input} />
         <TextInput placeholder="Città" value={city} onChangeText={setCity} style={styles.input} />
         <TextInput placeholder="Sport" value={sport} onChangeText={setSport} style={styles.input} />
-        <TextInput placeholder="Role" value={role} onChangeText={setRole} style={styles.input} />
+        <TextInput placeholder="Ruolo" value={role} onChangeText={setRole} style={styles.input} />
         <TextInput placeholder="Bio" value={bio} onChangeText={setBio} multiline style={[styles.input, { minHeight: 80 }]} />
-        <TextInput placeholder="Foot" value={foot} onChangeText={setFoot} style={styles.input} />
-        <TextInput placeholder="Height cm" value={heightCm} onChangeText={setHeightCm} keyboardType="numeric" style={styles.input} />
-        <TextInput placeholder="Weight kg" value={weightKg} onChangeText={setWeightKg} keyboardType="numeric" style={styles.input} />
-        <TextInput placeholder="Skills (comma separated)" value={skills} onChangeText={setSkills} style={styles.input} />
+        <TextInput placeholder="Piede" value={foot} onChangeText={setFoot} style={styles.input} />
+        <TextInput placeholder="Altezza (cm)" value={heightCm} onChangeText={setHeightCm} keyboardType="numeric" style={styles.input} />
+        <TextInput placeholder="Peso (kg)" value={weightKg} onChangeText={setWeightKg} keyboardType="numeric" style={styles.input} />
+        <TextInput placeholder="Competenze (una per riga)" value={skills} onChangeText={setSkills} multiline style={[styles.input, { minHeight: 88 }]} />
       </View>
       <LocationFields mode="player" title="Residenza" values={residence} onChange={setResidence} />
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
-        <Text style={{ fontWeight: "700" }}>Birth country</Text>
-        <TextInput placeholder="Birth country" value={birthCountry} onChangeText={setBirthCountry} style={styles.input} />
+        <Text style={{ fontWeight: "700" }}>Paese di nascita</Text>
+        <TextInput placeholder="Paese di nascita" value={birthCountry} onChangeText={setBirthCountry} style={styles.input} />
       </View>
       <LocationFields mode="player" title="Luogo di nascita" values={birthLocation} onChange={setBirthLocation} />
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
-        <Text style={{ fontWeight: "700" }}>Interest country</Text>
-        <TextInput placeholder="Interest country" value={interestCountry} onChangeText={setInterestCountry} style={styles.input} />
+        <Text style={{ fontWeight: "700" }}>Paese di interesse</Text>
+        <TextInput placeholder="Paese di interesse" value={interestCountry} onChangeText={setInterestCountry} style={styles.input} />
       </View>
-      <LocationFields mode="player" title="Interest location" values={interest} onChange={setInterest} />
+      <LocationFields mode="player" title="Località di interesse" values={interest} onChange={setInterest} />
       <ProfileSocialInputs value={links} onChange={setLinks} />
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>

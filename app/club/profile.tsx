@@ -117,23 +117,23 @@ export default function ClubProfileScreen() {
       <AvatarUploader value={avatarUrl} onChange={setAvatarUrl} />
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
         <TextInput placeholder="Nome completo" value={fullName} onChangeText={setFullName} style={styles.input} />
-        <TextInput placeholder="Country" value={country} onChangeText={setCountry} style={styles.input} />
+        <TextInput placeholder="Paese" value={country} onChangeText={setCountry} style={styles.input} />
         <TextInput placeholder="Motto" value={clubMotto} onChangeText={setClubMotto} style={styles.input} />
         <TextInput placeholder="Sport" value={sport} onChangeText={setSport} style={styles.input} />
-        <TextInput placeholder="League category" value={clubLeagueCategory} onChangeText={setClubLeagueCategory} style={styles.input} />
-        <TextInput placeholder="Foundation year" value={clubFoundationYear} onChangeText={setClubFoundationYear} keyboardType="numeric" style={styles.input} />
-        <TextInput placeholder="Stadium" value={clubStadium} onChangeText={setClubStadium} style={styles.input} />
-        <TextInput placeholder="Stadium address" value={clubStadiumAddress} onChangeText={setClubStadiumAddress} style={styles.input} />
-        <TextInput placeholder="Stadium lat" value={clubStadiumLat} onChangeText={setClubStadiumLat} keyboardType="numeric" style={styles.input} />
-        <TextInput placeholder="Stadium lng" value={clubStadiumLng} onChangeText={setClubStadiumLng} keyboardType="numeric" style={styles.input} />
+        <TextInput placeholder="Categoria campionato" value={clubLeagueCategory} onChangeText={setClubLeagueCategory} style={styles.input} />
+        <TextInput placeholder="Anno di fondazione" value={clubFoundationYear} onChangeText={setClubFoundationYear} keyboardType="numeric" style={styles.input} />
+        <TextInput placeholder="Impianto sportivo" value={clubStadium} onChangeText={setClubStadium} style={styles.input} />
+        <TextInput placeholder="Indirizzo impianto" value={clubStadiumAddress} onChangeText={setClubStadiumAddress} style={styles.input} />
+        <TextInput placeholder="Latitudine impianto" value={clubStadiumLat} onChangeText={setClubStadiumLat} keyboardType="numeric" style={styles.input} />
+        <TextInput placeholder="Longitudine impianto" value={clubStadiumLng} onChangeText={setClubStadiumLng} keyboardType="numeric" style={styles.input} />
         <TextInput placeholder="Bio" value={bio} onChangeText={setBio} multiline style={[styles.input, { minHeight: 80 }]} />
       </View>
       <LocationFields mode="club" title="Location" values={residence} onChange={setResidence} />
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
-        <Text style={{ fontWeight: "700" }}>Interest country</Text>
-        <TextInput placeholder="Interest country" value={interestCountry} onChangeText={setInterestCountry} style={styles.input} />
+        <Text style={{ fontWeight: "700" }}>Paese di interesse</Text>
+        <TextInput placeholder="Paese di interesse" value={interestCountry} onChangeText={setInterestCountry} style={styles.input} />
       </View>
-      <LocationFields mode="club" title="Interest location" values={interest} onChange={setInterest} />
+      <LocationFields mode="club" title="Località di interesse" values={interest} onChange={setInterest} />
       <ProfileSocialInputs value={links} onChange={setLinks} />
       <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
