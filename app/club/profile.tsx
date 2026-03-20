@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import { AvatarUploader } from "../../components/profiles/AvatarUploader";
 import { LocationFields } from "../../components/profiles/LocationFields";
 import { fetchProfileMe, patchProfileMe, type ProfileMe, useWebSession } from "../../src/lib/api";
+import { CATEGORIES_BY_SPORT, SPORTS } from "../../src/lib/opportunities/formOptions";
 import { theme } from "../../src/theme";
 
 type Option = {
@@ -29,25 +30,9 @@ type SocialValues = {
 };
 
 const COUNTRY_OPTIONS: Option[] = [
-  { label: "Italia", value: "IT" },
-  { label: "Spagna", value: "ES" },
-  { label: "Francia", value: "FR" },
-  { label: "Germania", value: "DE" },
+  { label: "Italia (IT)", value: "IT" },
 ];
 
-const SPORT_OPTIONS: Option[] = [
-  { label: "Calcio", value: "Calcio" },
-  { label: "Futsal", value: "Futsal" },
-];
-
-const CATEGORY_OPTIONS: Option[] = [
-  { label: "Terza Categoria", value: "Terza Categoria" },
-  { label: "Seconda Categoria", value: "Seconda Categoria" },
-  { label: "Prima Categoria", value: "Prima Categoria" },
-  { label: "Promozione", value: "Promozione" },
-  { label: "Eccellenza", value: "Eccellenza" },
-  { label: "Serie D", value: "Serie D" },
-];
 
 function asText(v: unknown) {
   return typeof v === "string" ? v : "";
@@ -71,6 +56,16 @@ function getCountryLabel(value: string) {
 
 function extractSocialValues(value: unknown): SocialValues {
   const next: SocialValues = { instagram: "", facebook: "", tiktok: "", x: "" };
+
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+    next.instagram = typeof record.instagram === "string" ? record.instagram.trim() : "";
+    next.facebook = typeof record.facebook === "string" ? record.facebook.trim() : "";
+    next.tiktok = typeof record.tiktok === "string" ? record.tiktok.trim() : "";
+    next.x = typeof record.x === "string" ? record.x.trim() : "";
+    return next;
+  }
+
   if (!Array.isArray(value)) return next;
 
   for (const item of value) {
@@ -97,12 +92,12 @@ function extractSocialValues(value: unknown): SocialValues {
 }
 
 function buildSocialLinks(values: SocialValues) {
-  return [
-    values.instagram ? { label: "Instagram", url: values.instagram.trim() } : null,
-    values.facebook ? { label: "Facebook", url: values.facebook.trim() } : null,
-    values.tiktok ? { label: "TikTok", url: values.tiktok.trim() } : null,
-    values.x ? { label: "X (Twitter)", url: values.x.trim() } : null,
-  ].filter(Boolean);
+  return {
+    instagram: values.instagram.trim(),
+    facebook: values.facebook.trim(),
+    tiktok: values.tiktok.trim(),
+    x: values.x.trim(),
+  };
 }
 
 function SelectField({
@@ -205,8 +200,8 @@ export default function ClubProfileScreen() {
   });
 
   const countryOptions = useMemo(() => ensureOption(COUNTRY_OPTIONS, country, getCountryLabel(country)), [country]);
-  const sportOptions = useMemo(() => ensureOption(SPORT_OPTIONS, sport), [sport]);
-  const categoryOptions = useMemo(() => ensureOption(CATEGORY_OPTIONS, clubLeagueCategory), [clubLeagueCategory]);
+  const sportOptions = useMemo(() => ensureOption(SPORTS.map((value) => ({ label: value, value })), sport), [sport]);
+  const categoryOptions = useMemo(() => ensureOption((CATEGORIES_BY_SPORT[sport] ?? []).map((value) => ({ label: value, value })), clubLeagueCategory), [clubLeagueCategory, sport]);
 
   const loadProfile = useCallback(async () => {
     setLoading(true);

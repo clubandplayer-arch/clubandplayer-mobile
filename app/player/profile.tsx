@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import { AvatarUploader } from "../../components/profiles/AvatarUploader";
 import { LocationFields } from "../../components/profiles/LocationFields";
 import { fetchProfileMe, patchProfileMe, type ProfileMe, useWebSession } from "../../src/lib/api";
+import { SPORTS, SPORTS_ROLES } from "../../src/lib/opportunities/formOptions";
 import { theme } from "../../src/theme";
 
 type Option = {
@@ -29,37 +30,13 @@ type SocialValues = {
 };
 
 const COUNTRY_OPTIONS: Option[] = [
-  { label: "Italia", value: "IT" },
-  { label: "Spagna", value: "ES" },
-  { label: "Francia", value: "FR" },
-  { label: "Germania", value: "DE" },
-  { label: "Regno Unito", value: "GB" },
-  { label: "Stati Uniti", value: "US" },
-];
-
-const SPORT_OPTIONS: Option[] = [
-  { label: "Calcio", value: "Calcio" },
-  { label: "Futsal", value: "Futsal" },
+  { label: "Italia (IT)", value: "IT" },
 ];
 
 const FOOT_OPTIONS: Option[] = [
   { label: "Destro", value: "Destro" },
   { label: "Sinistro", value: "Sinistro" },
   { label: "Ambidestro", value: "Ambidestro" },
-];
-
-const FOOTBALL_ROLE_OPTIONS: Option[] = [
-  { label: "Portiere", value: "Portiere" },
-  { label: "Difensore centrale", value: "Difensore centrale" },
-  { label: "Terzino destro", value: "Terzino destro" },
-  { label: "Terzino sinistro", value: "Terzino sinistro" },
-  { label: "Centrocampista", value: "Centrocampista" },
-  { label: "Mediano", value: "Mediano" },
-  { label: "Trequartista", value: "Trequartista" },
-  { label: "Ala destra", value: "Ala destra" },
-  { label: "Ala sinistra", value: "Ala sinistra" },
-  { label: "Punta centrale", value: "Punta centrale" },
-  { label: "Seconda punta", value: "Seconda punta" },
 ];
 
 function asText(v: unknown) {
@@ -90,6 +67,15 @@ function extractSocialValues(value: unknown): SocialValues {
     x: "",
   };
 
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+    next.instagram = typeof record.instagram === "string" ? record.instagram.trim() : "";
+    next.facebook = typeof record.facebook === "string" ? record.facebook.trim() : "";
+    next.tiktok = typeof record.tiktok === "string" ? record.tiktok.trim() : "";
+    next.x = typeof record.x === "string" ? record.x.trim() : "";
+    return next;
+  }
+
   if (!Array.isArray(value)) return next;
 
   for (const item of value) {
@@ -116,12 +102,12 @@ function extractSocialValues(value: unknown): SocialValues {
 }
 
 function buildSocialLinks(values: SocialValues) {
-  return [
-    values.instagram ? { label: "Instagram", url: values.instagram.trim() } : null,
-    values.facebook ? { label: "Facebook", url: values.facebook.trim() } : null,
-    values.tiktok ? { label: "TikTok", url: values.tiktok.trim() } : null,
-    values.x ? { label: "X (Twitter)", url: values.x.trim() } : null,
-  ].filter(Boolean);
+  return {
+    instagram: values.instagram.trim(),
+    facebook: values.facebook.trim(),
+    tiktok: values.tiktok.trim(),
+    x: values.x.trim(),
+  };
 }
 
 function parseSkills(value: unknown) {
@@ -236,7 +222,7 @@ export default function PlayerProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [openPicker, setOpenPicker] = useState<null | "country" | "sport" | "role" | "foot">(null);
+  const [openPicker, setOpenPicker] = useState<null | "country" | "interest_country" | "sport" | "role" | "foot">(null);
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [fullName, setFullName] = useState("");
@@ -263,8 +249,8 @@ export default function PlayerProfileScreen() {
   });
 
   const countryOptions = useMemo(() => ensureOption(COUNTRY_OPTIONS, country, getCountryLabel(country)), [country]);
-  const sportOptions = useMemo(() => ensureOption(SPORT_OPTIONS, sport), [sport]);
-  const roleOptions = useMemo(() => ensureOption(FOOTBALL_ROLE_OPTIONS, role), [role]);
+  const sportOptions = useMemo(() => ensureOption(SPORTS.map((value) => ({ label: value, value })), sport), [sport]);
+  const roleOptions = useMemo(() => ensureOption((SPORTS_ROLES[sport] ?? []).map((value) => ({ label: value, value })), role), [role, sport]);
   const footOptions = useMemo(() => ensureOption(FOOT_OPTIONS, foot), [foot]);
 
   const loadProfile = useCallback(async () => {
@@ -461,7 +447,11 @@ export default function PlayerProfileScreen() {
           </View>
         </View>
 
-        <LocationFields mode="player" title="Zona di interesse" values={interest} onChange={setInterest} />
+        <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 12 }}>
+          <Text style={{ fontSize: 16, fontWeight: "700" }}>Zona di interesse</Text>
+          <SelectField label="Paese" value={getCountryLabel(interestCountry)} placeholder="Seleziona paese" onPress={() => setOpenPicker("interest_country")} helperText={`${interestCountry} ${getCountryLabel(interestCountry)}`} />
+          <LocationFields mode="player" title="Località" values={interest} onChange={setInterest} />
+        </View>
 
         <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
           <Text style={{ fontSize: 16, fontWeight: "700" }}>Profili social</Text>
@@ -502,6 +492,7 @@ export default function PlayerProfileScreen() {
       </ScrollView>
 
       <PickerModal visible={openPicker === "country"} title="Nazionalità" options={countryOptions} selectedValue={country} onClose={() => setOpenPicker(null)} onSelect={setCountry} />
+      <PickerModal visible={openPicker === "interest_country"} title="Paese zona di interesse" options={countryOptions} selectedValue={interestCountry} onClose={() => setOpenPicker(null)} onSelect={setInterestCountry} />
       <PickerModal visible={openPicker === "sport"} title="Sport" options={sportOptions} selectedValue={sport} onClose={() => setOpenPicker(null)} onSelect={(value) => {
         setSport(value);
         if (!roleOptions.some((option) => option.value === role)) setRole("");
