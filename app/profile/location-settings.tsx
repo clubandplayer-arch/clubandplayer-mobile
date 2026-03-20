@@ -67,12 +67,8 @@ export default function LocationSettingsInfoScreen() {
 
       <View style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, padding: 16, gap: 10 }}>
         <Text style={{ fontSize: 18, fontWeight: "700" }}>Località</Text>
-        <Text>
-          Su mobile questa non è una schermata di editing separata: la zona di interesse si aggiorna da Impostazioni e i dati profilo restano nei percorsi profilo dedicati.
-        </Text>
-        <Text>
-          Il salvataggio passa comunque dai campi ufficiali del profilo sincronizzati con /api/profiles/me, come sul web.
-        </Text>
+        <Text>La zona di interesse si aggiorna da Impostazioni.</Text>
+        <Text>I dati del profilo restano nelle pagine profilo dedicate.</Text>
       </View>
 
       <Link href="/settings" asChild>
