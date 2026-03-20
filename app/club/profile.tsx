@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   Switch,
@@ -15,6 +16,39 @@ import { LocationFields } from "../../components/profiles/LocationFields";
 import { fetchProfileMe, patchProfileMe, type ProfileMe, useWebSession } from "../../src/lib/api";
 import { theme } from "../../src/theme";
 
+type Option = {
+  label: string;
+  value: string;
+};
+
+type SocialValues = {
+  instagram: string;
+  facebook: string;
+  tiktok: string;
+  x: string;
+};
+
+const COUNTRY_OPTIONS: Option[] = [
+  { label: "Italia", value: "IT" },
+  { label: "Spagna", value: "ES" },
+  { label: "Francia", value: "FR" },
+  { label: "Germania", value: "DE" },
+];
+
+const SPORT_OPTIONS: Option[] = [
+  { label: "Calcio", value: "Calcio" },
+  { label: "Futsal", value: "Futsal" },
+];
+
+const CATEGORY_OPTIONS: Option[] = [
+  { label: "Terza Categoria", value: "Terza Categoria" },
+  { label: "Seconda Categoria", value: "Seconda Categoria" },
+  { label: "Prima Categoria", value: "Prima Categoria" },
+  { label: "Promozione", value: "Promozione" },
+  { label: "Eccellenza", value: "Eccellenza" },
+  { label: "Serie D", value: "Serie D" },
+];
+
 function asText(v: unknown) {
   return typeof v === "string" ? v : "";
 }
@@ -24,39 +58,120 @@ function asNumText(v: unknown) {
   return String(v);
 }
 
-function formatLinksText(value: unknown) {
-  if (!Array.isArray(value)) return "";
-
-  return value
-    .map((item) => {
-      if (typeof item === "string") return item.trim();
-      if (item && typeof item === "object") {
-        const record = item as { label?: unknown; url?: unknown };
-        const label = typeof record.label === "string" ? record.label.trim() : "";
-        const url = typeof record.url === "string" ? record.url.trim() : "";
-        if (label && url) return `${label}: ${url}`;
-        return url || label;
-      }
-      return "";
-    })
-    .filter(Boolean)
-    .join("\n");
+function ensureOption(options: Option[], value: string, fallbackLabel?: string) {
+  const normalized = value.trim();
+  if (!normalized) return options;
+  if (options.some((option) => option.value === normalized)) return options;
+  return [{ label: fallbackLabel ?? normalized, value: normalized }, ...options];
 }
 
-function parseLinksText(value: string) {
-  const rows = value
-    .split(/\n+/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, 10);
+function getCountryLabel(value: string) {
+  return COUNTRY_OPTIONS.find((option) => option.value === value)?.label ?? (value || "Seleziona");
+}
 
-  return rows.map((row) => {
-    const match = row.match(/^([^:]+):\s*(https?:\/\/.*)$/i);
-    if (match) {
-      return { label: match[1].trim(), url: match[2].trim() };
+function extractSocialValues(value: unknown): SocialValues {
+  const next: SocialValues = { instagram: "", facebook: "", tiktok: "", x: "" };
+  if (!Array.isArray(value)) return next;
+
+  for (const item of value) {
+    let label = "";
+    let url = "";
+
+    if (typeof item === "string") {
+      url = item.trim();
+    } else if (item && typeof item === "object") {
+      const record = item as { label?: unknown; url?: unknown };
+      label = typeof record.label === "string" ? record.label.trim().toLowerCase() : "";
+      url = typeof record.url === "string" ? record.url.trim() : "";
     }
-    return { label: "Social", url: row };
-  });
+
+    const normalized = `${label} ${url}`.toLowerCase();
+    if (!url) continue;
+    if (!next.instagram && (normalized.includes("instagram") || normalized.includes("instagr.am"))) next.instagram = url;
+    else if (!next.facebook && normalized.includes("facebook")) next.facebook = url;
+    else if (!next.tiktok && normalized.includes("tiktok")) next.tiktok = url;
+    else if (!next.x && (normalized.includes("twitter") || normalized.includes("x.com"))) next.x = url;
+  }
+
+  return next;
+}
+
+function buildSocialLinks(values: SocialValues) {
+  return [
+    values.instagram ? { label: "Instagram", url: values.instagram.trim() } : null,
+    values.facebook ? { label: "Facebook", url: values.facebook.trim() } : null,
+    values.tiktok ? { label: "TikTok", url: values.tiktok.trim() } : null,
+    values.x ? { label: "X (Twitter)", url: values.x.trim() } : null,
+  ].filter(Boolean);
+}
+
+function SelectField({
+  label,
+  value,
+  placeholder,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  onPress: () => void;
+}) {
+  return (
+    <View style={{ flex: 1, gap: 6 }}>
+      <Text style={{ fontWeight: "600" }}>{label}</Text>
+      <Pressable onPress={onPress} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12 }}>
+        <Text style={{ color: value ? theme.colors.text : theme.colors.muted }}>{value || placeholder}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function PickerModal({
+  visible,
+  title,
+  options,
+  selectedValue,
+  onClose,
+  onSelect,
+}: {
+  visible: boolean;
+  title: string;
+  options: Option[];
+  selectedValue: string;
+  onClose: () => void;
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" }}>
+        <View style={{ backgroundColor: theme.colors.background, padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16, gap: 12, maxHeight: "70%" }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <Text style={{ fontSize: 18, fontWeight: "700" }}>{title}</Text>
+            <Pressable onPress={onClose} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.neutral200 }}>
+              <Text>Chiudi</Text>
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={{ gap: 8, paddingBottom: 12 }}>
+            {options.map((option) => {
+              const selected = option.value === selectedValue;
+              return (
+                <Pressable
+                  key={`${title}-${option.value}`}
+                  onPress={() => {
+                    onSelect(option.value);
+                    onClose();
+                  }}
+                  style={{ borderWidth: 1, borderColor: selected ? theme.colors.text : theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12, backgroundColor: selected ? theme.colors.neutral100 : theme.colors.background }}
+                >
+                  <Text style={{ fontWeight: selected ? "700" : "500" }}>{option.label}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
 }
 
 export default function ClubProfileScreen() {
@@ -65,18 +180,19 @@ export default function ClubProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [openPicker, setOpenPicker] = useState<null | "country" | "sport" | "category">(null);
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [fullName, setFullName] = useState("");
-  const [country, setCountry] = useState("");
-  const [sport, setSport] = useState("");
+  const [country, setCountry] = useState("IT");
+  const [sport, setSport] = useState("Calcio");
   const [clubMotto, setClubMotto] = useState("");
   const [clubLeagueCategory, setClubLeagueCategory] = useState("");
   const [clubFoundationYear, setClubFoundationYear] = useState("");
   const [clubStadium, setClubStadium] = useState("");
   const [clubStadiumAddress, setClubStadiumAddress] = useState("");
   const [bio, setBio] = useState("");
-  const [links, setLinks] = useState("");
+  const [socials, setSocials] = useState<SocialValues>({ instagram: "", facebook: "", tiktok: "", x: "" });
   const [notifyEmail, setNotifyEmail] = useState(false);
 
   const [residence, setResidence] = useState({
@@ -88,7 +204,9 @@ export default function ClubProfileScreen() {
     city_label: null as string | null,
   });
 
-
+  const countryOptions = useMemo(() => ensureOption(COUNTRY_OPTIONS, country, getCountryLabel(country)), [country]);
+  const sportOptions = useMemo(() => ensureOption(SPORT_OPTIONS, sport), [sport]);
+  const categoryOptions = useMemo(() => ensureOption(CATEGORY_OPTIONS, clubLeagueCategory), [clubLeagueCategory]);
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -110,15 +228,15 @@ export default function ClubProfileScreen() {
 
     setAvatarUrl(data.avatar_url ?? null);
     setFullName(asText(data.full_name || data.display_name));
-    setCountry(asText(data.country));
-    setSport(asText(data.sport));
+    setCountry(asText(data.country) || "IT");
+    setSport(asText(data.sport) || "Calcio");
     setClubMotto(asText(data.club_motto));
     setClubLeagueCategory(asText(data.club_league_category));
     setClubFoundationYear(asNumText(data.club_foundation_year));
     setClubStadium(asText(data.club_stadium));
     setClubStadiumAddress(asText(data.club_stadium_address));
     setBio(asText(data.bio));
-    setLinks(formatLinksText(data.links));
+    setSocials(extractSocialValues(data.links));
     setNotifyEmail(Boolean(data.notify_email_new_message));
 
     setResidence({
@@ -129,7 +247,6 @@ export default function ClubProfileScreen() {
       province_label: data.province ?? null,
       city_label: data.city ?? null,
     });
-
 
     setLoading(false);
   }, [router]);
@@ -159,7 +276,7 @@ export default function ClubProfileScreen() {
       club_stadium: clubStadium,
       club_stadium_address: clubStadiumAddress,
       bio,
-      links: JSON.stringify(parseLinksText(links)),
+      links: JSON.stringify(buildSocialLinks(socials)),
       notify_email_new_message: notifyEmail,
     });
     setSaving(false);
@@ -180,7 +297,6 @@ export default function ClubProfileScreen() {
     clubStadiumAddress,
     country,
     fullName,
-    links,
     loadProfile,
     notifyEmail,
     residence.city_label,
@@ -189,6 +305,7 @@ export default function ClubProfileScreen() {
     residence.province_label,
     residence.region_id,
     residence.region_label,
+    socials,
     sport,
   ]);
 
@@ -203,39 +320,85 @@ export default function ClubProfileScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={{ paddingHorizontal: 24, gap: 12, paddingBottom: 48, paddingTop: 12 }} style={{ backgroundColor: theme.colors.background }}>
-      {web.error ? <Text style={{ color: theme.colors.danger }}>{web.error}</Text> : null}
-      {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
+    <>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 24, gap: 12, paddingBottom: 48, paddingTop: 12 }} style={{ backgroundColor: theme.colors.background }}>
+        {web.error ? <Text style={{ color: theme.colors.danger }}>{web.error}</Text> : null}
+        {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
 
-      <AvatarUploader value={avatarUrl} onChange={setAvatarUrl} />
+        <AvatarUploader value={avatarUrl} onChange={setAvatarUrl} />
 
-      <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
-        <TextInput placeholder="Nome club" value={fullName} onChangeText={setFullName} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Paese" value={country} onChangeText={setCountry} autoCapitalize="characters" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Motto" value={clubMotto} onChangeText={setClubMotto} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Sport" value={sport} onChangeText={setSport} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Categoria campionato" value={clubLeagueCategory} onChangeText={setClubLeagueCategory} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Anno di fondazione" value={clubFoundationYear} onChangeText={setClubFoundationYear} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Stadio" value={clubStadium} onChangeText={setClubStadium} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Indirizzo stadio" value={clubStadiumAddress} onChangeText={setClubStadiumAddress} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
-        <TextInput placeholder="Bio" value={bio} onChangeText={setBio} multiline style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10, minHeight: 80 }} />
-      </View>
-
-      <LocationFields mode="club" title="Sede club" values={residence} onChange={setResidence} />
-
-      <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
-        <Text style={{ fontSize: 16, fontWeight: "700" }}>Profili social</Text>
-        <Text style={{ color: theme.colors.muted, fontSize: 13 }}>Inserisci un profilo per riga. Puoi usare anche il formato `Label: https://...`.</Text>
-        <TextInput placeholder="Sito ufficiale: https://..." value={links} onChangeText={setLinks} multiline autoCapitalize="none" autoCorrect={false} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10, minHeight: 96, textAlignVertical: "top" }} />
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          <Text style={{ fontWeight: "600" }}>Notifiche email nuovi messaggi</Text>
-          <Switch value={notifyEmail} onValueChange={setNotifyEmail} />
+        <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
+          <TextInput placeholder="Nome del club" value={fullName} onChangeText={setFullName} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <SelectField label="Nazione del club" value={getCountryLabel(country)} placeholder="Seleziona nazione" onPress={() => setOpenPicker("country")} />
+          </View>
+          <LocationFields mode="club" title="Sede club" values={residence} onChange={setResidence} />
+          <TextInput placeholder="Motto del club" value={clubMotto} onChangeText={setClubMotto} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <SelectField label="Sport del club" value={sport} placeholder="Seleziona sport" onPress={() => setOpenPicker("sport")} />
+            <SelectField label="Categoria" value={clubLeagueCategory} placeholder="Seleziona categoria" onPress={() => setOpenPicker("category")} />
+          </View>
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={{ fontWeight: "600" }}>Anno di fondazione</Text>
+              <TextInput placeholder="2025" value={clubFoundationYear} onChangeText={setClubFoundationYear} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+            </View>
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={{ fontWeight: "600" }}>Stadio o impianto</Text>
+              <TextInput placeholder="Nome stadio" value={clubStadium} onChangeText={setClubStadium} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+            </View>
+          </View>
+          <View style={{ gap: 6 }}>
+            <Text style={{ fontWeight: "600" }}>Indirizzo stadio</Text>
+            <TextInput placeholder="Indirizzo stadio" value={clubStadiumAddress} onChangeText={setClubStadiumAddress} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+          </View>
+          <View style={{ gap: 6 }}>
+            <Text style={{ fontWeight: "600" }}>Biografia del club</Text>
+            <TextInput placeholder="Biografia del club" value={bio} onChangeText={setBio} multiline style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10, minHeight: 100, textAlignVertical: "top" }} />
+          </View>
         </View>
-      </View>
 
-      <Pressable disabled={disabled} onPress={() => void onSave()} style={{ backgroundColor: disabled ? theme.colors.muted : theme.colors.text, borderRadius: 10, paddingVertical: 12, alignItems: "center" }}>
-        <Text style={{ color: theme.colors.background, fontWeight: "700" }}>{saving ? "Salvo..." : "Salva"}</Text>
-      </Pressable>
-    </ScrollView>
+        <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
+          <Text style={{ fontSize: 16, fontWeight: "700" }}>Profili social</Text>
+          <Text style={{ color: theme.colors.muted, fontSize: 13 }}>Inserisci URL completi o semplici @handle.</Text>
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={{ fontWeight: "600" }}>Instagram</Text>
+              <TextInput placeholder="https://instagram.com/..." value={socials.instagram} onChangeText={(value) => setSocials((current) => ({ ...current, instagram: value }))} autoCapitalize="none" autoCorrect={false} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+            </View>
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={{ fontWeight: "600" }}>Facebook</Text>
+              <TextInput placeholder="https://facebook.com/..." value={socials.facebook} onChangeText={(value) => setSocials((current) => ({ ...current, facebook: value }))} autoCapitalize="none" autoCorrect={false} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+            </View>
+          </View>
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={{ fontWeight: "600" }}>TikTok</Text>
+              <TextInput placeholder="https://tiktok.com/@..." value={socials.tiktok} onChangeText={(value) => setSocials((current) => ({ ...current, tiktok: value }))} autoCapitalize="none" autoCorrect={false} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+            </View>
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={{ fontWeight: "600" }}>X (Twitter)</Text>
+              <TextInput placeholder="@tuonome" value={socials.x} onChangeText={(value) => setSocials((current) => ({ ...current, x: value }))} autoCapitalize="none" autoCorrect={false} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
+            </View>
+          </View>
+        </View>
+
+        <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
+          <Text style={{ fontSize: 16, fontWeight: "700" }}>Notifiche</Text>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <Text style={{ fontWeight: "600" }}>Email per nuovi messaggi</Text>
+            <Switch value={notifyEmail} onValueChange={setNotifyEmail} />
+          </View>
+        </View>
+
+        <Pressable disabled={disabled} onPress={() => void onSave()} style={{ backgroundColor: disabled ? theme.colors.muted : "#2563eb", borderRadius: 10, paddingVertical: 12, alignItems: "center", alignSelf: "flex-start", paddingHorizontal: 16 }}>
+          <Text style={{ color: theme.colors.background, fontWeight: "700" }}>{saving ? "Salvo..." : "Salva profilo"}</Text>
+        </Pressable>
+      </ScrollView>
+
+      <PickerModal visible={openPicker === "country"} title="Nazione del club" options={countryOptions} selectedValue={country} onClose={() => setOpenPicker(null)} onSelect={setCountry} />
+      <PickerModal visible={openPicker === "sport"} title="Sport del club" options={sportOptions} selectedValue={sport} onClose={() => setOpenPicker(null)} onSelect={setSport} />
+      <PickerModal visible={openPicker === "category"} title="Categoria" options={categoryOptions} selectedValue={clubLeagueCategory} onClose={() => setOpenPicker(null)} onSelect={setClubLeagueCategory} />
+    </>
   );
 }
