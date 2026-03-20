@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AvatarUploader } from "../../components/profiles/AvatarUploader";
 import { LocationFields } from "../../components/profiles/LocationFields";
 import { fetchProfileMe, patchProfileMe, type ProfileMe, useWebSession } from "../../src/lib/api";
@@ -154,7 +155,7 @@ function SelectField({
           backgroundColor: disabled ? theme.colors.neutral100 : theme.colors.background,
         }}
       >
-        <Text style={{ color: value ? theme.colors.text : theme.colors.muted }}>{value || placeholder}</Text>
+        <Text numberOfLines={1} ellipsizeMode="tail" style={{ color: value ? theme.colors.text : theme.colors.muted, fontSize: 13 }}>{value || placeholder}</Text>
       </Pressable>
       {helperText ? <Text style={{ color: theme.colors.muted, fontSize: 12 }}>{helperText}</Text> : null}
     </View>
@@ -176,17 +177,19 @@ function PickerModal({
   onClose: () => void;
   onSelect: (value: string) => void;
 }) {
+  const insets = useSafeAreaInsets();
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" }}>
-        <View style={{ backgroundColor: theme.colors.background, padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16, gap: 12, maxHeight: "70%" }}>
+      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end", paddingBottom: Math.max(insets.bottom, 12) }}>
+        <View style={{ backgroundColor: theme.colors.background, padding: 16, paddingBottom: Math.max(insets.bottom, 12), borderTopLeftRadius: 16, borderTopRightRadius: 16, gap: 12, maxHeight: "70%" }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
             <Text style={{ fontSize: 18, fontWeight: "700" }}>{title}</Text>
             <Pressable onPress={onClose} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.neutral200 }}>
               <Text>Chiudi</Text>
             </Pressable>
           </View>
-          <ScrollView contentContainerStyle={{ gap: 8, paddingBottom: 12 }}>
+          <ScrollView contentContainerStyle={{ gap: 8, paddingBottom: Math.max(insets.bottom, 12) + 12 }}>
             {options.map((option) => {
               const selected = option.value === selectedValue;
               return (
@@ -405,13 +408,15 @@ export default function PlayerProfileScreen() {
             <SelectField label="Ruolo" value={role} placeholder="Seleziona ruolo" onPress={() => setOpenPicker("role")} helperText="I ruoli mostrati dipendono dallo sport scelto." />
           </View>
           <TextInput placeholder="Biografia" value={bio} onChangeText={setBio} multiline style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10, minHeight: 100, textAlignVertical: "top" }} />
-          <View style={{ flexDirection: "row", gap: 12 }}>
-            <SelectField label="Piede preferito" value={foot} placeholder="Seleziona piede" onPress={() => setOpenPicker("foot")} />
-            <View style={{ flex: 1, gap: 6 }}>
+          <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
+            <View style={{ flex: 1.15 }}>
+              <SelectField label="Piede preferito" value={foot} placeholder="Seleziona piede" onPress={() => setOpenPicker("foot")} />
+            </View>
+            <View style={{ flex: 0.85, gap: 6 }}>
               <Text style={{ fontWeight: "600" }}>Altezza (cm)</Text>
               <TextInput placeholder="187" value={heightCm} onChangeText={setHeightCm} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
             </View>
-            <View style={{ flex: 1, gap: 6 }}>
+            <View style={{ flex: 0.85, gap: 6 }}>
               <Text style={{ fontWeight: "600" }}>Peso (kg)</Text>
               <TextInput placeholder="85" value={weightKg} onChangeText={setWeightKg} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
             </View>
