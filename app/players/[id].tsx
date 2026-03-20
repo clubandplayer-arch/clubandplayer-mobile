@@ -1,24 +1,18 @@
-import { useMemo, useEffect, useState } from "react";
-import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
-import FollowButton from "../../src/components/follow/FollowButton";
-import { isUuid, useWebSession, useWhoami } from "../../src/lib/api";
+import { fetchPublicProfiles, isUuid, toggleProfileSkillEndorsement, useWebSession, useWhoami, type PublicProfileSummary } from "../../src/lib/api";
 import { getFeedPosts, type FeedPost } from "../../src/lib/feed/getFeedPosts";
 import FeedCard from "../../src/components/feed/FeedCard";
 import { iso2ToFlagEmoji } from "../../src/lib/geo/countryFlag";
 import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
 import { theme } from "../../src/theme";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { ProfileHeaderCard, ProfileSkillsSection, ProfileSocialLinksSection } from "../../src/components/profiles/ProfileSections";
+import { buildProfileSkillItems, parseProfileLinks } from "../../src/components/profiles/profileShared";
 
-type ProfileRow = {
-  id: string;
-  full_name?: string | null;
-  display_name?: string | null;
-  avatar_url?: string | null;
-  sport?: string | null;
-  role?: string | null;
-  country?: string | null;
+type ProfileRow = PublicProfileSummary & {
   birth_year?: number | null;
   height_cm?: number | null;
   weight_kg?: number | null;
@@ -27,323 +21,109 @@ type ProfileRow = {
   interest_province?: string | null;
   interest_region?: string | null;
   interest_country?: string | null;
-  bio?: string | null;
-  [key: string]: unknown;
 };
-
-const getTextValue = (value: unknown): string | null => {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-};
-
-const getNumberValue = (value: unknown): number | null => {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-};
+const getTextValue = (value: unknown): string | null => typeof value === "string" && value.trim() ? value.trim() : null;
+const getNumberValue = (value: unknown): number | null => typeof value === "number" ? value : Number.isFinite(Number(value)) ? Number(value) : null;
 
 export default function PlayerProfileScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const insets = useSafeAreaInsets();
-
   const id = useMemo(() => {
     const raw = params.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : null;
-    if (!raw) return null;
-    const v = String(raw).trim();
+    const v = String(raw ?? "").trim();
     return isUuid(v) ? v : null;
   }, [params.id]);
-
   const web = useWebSession();
   const whoami = useWhoami(web.ready);
-
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
-  const isLoading = loading || web.loading || whoami.loading;
+  const [busySkill, setBusySkill] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
-
     const load = async () => {
-      if (!id) {
-        setProfile(null);
-        setLoading(false);
-        return;
-      }
-
+      if (!id) return setLoading(false);
       setLoading(true);
-      const res = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
-
-      if (!mounted) return;
-      setProfile(res.data ? (res.data as ProfileRow) : null);
-      setLoading(false);
+      const publicRes = await fetchPublicProfiles([id]);
+      const publicItems = Array.isArray(publicRes.data) ? publicRes.data : publicRes.data?.data;
+      const publicProfile = Array.isArray(publicItems) ? publicItems.find((item) => item.id === id) : null;
+      const supplemental = await supabase
+        .from("profiles")
+        .select("id,birth_year,height_cm,weight_kg,foot,interest_city,interest_province,interest_region,interest_country,skill_endorsements")
+        .eq("id", id)
+        .maybeSingle();
+      const nextProfile = publicProfile ? ({ ...publicProfile, ...(supplemental.data ?? {}) } as ProfileRow) : (supplemental.data ? (supplemental.data as ProfileRow) : null);
+      if (mounted) {
+        setProfile(nextProfile);
+        setLoading(false);
+      }
     };
-
     void load();
-
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [id]);
 
   useEffect(() => {
     let mounted = true;
-
     const loadWallPosts = async () => {
-      if (!id) {
-        setPosts([]);
-        setPostsLoading(false);
-        return;
-      }
-
+      if (!id) return;
       setPostsLoading(true);
       try {
         const res = await getFeedPosts({ scope: "all" });
-        if (!mounted) return;
-
-        const filtered = res.items
-          .filter((item) => {
-            const raw = item.raw ?? {};
-            const authorCandidates = [
-              raw?.author_profile_id,
-              raw?.authorId,
-              raw?.author_id,
-              raw?.author_profile?.id,
-              item.author_id,
-            ];
-            return authorCandidates.some((candidate) =>
-              typeof candidate === "string" ? candidate.trim() === id : false,
-            );
-          })
-          .slice(0, 10);
-
-        setPosts(filtered);
-      } catch (error) {
-        if (__DEV__) console.log("[players] wall posts load error", error);
-        if (!mounted) return;
-        setPosts([]);
+        const filtered = res.items.filter((item) => [item.raw?.author_profile_id, item.raw?.authorId, item.raw?.author_id, item.raw?.author_profile?.id, item.author_id].some((candidate) => typeof candidate === "string" && candidate.trim() === id)).slice(0, 10);
+        if (mounted) setPosts(filtered);
+      } catch {
+        if (mounted) setPosts([]);
       } finally {
         if (mounted) setPostsLoading(false);
       }
     };
-
     void loadWallPosts();
-
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [id]);
 
-  const displayName = isLoading ? "Caricamento…" : getProfileDisplayName({ ...(profile ?? {}), account_type: "athlete" });
-  const avatarUrl = getTextValue(profile?.avatar_url);
-  const sport = getTextValue(profile?.sport);
-  const role = getTextValue(profile?.role);
-  const sportRole = [sport, role].filter(Boolean).join(" • ") || "—";
+  if (!id) return <View style={{ flex: 1, padding: 24, gap: 12, justifyContent: "center" }}><Text style={{ fontSize: 18, fontWeight: "800" }}>Profilo non valido</Text><Pressable onPress={() => router.back()}><Text>Indietro</Text></Pressable></View>;
+  if (loading || web.loading || whoami.loading) return <SafeAreaView style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><ActivityIndicator /></SafeAreaView>;
 
-  const countryCode = getTextValue(profile?.country);
-  const nationalityFlag = iso2ToFlagEmoji(countryCode);
-  const nationality = [nationalityFlag, countryCode].filter(Boolean).join(" ") || "—";
-  const birthYear = getNumberValue(profile?.birth_year);
-  const currentYear = new Date().getFullYear();
-  const age = birthYear ? String(currentYear - birthYear) : "—";
-
-  const heightCm = getNumberValue(profile?.height_cm);
-  const weightKg = getNumberValue(profile?.weight_kg);
-  const height = heightCm ? `${heightCm} cm` : "—";
-  const weight = weightKg ? `${weightKg} kg` : "—";
-  const foot = getTextValue(profile?.foot) || "—";
-
-  const interestParts = [
-    getTextValue(profile?.interest_city),
-    getTextValue(profile?.interest_province),
-    getTextValue(profile?.interest_region),
-    [
-      iso2ToFlagEmoji(getTextValue(profile?.interest_country)),
-      getTextValue(profile?.interest_country),
-    ]
-      .filter(Boolean)
-      .join(" "),
-  ].filter(Boolean) as string[];
-  const interestLocation = interestParts.join(" • ") || "—";
-
+  const displayName = getProfileDisplayName({ ...(profile ?? {}), account_type: profile?.account_type ?? "athlete" });
+  const sportRole = [getTextValue(profile?.sport), getTextValue(profile?.role)].filter(Boolean).join(" • ") || "—";
+  const interestLocation = [getTextValue(profile?.interest_city), getTextValue(profile?.interest_province), getTextValue(profile?.interest_region), [iso2ToFlagEmoji(getTextValue(profile?.interest_country)), getTextValue(profile?.interest_country)].filter(Boolean).join(" ")].filter(Boolean).join(" • ") || "—";
   const biography = getTextValue(profile?.bio) || "—";
+  const skills = buildProfileSkillItems(profile?.skills, profile?.skill_endorsements);
+  const links = parseProfileLinks(profile?.links);
+  const viewerProfileId = typeof whoami.data?.profile === "object" && whoami.data?.profile && 'id' in (whoami.data.profile as any) ? String((whoami.data.profile as any).id ?? "") : null;
 
-  if (!id) {
-    return (
-      <View style={{ flex: 1, padding: 24, gap: 12, justifyContent: "center" }}>
-        <Text style={{ fontSize: 18, fontWeight: "800" }}>Profilo non valido</Text>
-        <Text style={{ color: theme.colors.muted }}>Questo percorso richiede un UUID valido.</Text>
-        <Pressable
-          onPress={() => router.back()}
-          style={{
-            paddingVertical: 12,
-            paddingHorizontal: 16,
-            borderRadius: 10,
-            borderWidth: 1,
-            borderColor: theme.colors.text,
-            alignSelf: "flex-start",
-          }}
-        >
-          <Text style={{ fontWeight: "700", color: theme.colors.text }}>Indietro</Text>
-        </Pressable>
-      </View>
-    );
-  }
+  const onToggleEndorse = async (skillName: string) => {
+    if (!profile?.id || !viewerProfileId) return;
+    setBusySkill(skillName);
+    const res = await toggleProfileSkillEndorsement(profile.id, skillName);
+    if (res.ok) {
+      setProfile((current) => {
+        if (!current) return current;
+        const next = buildProfileSkillItems(current.skills, current.skill_endorsements).map((item) => item.name === skillName ? { ...item, endorsedByMe: !item.endorsedByMe, endorsementsCount: res.data?.endorsementsCount ?? Math.max(0, item.endorsementsCount + (item.endorsedByMe ? -1 : 1)) } : item);
+        return { ...current, skill_endorsements: next.map((item) => ({ name: item.name, endorsementsCount: item.endorsementsCount, endorsedByMe: item.endorsedByMe })) };
+      });
+    }
+    setBusySkill(null);
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <ScrollView
-        style={{ flex: 1, backgroundColor: theme.colors.background }}
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingTop: 8,
-          gap: 16,
-          paddingBottom: 16,
-        }}
-        scrollIndicatorInsets={{ bottom: 16 + (insets.bottom || 0) }}
-      >
-
-      <View
-        style={{
-          borderWidth: 1,
-          borderColor: theme.colors.neutral200,
-          borderRadius: 12,
-          backgroundColor: theme.colors.neutral50,
-          padding: 16,
-          gap: 14,
-        }}
-      >
-        <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-          {avatarUrl ? (
-            <Image
-              source={{ uri: avatarUrl }}
-              style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: theme.colors.neutral200 }}
-            />
-          ) : (
-            <View
-              style={{
-                width: 64,
-                height: 64,
-                borderRadius: 32,
-                backgroundColor: theme.colors.neutral200,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Text style={{ fontWeight: "800", color: theme.colors.muted, fontSize: 20 }}>
-                {displayName.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
-
-          <View style={{ flex: 1, gap: 8 }}>
-            <Text style={{ fontSize: 24, fontWeight: "900", color: theme.colors.text }}>{displayName}</Text>
-            <View
-              style={{
-                alignSelf: "flex-start",
-                borderRadius: 999,
-                backgroundColor: theme.colors.neutral200,
-                paddingVertical: 4,
-                paddingHorizontal: 10,
-              }}
-            >
-              <Text style={{ fontSize: 12, fontWeight: "700", color: theme.colors.text }}>Player</Text>
-            </View>
-            <Text style={{ color: theme.colors.muted }}>{sportRole}</Text>
-          </View>
+      <ScrollView style={{ flex: 1, backgroundColor: theme.colors.background }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, gap: 16, paddingBottom: 16 }} scrollIndicatorInsets={{ bottom: 16 + (insets.bottom || 0) }}>
+        <ProfileHeaderCard profileId={id} viewerProfileId={viewerProfileId} displayName={displayName} badgeLabel="Giocatore" subtitle={sportRole} location={interestLocation} avatarLetter={displayName.charAt(0).toUpperCase()} avatarUrl={getTextValue(profile?.avatar_url)} />
+        <View style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, backgroundColor: theme.colors.background, padding: 16, gap: 12 }}>
+          <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Dati player</Text>
+          {[{ label: "Nazionalità", value: [iso2ToFlagEmoji(getTextValue(profile?.country)), getTextValue(profile?.country)].filter(Boolean).join(" ") || "—" }, { label: "Età", value: getNumberValue(profile?.birth_year) ? String(new Date().getFullYear() - Number(profile?.birth_year)) : "—" }, { label: "Piede", value: getTextValue(profile?.foot) || "—" }, { label: "Altezza", value: getNumberValue(profile?.height_cm) ? `${profile?.height_cm} cm` : "—" }, { label: "Peso", value: getNumberValue(profile?.weight_kg) ? `${profile?.weight_kg} kg` : "—" }].map((item) => <View key={item.label}><Text style={{ fontSize: 12, color: theme.colors.muted }}>{item.label}</Text><Text style={{ fontSize: 15, fontWeight: "700", color: theme.colors.text }}>{item.value}</Text></View>)}
         </View>
-
-        <FollowButton targetProfileId={id} />
-      </View>
-
-      <View
-        style={{
-          borderWidth: 1,
-          borderColor: theme.colors.neutral200,
-          borderRadius: 12,
-          backgroundColor: theme.colors.neutral50,
-          padding: 16,
-          gap: 12,
-        }}
-      >
-        <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Dati player</Text>
-
-        <View style={{ flexDirection: "row", flexWrap: "wrap", rowGap: 14, columnGap: 12 }}>
-          {[
-            { label: "Età", value: age },
-            { label: "Altezza", value: height },
-            { label: "Peso", value: weight },
-            { label: "Piede", value: foot },
-            { label: "Sport", value: sport || "—" },
-            { label: "Ruolo", value: role || "—" },
-            { label: "Nazionalità", value: nationality },
-            { label: "Zona di interesse", value: interestLocation },
-          ].map((item) => (
-            <View key={item.label} style={{ width: "48%", gap: 4 }}>
-              <Text style={{ fontSize: 12, color: theme.colors.muted }}>{item.label}</Text>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: theme.colors.text }}>{item.value}</Text>
-            </View>
-          ))}
+        <View style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, backgroundColor: theme.colors.background, padding: 16, gap: 10 }}><Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Biografia</Text><Text style={{ color: theme.colors.text, lineHeight: 22 }}>{biography}</Text></View>
+        <ProfileSocialLinksSection links={links} />
+        <ProfileSkillsSection items={skills} canEndorse={Boolean(viewerProfileId && viewerProfileId !== id)} onToggleEndorse={onToggleEndorse} busySkill={busySkill} />
+        <View style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, backgroundColor: theme.colors.background, padding: 16, gap: 12 }}>
+          <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Bacheca</Text>
+          {postsLoading ? <ActivityIndicator /> : posts.length === 0 ? <Text style={{ color: theme.colors.muted }}>Nessun post pubblicato</Text> : posts.map((post) => <FeedCard key={post.id} item={post} />)}
         </View>
-      </View>
-
-      <View
-        style={{
-          borderWidth: 1,
-          borderColor: theme.colors.neutral200,
-          borderRadius: 12,
-          backgroundColor: theme.colors.neutral50,
-          padding: 16,
-          gap: 8,
-        }}
-      >
-        <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Biografia</Text>
-        <Text style={{ color: theme.colors.text, lineHeight: 22 }}>{biography}</Text>
-      </View>
-
-      <View
-        style={{
-          borderWidth: 1,
-          borderColor: theme.colors.neutral200,
-          borderRadius: 12,
-          backgroundColor: theme.colors.neutral50,
-          padding: 16,
-          gap: 10,
-        }}
-      >
-        <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Bacheca</Text>
-
-        {postsLoading ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <ActivityIndicator size="small" />
-            <Text style={{ color: theme.colors.muted }}>Carico post…</Text>
-          </View>
-        ) : null}
-
-        {!postsLoading && posts.length === 0 ? (
-          <Text style={{ color: theme.colors.muted }}>Nessun post pubblicato</Text>
-        ) : null}
-
-        {!postsLoading && posts.length > 0
-          ? posts.map((post) => {
-              return <FeedCard key={post.id} item={post} />;
-            })
-          : null}
-      </View>
-
-      {loading ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <ActivityIndicator size="small" />
-          <Text style={{ color: theme.colors.muted }}>Carico profilo…</Text>
-        </View>
-      ) : null}
-      <View style={{ height: 16 + (insets.bottom || 0) }} />
       </ScrollView>
     </SafeAreaView>
   );
