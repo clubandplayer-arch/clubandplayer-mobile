@@ -4,6 +4,7 @@ import {
   Alert,
   Pressable,
   ScrollView,
+  Switch,
   Text,
   TextInput,
   View,
@@ -23,6 +24,41 @@ function asNumText(v: unknown) {
   return String(v);
 }
 
+function formatLinksText(value: unknown) {
+  if (!Array.isArray(value)) return "";
+
+  return value
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (item && typeof item === "object") {
+        const record = item as { label?: unknown; url?: unknown };
+        const label = typeof record.label === "string" ? record.label.trim() : "";
+        const url = typeof record.url === "string" ? record.url.trim() : "";
+        if (label && url) return `${label}: ${url}`;
+        return url || label;
+      }
+      return "";
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+function parseLinksText(value: string) {
+  const rows = value
+    .split(/\n+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 10);
+
+  return rows.map((row) => {
+    const match = row.match(/^([^:]+):\s*(https?:\/\/.*)$/i);
+    if (match) {
+      return { label: match[1].trim(), url: match[2].trim() };
+    }
+    return { label: "Social", url: row };
+  });
+}
+
 export default function ClubProfileScreen() {
   const router = useRouter();
   const web = useWebSession();
@@ -40,6 +76,8 @@ export default function ClubProfileScreen() {
   const [clubStadium, setClubStadium] = useState("");
   const [clubStadiumAddress, setClubStadiumAddress] = useState("");
   const [bio, setBio] = useState("");
+  const [links, setLinks] = useState("");
+  const [notifyEmail, setNotifyEmail] = useState(false);
 
   const [residence, setResidence] = useState({
     region_id: null as number | null,
@@ -50,16 +88,7 @@ export default function ClubProfileScreen() {
     city_label: null as string | null,
   });
 
-  const [interest, setInterest] = useState({
-    region_id: null as number | null,
-    province_id: null as number | null,
-    municipality_id: null as number | null,
-    region_label: null as string | null,
-    province_label: null as string | null,
-    city_label: null as string | null,
-  });
 
-  const [interestCountry, setInterestCountry] = useState("IT");
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -89,7 +118,8 @@ export default function ClubProfileScreen() {
     setClubStadium(asText(data.club_stadium));
     setClubStadiumAddress(asText(data.club_stadium_address));
     setBio(asText(data.bio));
-    setInterestCountry(asText(data.interest_country || "IT") || "IT");
+    setLinks(formatLinksText(data.links));
+    setNotifyEmail(Boolean(data.notify_email_new_message));
 
     setResidence({
       region_id: data.residence_region_id ?? null,
@@ -100,14 +130,6 @@ export default function ClubProfileScreen() {
       city_label: data.city ?? null,
     });
 
-    setInterest({
-      region_id: data.interest_region_id ?? null,
-      province_id: data.interest_province_id ?? null,
-      municipality_id: data.interest_municipality_id ?? null,
-      region_label: data.interest_region ?? null,
-      province_label: data.interest_province ?? null,
-      city_label: data.interest_city ?? null,
-    });
 
     setLoading(false);
   }, [router]);
@@ -130,13 +152,6 @@ export default function ClubProfileScreen() {
       residence_region_id: residence.region_id,
       residence_province_id: residence.province_id,
       residence_municipality_id: residence.municipality_id,
-      interest_country: interestCountry,
-      interest_region_id: interest.region_id,
-      interest_province_id: interest.province_id,
-      interest_municipality_id: interest.municipality_id,
-      interest_region: interest.region_label,
-      interest_province: interest.province_label,
-      interest_city: interest.city_label,
       club_motto: clubMotto,
       sport,
       club_league_category: clubLeagueCategory,
@@ -144,6 +159,8 @@ export default function ClubProfileScreen() {
       club_stadium: clubStadium,
       club_stadium_address: clubStadiumAddress,
       bio,
+      links: JSON.stringify(parseLinksText(links)),
+      notify_email_new_message: notifyEmail,
     });
     setSaving(false);
     if (!response.ok) {
@@ -163,14 +180,9 @@ export default function ClubProfileScreen() {
     clubStadiumAddress,
     country,
     fullName,
-    interest.city_label,
-    interest.municipality_id,
-    interest.province_id,
-    interest.province_label,
-    interest.region_id,
-    interest.region_label,
-    interestCountry,
+    links,
     loadProfile,
+    notifyEmail,
     residence.city_label,
     residence.municipality_id,
     residence.province_id,
@@ -211,7 +223,15 @@ export default function ClubProfileScreen() {
 
       <LocationFields mode="club" title="Sede club" values={residence} onChange={setResidence} />
 
-      <LocationFields mode="club" title="Area di interesse" values={interest} onChange={setInterest} />
+      <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
+        <Text style={{ fontSize: 16, fontWeight: "700" }}>Profili social</Text>
+        <Text style={{ color: theme.colors.muted, fontSize: 13 }}>Inserisci un profilo per riga. Puoi usare anche il formato `Label: https://...`.</Text>
+        <TextInput placeholder="Sito ufficiale: https://..." value={links} onChangeText={setLinks} multiline autoCapitalize="none" autoCorrect={false} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10, minHeight: 96, textAlignVertical: "top" }} />
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <Text style={{ fontWeight: "600" }}>Notifiche email nuovi messaggi</Text>
+          <Switch value={notifyEmail} onValueChange={setNotifyEmail} />
+        </View>
+      </View>
 
       <Pressable disabled={disabled} onPress={() => void onSave()} style={{ backgroundColor: disabled ? theme.colors.muted : theme.colors.text, borderRadius: 10, paddingVertical: 12, alignItems: "center" }}>
         <Text style={{ color: theme.colors.background, fontWeight: "700" }}>{saving ? "Salvo..." : "Salva"}</Text>

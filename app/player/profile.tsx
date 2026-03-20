@@ -4,6 +4,7 @@ import {
   Alert,
   Pressable,
   ScrollView,
+  Switch,
   Text,
   TextInput,
   View,
@@ -21,6 +22,41 @@ function asText(v: unknown) {
 function asNumText(v: unknown) {
   if (v === null || v === undefined) return "";
   return String(v);
+}
+
+function formatLinksText(value: unknown) {
+  if (!Array.isArray(value)) return "";
+
+  return value
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (item && typeof item === "object") {
+        const record = item as { label?: unknown; url?: unknown };
+        const label = typeof record.label === "string" ? record.label.trim() : "";
+        const url = typeof record.url === "string" ? record.url.trim() : "";
+        if (label && url) return `${label}: ${url}`;
+        return url || label;
+      }
+      return "";
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+function parseLinksText(value: string) {
+  const rows = value
+    .split(/\n+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 10);
+
+  return rows.map((row) => {
+    const match = row.match(/^([^:]+):\s*(https?:\/\/.*)$/i);
+    if (match) {
+      return { label: match[1].trim(), url: match[2].trim() };
+    }
+    return { label: "Social", url: row };
+  });
 }
 
 export default function PlayerProfileScreen() {
@@ -41,6 +77,8 @@ export default function PlayerProfileScreen() {
   const [heightCm, setHeightCm] = useState("");
   const [weightKg, setWeightKg] = useState("");
   const [skills, setSkills] = useState("");
+  const [links, setLinks] = useState("");
+  const [notifyEmail, setNotifyEmail] = useState(false);
   const [interestCountry, setInterestCountry] = useState("IT");
   const [interest, setInterest] = useState({
     region_id: null as number | null,
@@ -80,6 +118,8 @@ export default function PlayerProfileScreen() {
     setHeightCm(asNumText(data.height_cm));
     setWeightKg(asNumText(data.weight_kg));
     setSkills(Array.isArray(data.skills) ? data.skills.join(", ") : asText(data.skills));
+    setLinks(formatLinksText(data.links));
+    setNotifyEmail(Boolean(data.notify_email_new_message));
     setInterestCountry(asText(data.interest_country || "IT") || "IT");
     setInterest({
       region_id: data.interest_region_id ?? null,
@@ -112,6 +152,8 @@ export default function PlayerProfileScreen() {
       height_cm: heightCm,
       weight_kg: weightKg,
       skills,
+      links: JSON.stringify(parseLinksText(links)),
+      notify_email_new_message: notifyEmail,
       interest_country: interestCountry,
       interest_region_id: interest.region_id,
       interest_province_id: interest.province_id,
@@ -143,7 +185,9 @@ export default function PlayerProfileScreen() {
     interest.region_id,
     interest.region_label,
     interestCountry,
+    links,
     loadProfile,
+    notifyEmail,
     role,
     skills,
     sport,
@@ -184,7 +228,17 @@ export default function PlayerProfileScreen() {
         <TextInput placeholder="Skills (separate da virgola)" value={skills} onChangeText={setSkills} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
       </View>
 
-      <LocationFields mode="player" title="Località di interesse" values={interest} onChange={setInterest} />
+      <LocationFields mode="player" title="Zona di interesse" values={interest} onChange={setInterest} />
+
+      <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
+        <Text style={{ fontSize: 16, fontWeight: "700" }}>Profili social</Text>
+        <Text style={{ color: theme.colors.muted, fontSize: 13 }}>Inserisci un profilo per riga. Puoi usare anche il formato `Label: https://...`.</Text>
+        <TextInput placeholder="Instagram: https://..." value={links} onChangeText={setLinks} multiline autoCapitalize="none" autoCorrect={false} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10, minHeight: 96, textAlignVertical: "top" }} />
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <Text style={{ fontWeight: "600" }}>Notifiche email nuovi messaggi</Text>
+          <Switch value={notifyEmail} onValueChange={setNotifyEmail} />
+        </View>
+      </View>
 
       <Pressable disabled={disabled} onPress={() => void onSave()} style={{ backgroundColor: disabled ? theme.colors.muted : theme.colors.text, borderRadius: 10, paddingVertical: 12, alignItems: "center" }}>
         <Text style={{ color: theme.colors.background, fontWeight: "700" }}>{saving ? "Salvo..." : "Salva"}</Text>
