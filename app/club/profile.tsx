@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AvatarUploader } from "../../components/profiles/AvatarUploader";
 import { LocationFields } from "../../components/profiles/LocationFields";
@@ -309,13 +310,15 @@ export default function ClubProfileScreen() {
 
   const disabled = useMemo(() => saving || loading || !web.ready, [loading, saving, web.ready]);
 
+  const canGoBack = router.canGoBack();
+
   const handleHeaderBack = useCallback(() => {
-    if (router.canGoBack()) {
+    if (canGoBack) {
       router.back();
       return;
     }
     router.replace("/(tabs)/feed");
-  }, [router]);
+  }, [canGoBack, router]);
 
   if (web.loading || loading) {
     return (
@@ -330,11 +333,13 @@ export default function ClubProfileScreen() {
       <Stack.Screen
         options={{
           title: "Profilo Club",
-          headerLeft: () => (
-            <Pressable onPress={handleHeaderBack} hitSlop={12} style={{ paddingHorizontal: 4, paddingVertical: 4 }}>
-              <Text style={{ fontSize: 28, lineHeight: 28, color: theme.colors.primary }}>‹</Text>
-            </Pressable>
-          ),
+          headerLeft: canGoBack
+            ? undefined
+            : () => (
+                <Pressable onPress={handleHeaderBack} hitSlop={12} style={{ marginLeft: 2, paddingHorizontal: 2, paddingVertical: 2 }}>
+                  <Ionicons name="chevron-back" size={28} color={theme.colors.primary} />
+                </Pressable>
+              ),
         }}
       />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 24, gap: 12, paddingBottom: 48, paddingTop: 12 }} style={{ backgroundColor: theme.colors.background }}>
