@@ -2,11 +2,20 @@ import { Stack, usePathname, useRouter, useSegments } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useFonts } from "expo-font";
-import type { Session } from "@supabase/supabase-js";
+import { AuthApiError, type Session } from "@supabase/supabase-js";
 import { CrashBoundary } from "../src/components/CrashBoundary";
 import { supabase } from "../src/lib/supabase";
 import { getOnboardingSeen, subscribeOnboardingSeen } from "../src/lib/onboarding";
 import { theme } from "../src/theme";
+
+
+function isInvalidRefreshTokenError(error: unknown) {
+  if (error instanceof AuthApiError) {
+    return error.message.toLowerCase().includes("invalid refresh token");
+  }
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return message.toLowerCase().includes("invalid refresh token");
+}
 
 function LoadingScreen() {
   return (
@@ -34,11 +43,24 @@ export default function RootLayout() {
     let mounted = true;
 
     const init = async () => {
-      const [{ data }, seen] = await Promise.all([supabase.auth.getSession(), getOnboardingSeen()]);
-      if (!mounted) return;
-      setSession(data.session ?? null);
-      setOnboardingSeen(seen);
-      setBootstrapped(true);
+      try {
+        const [{ data }, seen] = await Promise.all([supabase.auth.getSession(), getOnboardingSeen()]);
+        if (!mounted) return;
+        setSession(data.session ?? null);
+        setOnboardingSeen(seen);
+        setBootstrapped(true);
+      } catch (error) {
+        if (isInvalidRefreshTokenError(error)) {
+          await supabase.auth.signOut({ scope: "local" });
+          const seen = await getOnboardingSeen();
+          if (!mounted) return;
+          setSession(null);
+          setOnboardingSeen(seen);
+          setBootstrapped(true);
+          return;
+        }
+        throw error;
+      }
     };
 
     void init();
@@ -118,6 +140,7 @@ export default function RootLayout() {
           headerStyle: { backgroundColor: theme.colors.background },
         }}
       >
+                <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
