@@ -2,12 +2,11 @@ import { useMemo, useEffect, useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
-import FollowButton from "../../src/components/follow/FollowButton";
 import { isUuid, useWebSession, useWhoami } from "../../src/lib/api";
 import { getFeedPosts, type FeedPost } from "../../src/lib/feed/getFeedPosts";
 import FeedCard from "../../src/components/feed/FeedCard";
-import { iso2ToFlagEmoji } from "../../src/lib/geo/countryFlag";
 import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
+import PublicProfileHeader, { type PublicProfileLinks } from "../../src/components/profiles/PublicProfileHeader";
 import { theme } from "../../src/theme";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -33,6 +32,11 @@ type ProfileRow = {
   address?: string | null;
   club_stadium?: string | null;
   club_stadium_address?: string | null;
+  region?: string | null;
+  province?: string | null;
+  links?: PublicProfileLinks | unknown;
+  club_motto?: string | null;
+  club_foundation_year?: number | null;
   is_certified?: boolean | null;
   certified?: boolean | null;
   certification?: string | boolean | null;
@@ -78,6 +82,28 @@ const getTextValue = (value: unknown): string | null => {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
 };
+
+
+function getNumberValue(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function getLinks(value: unknown): PublicProfileLinks {
+  if (!value || typeof value !== "object") return null;
+  const obj = value as Record<string, unknown>;
+  const pick = (key: "instagram" | "facebook" | "tiktok" | "x") => {
+    const raw = obj[key];
+    return typeof raw === "string" && raw.trim().length > 0 ? raw.trim() : null;
+  };
+
+  const links = { instagram: pick("instagram"), facebook: pick("facebook"), tiktok: pick("tiktok"), x: pick("x") };
+  return Object.values(links).some(Boolean) ? links : null;
+}
 
 export default function ClubProfileScreen() {
   const router = useRouter();
@@ -292,9 +318,10 @@ export default function ClubProfileScreen() {
     getTextValue(profile?.category) ||
     getTextValue(profile?.level);
   const city = getTextValue(profile?.city);
+  const province = getTextValue(profile?.province);
+  const region = getTextValue(profile?.region);
   const clubCountry = getTextValue(profile?.club_country) || getTextValue(profile?.country);
-  const clubCountryFlag = iso2ToFlagEmoji(clubCountry);
-  const location = [clubCountryFlag, clubCountry, city].filter(Boolean).join(" / ") || "—";
+  const location = [city, province, region, clubCountry].filter(Boolean).join(" • ") || "—";
   const stadium = getTextValue(profile?.club_stadium);
   const stadiumAddress = getTextValue(profile?.club_stadium_address);
   const facility = [stadium, stadiumAddress].filter(Boolean).join(" • ") || "—";
@@ -342,80 +369,28 @@ export default function ClubProfileScreen() {
         scrollIndicatorInsets={{ bottom: 16 + (insets.bottom || 0) }}
       >
 
-      <View
-        style={{
-          borderWidth: 1,
-          borderColor: theme.colors.neutral200,
-          borderRadius: 12,
-          backgroundColor: theme.colors.neutral50,
-          padding: 16,
-          gap: 14,
-        }}
-      >
-        <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-          {avatarUrl ? (
-            <Image
-              source={{ uri: avatarUrl }}
-              style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: theme.colors.neutral200 }}
-            />
-          ) : (
-            <View
-              style={{
-                width: 64,
-                height: 64,
-                borderRadius: 32,
-                backgroundColor: theme.colors.neutral200,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Text style={{ fontWeight: "800", color: theme.colors.muted, fontSize: 20 }}>
-                {displayName.charAt(0).toUpperCase()}
+      <PublicProfileHeader
+        profileId={id}
+        displayName={displayName}
+        accountType="club"
+        avatarUrl={avatarUrl}
+        subtitle={[category, sport].filter(Boolean).join(" • ") || "—"}
+        locationContent={
+          <View style={{ gap: 4 }}>
+            <Text style={{ color: location !== "—" ? theme.colors.muted : "#9ca3af", fontSize: 12 }}>{location !== "—" ? location : "Località —"}</Text>
+            {getTextValue(profile?.club_motto) ? (
+              <Text style={{ color: theme.colors.text, fontStyle: "italic" }}>“{getTextValue(profile?.club_motto)}”</Text>
+            ) : null}
+            {getNumberValue(profile?.club_foundation_year) ? (
+              <Text style={{ color: theme.colors.muted, fontSize: 12, fontWeight: "600" }}>
+                Anno di fondazione: {getNumberValue(profile?.club_foundation_year)}
               </Text>
-            </View>
-          )}
-
-          <View style={{ flex: 1, gap: 8 }}>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-              <Text style={{ fontSize: 24, fontWeight: "900", color: theme.colors.text, flexShrink: 1 }}>
-                {displayName}
-              </Text>
-              {isCertified ? (
-                <View
-                  style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: 11,
-                    backgroundColor: theme.colors.primary,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Text style={{ color: "white", fontWeight: "800", fontSize: 12 }}>C</Text>
-                </View>
-              ) : null}
-              <View
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                  borderRadius: 999,
-                  backgroundColor: theme.colors.neutral200,
-                }}
-              >
-                <Text style={{ color: theme.colors.text, fontSize: 12, fontWeight: "700" }}>Club</Text>
-              </View>
-            </View>
-            <Text style={{ color: theme.colors.muted }}>
-              {[category, sport].filter(Boolean).join(" • ") || "—"}
-            </Text>
-            <Text style={{ color: theme.colors.muted }}>{location}</Text>
+            ) : null}
           </View>
-        </View>
-
-        <View style={{ alignSelf: "flex-start" }}>
-          <FollowButton targetProfileId={id} />
-        </View>
-      </View>
+        }
+        socialLinks={getLinks(profile?.links)}
+        isVerified={isCertified}
+      />
 
       <View
         style={{

@@ -1,13 +1,13 @@
 import { useMemo, useEffect, useState } from "react";
-import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
-import FollowButton from "../../src/components/follow/FollowButton";
 import { isUuid, useWebSession, useWhoami } from "../../src/lib/api";
 import { getFeedPosts, type FeedPost } from "../../src/lib/feed/getFeedPosts";
 import FeedCard from "../../src/components/feed/FeedCard";
-import { iso2ToFlagEmoji } from "../../src/lib/geo/countryFlag";
 import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
+import PublicProfileHeader, { type PublicProfileLinks } from "../../src/components/profiles/PublicProfileHeader";
+import { resolveItalianLocationLabels } from "../../src/lib/geo/location";
 import { theme } from "../../src/theme";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -18,7 +18,6 @@ type ProfileRow = {
   avatar_url?: string | null;
   sport?: string | null;
   role?: string | null;
-  country?: string | null;
   birth_year?: number | null;
   height_cm?: number | null;
   weight_kg?: number | null;
@@ -27,6 +26,14 @@ type ProfileRow = {
   interest_province?: string | null;
   interest_region?: string | null;
   interest_country?: string | null;
+  interest_region_id?: number | null;
+  interest_province_id?: number | null;
+  interest_municipality_id?: number | null;
+  country?: string | null;
+  region?: string | null;
+  province?: string | null;
+  city?: string | null;
+  links?: PublicProfileLinks | unknown;
   bio?: string | null;
   [key: string]: unknown;
 };
@@ -45,6 +52,25 @@ const getNumberValue = (value: unknown): number | null => {
   }
   return null;
 };
+
+
+function getLinks(value: unknown): PublicProfileLinks {
+  if (!value || typeof value !== "object") return null;
+  const obj = value as Record<string, unknown>;
+  const pick = (key: "instagram" | "facebook" | "tiktok" | "x") => {
+    const raw = obj[key];
+    return typeof raw === "string" && raw.trim().length > 0 ? raw.trim() : null;
+  };
+
+  const links = {
+    instagram: pick("instagram"),
+    facebook: pick("facebook"),
+    tiktok: pick("tiktok"),
+    x: pick("x"),
+  };
+
+  return Object.values(links).some(Boolean) ? links : null;
+}
 
 export default function PlayerProfileScreen() {
   const router = useRouter();
@@ -65,6 +91,7 @@ export default function PlayerProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
+  const [resolvedLocation, setResolvedLocation] = useState<{ country: string | null; region: string | null; province: string | null; city: string | null } | null>(null);
   const isLoading = loading || web.loading || whoami.loading;
 
   useEffect(() => {
@@ -73,6 +100,7 @@ export default function PlayerProfileScreen() {
     const load = async () => {
       if (!id) {
         setProfile(null);
+        setResolvedLocation(null);
         setLoading(false);
         return;
       }
@@ -81,7 +109,45 @@ export default function PlayerProfileScreen() {
       const res = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
 
       if (!mounted) return;
-      setProfile(res.data ? (res.data as ProfileRow) : null);
+
+      const nextProfile = res.data ? (res.data as ProfileRow) : null;
+      setProfile(nextProfile);
+
+      if (!nextProfile) {
+        setResolvedLocation(null);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const labels = await resolveItalianLocationLabels({
+          country: getTextValue(nextProfile.interest_country) ?? getTextValue(nextProfile.country),
+          regionId: getNumberValue(nextProfile.interest_region_id),
+          provinceId: getNumberValue(nextProfile.interest_province_id),
+          municipalityId: getNumberValue(nextProfile.interest_municipality_id),
+          regionLabel: getTextValue(nextProfile.interest_region) ?? getTextValue(nextProfile.region),
+          provinceLabel: getTextValue(nextProfile.interest_province) ?? getTextValue(nextProfile.province),
+          cityLabel: getTextValue(nextProfile.interest_city) ?? getTextValue(nextProfile.city),
+        });
+
+        if (!mounted) return;
+
+        setResolvedLocation({
+          country: getTextValue(nextProfile.interest_country) ?? getTextValue(nextProfile.country),
+          region: labels.region ?? getTextValue(nextProfile.interest_region) ?? getTextValue(nextProfile.region),
+          province: labels.province ?? getTextValue(nextProfile.interest_province) ?? getTextValue(nextProfile.province),
+          city: labels.city ?? getTextValue(nextProfile.interest_city) ?? getTextValue(nextProfile.city),
+        });
+      } catch {
+        if (!mounted) return;
+        setResolvedLocation({
+          country: getTextValue(nextProfile.interest_country) ?? getTextValue(nextProfile.country),
+          region: getTextValue(nextProfile.interest_region) ?? getTextValue(nextProfile.region),
+          province: getTextValue(nextProfile.interest_province) ?? getTextValue(nextProfile.province),
+          city: getTextValue(nextProfile.interest_city) ?? getTextValue(nextProfile.city),
+        });
+      }
+
       setLoading(false);
     };
 
@@ -146,9 +212,8 @@ export default function PlayerProfileScreen() {
   const role = getTextValue(profile?.role);
   const sportRole = [sport, role].filter(Boolean).join(" • ") || "—";
 
-  const countryCode = getTextValue(profile?.country);
-  const nationalityFlag = iso2ToFlagEmoji(countryCode);
-  const nationality = [nationalityFlag, countryCode].filter(Boolean).join(" ") || "—";
+  const countryCode = getTextValue(resolvedLocation?.country) ?? getTextValue(profile?.interest_country) ?? getTextValue(profile?.country);
+  const nationality = countryCode || "—";
   const birthYear = getNumberValue(profile?.birth_year);
   const currentYear = new Date().getFullYear();
   const age = birthYear ? String(currentYear - birthYear) : "—";
@@ -160,15 +225,10 @@ export default function PlayerProfileScreen() {
   const foot = getTextValue(profile?.foot) || "—";
 
   const interestParts = [
-    getTextValue(profile?.interest_city),
-    getTextValue(profile?.interest_province),
-    getTextValue(profile?.interest_region),
-    [
-      iso2ToFlagEmoji(getTextValue(profile?.interest_country)),
-      getTextValue(profile?.interest_country),
-    ]
-      .filter(Boolean)
-      .join(" "),
+    getTextValue(resolvedLocation?.city) ?? getTextValue(profile?.interest_city) ?? getTextValue(profile?.city),
+    getTextValue(resolvedLocation?.province) ?? getTextValue(profile?.interest_province) ?? getTextValue(profile?.province),
+    getTextValue(resolvedLocation?.region) ?? getTextValue(profile?.interest_region) ?? getTextValue(profile?.region),
+    getTextValue(resolvedLocation?.country) ?? getTextValue(profile?.interest_country) ?? getTextValue(profile?.country),
   ].filter(Boolean) as string[];
   const interestLocation = interestParts.join(" • ") || "—";
 
@@ -209,58 +269,15 @@ export default function PlayerProfileScreen() {
         scrollIndicatorInsets={{ bottom: 16 + (insets.bottom || 0) }}
       >
 
-      <View
-        style={{
-          borderWidth: 1,
-          borderColor: theme.colors.neutral200,
-          borderRadius: 12,
-          backgroundColor: theme.colors.neutral50,
-          padding: 16,
-          gap: 14,
-        }}
-      >
-        <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-          {avatarUrl ? (
-            <Image
-              source={{ uri: avatarUrl }}
-              style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: theme.colors.neutral200 }}
-            />
-          ) : (
-            <View
-              style={{
-                width: 64,
-                height: 64,
-                borderRadius: 32,
-                backgroundColor: theme.colors.neutral200,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Text style={{ fontWeight: "800", color: theme.colors.muted, fontSize: 20 }}>
-                {displayName.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
-
-          <View style={{ flex: 1, gap: 8 }}>
-            <Text style={{ fontSize: 24, fontWeight: "900", color: theme.colors.text }}>{displayName}</Text>
-            <View
-              style={{
-                alignSelf: "flex-start",
-                borderRadius: 999,
-                backgroundColor: theme.colors.neutral200,
-                paddingVertical: 4,
-                paddingHorizontal: 10,
-              }}
-            >
-              <Text style={{ fontSize: 12, fontWeight: "700", color: theme.colors.text }}>Player</Text>
-            </View>
-            <Text style={{ color: theme.colors.muted }}>{sportRole}</Text>
-          </View>
-        </View>
-
-        <FollowButton targetProfileId={id} />
-      </View>
+      <PublicProfileHeader
+        profileId={id}
+        displayName={displayName}
+        accountType="player"
+        avatarUrl={avatarUrl}
+        subtitle={sportRole}
+        locationLabel={interestLocation}
+        socialLinks={getLinks(profile?.links)}
+      />
 
       <View
         style={{
