@@ -11,8 +11,8 @@ import {
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 
-import { fetchDirectMessageThreads } from "../../../src/lib/api";
-import { on } from "../../../src/lib/events/appEvents";
+import { fetchDirectMessageThreads, postDirectMessageMarkRead } from "../../../src/lib/api";
+import { emit, on } from "../../../src/lib/events/appEvents";
 import type { DirectThreadSummary } from "../../../src/types/directMessages";
 import { theme } from "../../../src/theme";
 import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
@@ -138,7 +138,29 @@ export default function MessagesInboxScreen() {
       const displayName = getProfileDisplayName({ full_name: item.otherFullName, display_name: item.otherDisplayName });
       return (
         <Pressable
-          onPress={() => router.push(`/messages/${encodeURIComponent(item.otherProfileId)}` as never)}
+          onPress={() => {
+            setThreads((prev) =>
+              prev.map((thread) =>
+                thread.otherProfileId === item.otherProfileId
+                  ? {
+                      ...thread,
+                      hasUnread: false,
+                    }
+                  : thread,
+              ),
+            );
+
+            void (async () => {
+              const markReadResponse = await postDirectMessageMarkRead(item.otherProfileId);
+              if (markReadResponse.ok) {
+                emit("app:direct-messages-updated");
+              } else {
+                await load();
+              }
+            })();
+
+            router.push(`/messages/${encodeURIComponent(item.otherProfileId)}` as never);
+          }}
           style={{
             paddingHorizontal: 16,
             paddingVertical: 12,
@@ -176,7 +198,7 @@ export default function MessagesInboxScreen() {
         </Pressable>
       );
     },
-    [router],
+    [load, router],
   );
 
   const header = useMemo(

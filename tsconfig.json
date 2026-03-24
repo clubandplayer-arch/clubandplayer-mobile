@@ -6,10 +6,19 @@
     "target": "es2017"
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx"
+    "App.tsx",
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "components/**/*.ts",
+    "components/**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "index.ts",
+    "app.config.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "web",
+    "web/**"
   ]
 }

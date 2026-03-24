@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { fetchNotifications } from "./api";
+import { on } from "./events/appEvents";
 import { setNotificationsBadgeCount } from "./notificationsBadge";
 import { isNotificationLocallyRead } from "./notificationsLocalRead";
 
@@ -31,11 +32,21 @@ export function useNotificationsUnreadPoller(options?: { enabled?: boolean }) {
       timer = setTimeout(tick, 45_000); // parity web: 45s
     }
 
+    function handleNotificationsUpdated() {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      void tick();
+    }
+
     void tick();
+    const unsubscribe = on("app:notifications-updated", handleNotificationsUpdated);
 
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
+      unsubscribe();
     };
   }, [enabled]);
 }
