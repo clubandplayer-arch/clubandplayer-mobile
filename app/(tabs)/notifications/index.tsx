@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react
 import { useFocusEffect } from "@react-navigation/native";
 
 import { fetchNotifications, patchNotificationsMarkRead } from "../../../src/lib/api";
+import { emit } from "../../../src/lib/events/appEvents";
 import { setNotificationsBadgeCount } from "../../../src/lib/notificationsBadge";
 import {
   isNotificationLocallyRead,
@@ -311,6 +312,7 @@ export default function NotificationsScreen() {
 
     setNotifications(mergedItems);
     setNotificationsBadgeCount(countUnreadNotifications(mergedItems));
+    emit("app:notifications-updated");
     setLoading(false);
   }, []);
 
@@ -330,6 +332,7 @@ export default function NotificationsScreen() {
       return false;
     }
 
+    emit("app:notifications-updated");
     // keep local read mark until a subsequent fetch confirms read state
     return true;
   }, []);
@@ -351,6 +354,7 @@ export default function NotificationsScreen() {
       });
 
       setNotificationsBadgeCount(countUnreadNotifications(next));
+      emit("app:notifications-updated");
       return next;
     });
   }, []);
