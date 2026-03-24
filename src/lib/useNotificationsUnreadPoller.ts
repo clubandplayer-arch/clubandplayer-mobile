@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { fetchNotifications } from "./api";
 import { setNotificationsBadgeCount } from "./notificationsBadge";
 import { isNotificationLocallyRead } from "./notificationsLocalRead";
+import { APP_EVENTS, on } from "./events/appEvents";
 
 
 export function useNotificationsUnreadPoller(options?: { enabled?: boolean }) {
@@ -12,8 +13,12 @@ export function useNotificationsUnreadPoller(options?: { enabled?: boolean }) {
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let inFlight = false;
 
-    async function tick() {
+    async function refreshUnreadCount() {
+      if (inFlight) return;
+      inFlight = true;
+
       const res = await fetchNotifications({ unread: true, limit: 100 });
       if (!cancelled && res.ok) {
         const items = res.data?.data ?? [];
@@ -26,15 +31,24 @@ export function useNotificationsUnreadPoller(options?: { enabled?: boolean }) {
 
         setNotificationsBadgeCount(count);
       }
+      inFlight = false;
+    }
+
+    async function tick() {
+      await refreshUnreadCount();
 
       if (cancelled) return;
       timer = setTimeout(tick, 45_000); // parity web: 45s
     }
 
     void tick();
+    const unsubscribe = on(APP_EVENTS.notificationsUpdated, () => {
+      void refreshUnreadCount();
+    });
 
     return () => {
       cancelled = true;
+      unsubscribe();
       if (timer) clearTimeout(timer);
     };
   }, [enabled]);

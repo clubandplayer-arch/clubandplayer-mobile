@@ -1,14 +1,26 @@
 type AppEventHandler<T = unknown> = (payload?: T) => void;
 
 const listeners = new Map<string, Set<AppEventHandler>>();
+const activeEmits = new Set<string>();
+
+export const APP_EVENTS = {
+  notificationsUpdated: "notifications-updated",
+  dmUpdated: "dm-updated",
+} as const;
 
 export function emit<T = unknown>(eventName: string, payload?: T) {
   const handlers = listeners.get(eventName);
   if (!handlers || handlers.size === 0) return;
+  if (activeEmits.has(eventName)) return;
 
-  handlers.forEach((handler) => {
-    handler(payload);
-  });
+  activeEmits.add(eventName);
+  try {
+    handlers.forEach((handler) => {
+      handler(payload);
+    });
+  } finally {
+    activeEmits.delete(eventName);
+  }
 }
 
 export function on<T = unknown>(eventName: string, handler: AppEventHandler<T>) {
