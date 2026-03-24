@@ -28,7 +28,7 @@ import {
 import type { DirectMessage, DirectThreadResponse } from "../../../src/types/directMessages";
 import { theme } from "../../../src/theme";
 import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
-import { emit } from "../../../src/lib/events/appEvents";
+import { APP_EVENTS, emit, on } from "../../../src/lib/events/appEvents";
 
 function resolveProfileId(raw: string | string[] | undefined): string {
   if (Array.isArray(raw)) return raw[0] ?? "";
@@ -74,6 +74,14 @@ export default function DirectMessageThreadScreen() {
   const didMarkThreadReadRef = useRef(false);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const lastDmEventAtRef = useRef(0);
+
+  const emitDmUpdated = useCallback(() => {
+    const now = Date.now();
+    if (now - lastDmEventAtRef.current < 250) return;
+    lastDmEventAtRef.current = now;
+    emit(APP_EVENTS.dmUpdated);
+  }, []);
 
   const scrollToBottom = useCallback((animated = true) => {
     requestAnimationFrame(() => {
@@ -122,8 +130,8 @@ export default function DirectMessageThreadScreen() {
       return;
     }
 
-    emit("app:direct-messages-updated");
-  }, [profileId]);
+    emitDmUpdated();
+  }, [emitDmUpdated, profileId]);
 
   useEffect(() => {
     didMarkThreadReadRef.current = false;
@@ -256,6 +264,13 @@ export default function DirectMessageThreadScreen() {
     return () => sub.remove();
   }, [loadThread]);
 
+  useEffect(() => {
+    const unsubscribe = on(APP_EVENTS.dmUpdated, () => {
+      void loadThread({ silent: true });
+    });
+    return () => unsubscribe();
+  }, [loadThread]);
+
   const sendMessage = useCallback(async () => {
     const content = input.trim();
     if (!content || !profileId) return;
@@ -281,7 +296,7 @@ export default function DirectMessageThreadScreen() {
         };
       });
 
-      emit("app:direct-messages-updated");
+      emitDmUpdated();
       scrollToBottom();
 
       // ✅ riallinea con server (certezze: evita “messaggio non arriva / ordine sbagliato / altri messaggi mancanti”)
@@ -292,7 +307,7 @@ export default function DirectMessageThreadScreen() {
     } finally {
       setSending(false);
     }
-  }, [input, profileId, scrollToBottom, loadThread]);
+  }, [emitDmUpdated, input, profileId, scrollToBottom, loadThread]);
 
   const handleDeleteConversation = useCallback(() => {
     if (!profileId) return;
@@ -310,12 +325,12 @@ export default function DirectMessageThreadScreen() {
           }
 
           setThread((prev) => (prev ? { ...prev, messages: [] } : prev));
-          emit("app:direct-messages-updated");
+          emitDmUpdated();
           router.replace("/messages");
         },
       },
     ]);
-  }, [profileId, router]);
+  }, [emitDmUpdated, profileId, router]);
 
   const peerReady = !!(profileId && peerFromThreads && peerFromThreads.profileId === profileId);
 

@@ -12,7 +12,7 @@ import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { fetchDirectMessageThreads } from "../../../src/lib/api";
-import { on } from "../../../src/lib/events/appEvents";
+import { APP_EVENTS, on } from "../../../src/lib/events/appEvents";
 import type { DirectThreadSummary } from "../../../src/types/directMessages";
 import { theme } from "../../../src/theme";
 import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
@@ -115,7 +115,7 @@ export default function MessagesInboxScreen() {
   );
 
   useEffect(() => {
-    const unsubscribe = on("app:direct-messages-updated", () => {
+    const unsubscribe = on(APP_EVENTS.dmUpdated, () => {
       void load();
     });
 

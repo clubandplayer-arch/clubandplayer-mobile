@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
@@ -13,6 +13,7 @@ import {
 import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
 import { theme } from "../../../src/theme";
 import { useRouter } from "expo-router";
+import { APP_EVENTS, emit, on } from "../../../src/lib/events/appEvents";
 
 type NotificationActor = {
   id?: string;
@@ -368,6 +369,16 @@ export default function NotificationsScreen() {
     }, [load])
   );
 
+  useEffect(() => {
+    const unsubscribe = on(APP_EVENTS.notificationsUpdated, () => {
+      void load();
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [load]);
+
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -431,6 +442,7 @@ export default function NotificationsScreen() {
 
               if (unread) {
                 markAsReadOptimistic(item.id);
+                emit(APP_EVENTS.notificationsUpdated);
                 const ok = await markAsRead(item.id);
                 if (!ok) await load();
               }

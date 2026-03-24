@@ -10,7 +10,7 @@ import { useFonts } from "expo-font";
 import { Righteous_400Regular } from "@expo-google-fonts/righteous";
 
 import { fetchDirectMessagesUnreadCount, clearSession, fetchProfileMe } from "../../src/lib/api";
-import { on } from "../../src/lib/events/appEvents";
+import { APP_EVENTS, on } from "../../src/lib/events/appEvents";
 import { useNotificationsBadgeCount } from "../../src/lib/notificationsBadge";
 import { clearAllLocallyReadNotifications } from "../../src/lib/notificationsLocalRead";
 import { supabase } from "../../src/lib/supabase";
@@ -107,10 +107,14 @@ export default function TabsLayout() {
   useEffect(() => {
     loadMessagesUnreadCount();
     const timer = setInterval(loadMessagesUnreadCount, 45000);
-    const unsubscribeMessages = on("app:direct-messages-updated", loadMessagesUnreadCount);
+    const unsubscribeMessages = on(APP_EVENTS.dmUpdated, loadMessagesUnreadCount);
+    const unsubscribeNotifications = on(APP_EVENTS.notificationsUpdated, () => {
+      void loadMessagesUnreadCount();
+    });
     return () => {
       clearInterval(timer);
       unsubscribeMessages();
+      unsubscribeNotifications();
     };
   }, [loadMessagesUnreadCount]);
 
