@@ -91,6 +91,7 @@ export default function RootLayout() {
     const inCallback = pathname === "/callback";
 
     const allowAuthedOutsideTabs =
+      pathname.startsWith("/mymedia") ||
       pathname.startsWith("/posts/") ||
       pathname.startsWith("/clubs/") ||
       pathname.startsWith("/players/") ||
