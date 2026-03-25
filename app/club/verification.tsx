@@ -146,6 +146,13 @@ export default function ClubVerificationScreen() {
     void loadData();
   }, [loadData, web.ready]);
 
+  useEffect(() => {
+    if (!web.loading && !web.ready) {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [web.loading, web.ready]);
+
   const onRetry = useCallback(() => {
     setLoading(true);
     void loadData();
@@ -178,7 +185,13 @@ export default function ClubVerificationScreen() {
 
     const asset = picked.assets[0];
 
-    if (asset.mimeType !== "application/pdf") {
+    const mimeType = typeof asset.mimeType === "string" ? asset.mimeType.trim().toLowerCase() : "";
+    const fileName = typeof asset.name === "string" ? asset.name.trim().toLowerCase() : "";
+    const uriLower = typeof asset.uri === "string" ? asset.uri.trim().toLowerCase() : "";
+    const hasPdfExtension = fileName.endsWith(".pdf") || uriLower.split("?")[0].endsWith(".pdf");
+    const mimeLooksPdf = mimeType.includes("pdf");
+
+    if (!mimeLooksPdf && !hasPdfExtension) {
       setError("Sono ammessi solo file PDF.");
       return;
     }
@@ -230,7 +243,7 @@ export default function ClubVerificationScreen() {
     void loadData();
   }, [loadData]);
 
-  if (web.loading || loading) {
+  if (web.loading || (web.ready && loading)) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
         <ActivityIndicator />
@@ -244,6 +257,19 @@ export default function ClubVerificationScreen() {
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 20, gap: 10 }}>
         <Text style={{ color: theme.colors.danger, textAlign: "center" }}>{web.error}</Text>
         <Pressable onPress={onRetry} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10 }}>
+          <Text style={{ fontWeight: "700" }}>Riprova</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (!web.ready) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 20, gap: 10 }}>
+        <Text style={{ color: theme.colors.muted, textAlign: "center" }}>
+          Sessione web non disponibile.
+        </Text>
+        <Pressable onPress={() => void web.retry()} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10 }}>
           <Text style={{ fontWeight: "700" }}>Riprova</Text>
         </Pressable>
       </View>
