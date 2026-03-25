@@ -42,6 +42,7 @@ type ProfileRow = {
   certified?: boolean | null;
   certification?: string | boolean | null;
   verified?: boolean | null;
+  is_verified?: boolean | null;
   verified_until?: string | null;
   certification_status?: string | null;
   [key: string]: unknown;
@@ -369,7 +370,11 @@ export default function ClubProfileScreen() {
     account_type: profile?.account_type,
     type: profile?.type,
     role: "club",
-    is_verified: verifiedFromView || profile?.is_certified === true || profile?.verified === true,
+    is_verified:
+      verifiedFromView ||
+      profile?.is_verified === true ||
+      profile?.is_certified === true ||
+      profile?.verified === true,
     certified: profile?.certified,
     verified_until: typeof profile?.verified_until === "string" ? profile.verified_until : null,
     certification_status: typeof profile?.certification_status === "string" ? profile.certification_status : null,

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  NativeModules,
   Pressable,
   ScrollView,
   Text,
@@ -167,15 +168,14 @@ export default function ClubVerificationScreen() {
     setError(null);
     setSuccess(null);
 
-    const documentPicker = await Promise.resolve()
-      .then(() => require("expo-document-picker"))
-      .catch(() => null);
-    if (!documentPicker?.getDocumentAsync) {
+    const hasNativeDocumentPicker = Boolean((NativeModules as any)?.ExpoDocumentPicker);
+    if (!hasNativeDocumentPicker) {
       setError(
         "Modulo selezione documenti non disponibile su questa build. Aggiorna la build nativa o usa Expo Go.",
       );
       return;
     }
+    const documentPicker = require("expo-document-picker") as any;
 
     const picked = await documentPicker.getDocumentAsync({
       type: "application/pdf",
