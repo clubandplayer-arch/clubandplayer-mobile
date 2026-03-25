@@ -17,6 +17,7 @@ import {
   type ClubVerificationPaymentStatus,
   useWebSession,
 } from "../../src/lib/api";
+import { Stack } from "expo-router";
 import { theme } from "../../src/theme";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -265,7 +266,7 @@ export default function ClubVerificationScreen() {
       style={{ flex: 1, backgroundColor: theme.colors.background }}
       contentContainerStyle={{ padding: 20, paddingBottom: 42, gap: 12 }}
     >
-      <Text style={{ fontSize: 24, fontWeight: "700" }}>Verifica profilo</Text>
+      <Stack.Screen options={{ title: "Verifica profilo" }} />
       <Text style={{ color: theme.colors.muted }}>
         Carica il certificato PDF del Registro nazionale delle attività sportive dilettantistiche.
       </Text>
