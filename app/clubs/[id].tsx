@@ -173,17 +173,18 @@ export default function ClubProfileScreen() {
         .from("club_verification_requests_view")
         .select("is_verified")
         .eq("club_id", id)
-        .limit(1)
-        .maybeSingle();
+        .order("updated_at", { ascending: false })
+        .limit(10);
 
       if (!mounted) return;
 
-      if (result.error) {
+      if (result.error || !Array.isArray(result.data)) {
         setVerifiedFromView(false);
         return;
       }
 
-      setVerifiedFromView(Boolean((result.data as any)?.is_verified));
+      const hasVerifiedRow = result.data.some((row) => Boolean((row as any)?.is_verified));
+      setVerifiedFromView(hasVerifiedRow);
     };
 
     void loadVerification();
