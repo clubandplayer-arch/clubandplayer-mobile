@@ -20,5 +20,22 @@ export function isClubAuthor(author?: FeedAuthor | null): boolean {
 export function isCertifiedClub(author: FeedAuthor): boolean {
   if (!isClubAuthor(author)) return false;
 
-  return author.is_verified === true;
+  if (author.is_verified === true) return true;
+  if (author.certified === true) return true;
+
+  const certificationStatus = String(author.certification_status ?? "").trim().toLowerCase();
+  if (certificationStatus === "approved" || certificationStatus === "verified" || certificationStatus === "active") {
+    return true;
+  }
+
+  const verifiedUntil = String(author.verified_until ?? "").trim();
+  if (verifiedUntil) {
+    const date = new Date(verifiedUntil);
+    if (!Number.isNaN(date.getTime())) {
+      return date.getTime() >= Date.now();
+    }
+    return true;
+  }
+
+  return false;
 }

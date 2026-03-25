@@ -167,7 +167,9 @@ export default function ClubVerificationScreen() {
     setError(null);
     setSuccess(null);
 
-    const documentPicker = await (0, eval)('import("expo-document-picker")').catch(() => null);
+    const documentPicker = await Promise.resolve()
+      .then(() => require("expo-document-picker"))
+      .catch(() => null);
     if (!documentPicker?.getDocumentAsync) {
       setError(
         "Modulo selezione documenti non disponibile su questa build. Aggiorna la build nativa o usa Expo Go.",
