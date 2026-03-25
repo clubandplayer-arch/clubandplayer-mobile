@@ -168,17 +168,26 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
           opacity: authorUuid && isUuid(authorUuid) ? 1 : 0.6,
         }}
       >
-        <Avatar url={item.author?.avatar_url ?? null} size={40} />
+        <View style={{ position: "relative" }}>
+          <Avatar url={item.author?.avatar_url ?? null} size={40} />
+          {item.author && isCertifiedClub(item.author) ? (
+            <Text
+              style={{
+                position: "absolute",
+                top: -8,
+                right: -7,
+                fontSize: 14,
+                color: theme.colors.primary,
+                fontFamily: "Righteous_400Regular",
+              }}
+            >
+              C
+            </Text>
+          ) : null}
+        </View>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Text style={{ fontSize: 15, fontWeight: "800", color: theme.colors.text }}>
-              {authorName}
-            </Text>
-            {item.author && isCertifiedClub(item.author) ? (
-              <Text style={{ fontSize: 11, fontWeight: "900", color: theme.colors.text }}>
-                C
-              </Text>
-            ) : null}
+            <Text style={{ fontSize: 15, fontWeight: "800", color: theme.colors.text }}>{authorName}</Text>
           </View>
           <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>
             {countryFlag ? `${countryFlag} · ${when}` : when}

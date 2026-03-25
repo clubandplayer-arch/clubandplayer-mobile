@@ -221,21 +221,18 @@ export default function PublicProfileHeader({
             </View>
           )}
           {isClub && isVerified ? (
-            <View
+            <Text
               style={{
                 position: "absolute",
-                top: -4,
-                right: -4,
-                width: 22,
-                height: 22,
-                borderRadius: 11,
-                backgroundColor: theme.colors.primary,
-                alignItems: "center",
-                justifyContent: "center",
+                top: -9,
+                right: -8,
+                fontSize: 20,
+                color: theme.colors.primary,
+                fontFamily: "Righteous_400Regular",
               }}
             >
-              <Text style={{ color: theme.colors.background, fontWeight: "800", fontSize: 12 }}>C</Text>
-            </View>
+              C
+            </Text>
           ) : null}
         </View>
 

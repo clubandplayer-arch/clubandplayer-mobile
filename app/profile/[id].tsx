@@ -107,32 +107,73 @@ export default function ProfileByIdScreen() {
   }, [load]);
 
   const Avatar = () => {
+    const certifiedClub = isCertifiedClub({
+      account_type: profile?.account_type,
+      type: profile?.type,
+      role: profile?.role,
+      verified_until: profile?.verified_until,
+      certified: profile?.certified,
+      certification_status: profile?.certification_status,
+    });
+
     if (profile?.avatar_url) {
       return (
-        <Image
-          source={{ uri: profile.avatar_url }}
+        <View style={{ position: "relative" }}>
+          <Image
+            source={{ uri: profile.avatar_url }}
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: 999,
+              backgroundColor: theme.colors.neutral200,
+            }}
+          />
+          {certifiedClub ? (
+            <Text
+              style={{
+                position: "absolute",
+                top: -9,
+                right: -8,
+                fontSize: 19,
+                color: theme.colors.primary,
+                fontFamily: "Righteous_400Regular",
+              }}
+            >
+              C
+            </Text>
+          ) : null}
+        </View>
+      );
+    }
+    const letter = (title.slice(0, 1) || "U").toUpperCase();
+    return (
+      <View style={{ position: "relative" }}>
+        <View
           style={{
             width: 72,
             height: 72,
             borderRadius: 999,
             backgroundColor: theme.colors.neutral200,
+            alignItems: "center",
+            justifyContent: "center",
           }}
-        />
-      );
-    }
-    const letter = (title.slice(0, 1) || "U").toUpperCase();
-    return (
-      <View
-        style={{
-          width: 72,
-          height: 72,
-          borderRadius: 999,
-          backgroundColor: theme.colors.neutral200,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Text style={{ fontSize: 22, fontWeight: "900" }}>{letter}</Text>
+        >
+          <Text style={{ fontSize: 22, fontWeight: "900" }}>{letter}</Text>
+        </View>
+        {certifiedClub ? (
+          <Text
+            style={{
+              position: "absolute",
+              top: -9,
+              right: -8,
+              fontSize: 19,
+              color: theme.colors.primary,
+              fontFamily: "Righteous_400Regular",
+            }}
+          >
+            C
+          </Text>
+        ) : null}
       </View>
     );
   };
@@ -204,14 +245,6 @@ export default function ProfileByIdScreen() {
             <View style={{ flex: 1, gap: 2 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                 <Text style={{ fontSize: 18, fontWeight: "900" }}>{title}</Text>
-                {isCertifiedClub({
-                  account_type: profile.account_type,
-                  type: profile.type,
-                  role: profile.role,
-                  verified_until: profile.verified_until,
-                  certified: profile.certified,
-                  certification_status: profile.certification_status,
-                }) ? <Text style={{ fontSize: 12, fontWeight: "900", color: theme.colors.text }}>C</Text> : null}
               </View>
               <Text style={{ color: theme.colors.text }}>{buildTagline(profile)}</Text>
               <Text style={{ color: theme.colors.muted, fontSize: 12 }}>

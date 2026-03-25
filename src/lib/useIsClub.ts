@@ -4,6 +4,16 @@ import { fetchProfileMe, fetchWhoami } from "./api";
 
 let stableAccountType: "club" | "athlete" | null = null;
 
+function normalizeClubLike(value: unknown): "club" | "athlete" | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (["club", "clubs", "team", "societa", "società", "organization", "org"].includes(normalized)) {
+    return "club";
+  }
+  if (["athlete", "player", "players"].includes(normalized)) return "athlete";
+  return null;
+}
+
 export function useIsClub(enabled: boolean = true) {
   const [isClub, setIsClub] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -29,15 +39,17 @@ export function useIsClub(enabled: boolean = true) {
 
     if (profileMe.ok && profileMe.data) {
       accountType =
-        typeof profileMe.data.account_type === "string"
-          ? profileMe.data.account_type.toLowerCase()
-          : null;
+        normalizeClubLike(profileMe.data.account_type) ??
+        normalizeClubLike((profileMe.data as any).type) ??
+        normalizeClubLike((profileMe.data as any).role);
       userId =
         typeof profileMe.data.user_id === "string" && profileMe.data.user_id.trim()
           ? profileMe.data.user_id.trim()
           : null;
 
-      stableAccountType = accountType === "club" ? "club" : "athlete";
+      if (accountType === "club" || accountType === "athlete") {
+        stableAccountType = accountType;
+      }
       nextIsClub = accountType === "club";
       setIsClub(nextIsClub);
 

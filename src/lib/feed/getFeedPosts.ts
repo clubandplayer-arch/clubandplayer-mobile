@@ -95,7 +95,19 @@ function extractAuthor(item: any): FeedAuthor | null {
     user_id: asString(candidate?.user_id) ?? undefined,
     full_name: typeof candidate?.full_name === "string" ? candidate.full_name : null,
     display_name: typeof candidate?.display_name === "string" ? candidate.display_name : null,
-    avatar_url: typeof candidate?.avatar_url === "string" ? candidate.avatar_url : null,
+    avatar_url:
+      (typeof candidate?.avatar_url === "string" && candidate.avatar_url.trim().length > 0
+        ? candidate.avatar_url
+        : null) ??
+      (typeof candidate?.avatarUrl === "string" && candidate.avatarUrl.trim().length > 0
+        ? candidate.avatarUrl
+        : null) ??
+      (typeof candidate?.logo_url === "string" && candidate.logo_url.trim().length > 0
+        ? candidate.logo_url
+        : null) ??
+      (typeof candidate?.image_url === "string" && candidate.image_url.trim().length > 0
+        ? candidate.image_url
+        : null),
     type: typeof candidate?.type === "string" ? candidate.type : null,
     account_type: typeof candidate?.account_type === "string" ? candidate.account_type : null,
     role: typeof candidate?.role === "string" ? candidate.role : null,

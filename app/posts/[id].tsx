@@ -30,6 +30,7 @@ import { sharePostById } from "../../src/lib/sharePost";
 import { devWarn } from "../../src/lib/debug/devLog";
 import { theme } from "../../src/theme";
 import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
+import { isCertifiedClub } from "../../src/lib/profiles/certification";
 
 const POST_FIELDS =
   "id, content, created_at, author_id, media_url, media_type, media_aspect, kind, event_payload, quoted_post_id";
@@ -84,36 +85,50 @@ function getWhoamiUserId(user: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
-function Avatar({ url, size = 44, name }: { url?: string | null; size?: number; name?: string }) {
+function Avatar({ url, size = 44, name, isCertified = false }: { url?: string | null; size?: number; name?: string; isCertified?: boolean }) {
   if (!url) {
     const initial = name?.trim().charAt(0).toUpperCase() || "U";
     return (
-      <View
+      <View style={{ position: "relative" }}>
+        <View
+          style={{
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            backgroundColor: theme.colors.neutral200,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text style={{ fontSize: Math.max(12, Math.floor(size * 0.35)), fontWeight: "700", color: theme.colors.text }}>
+            {initial}
+          </Text>
+        </View>
+        {isCertified ? (
+          <Text style={{ position: "absolute", top: -8, right: -7, fontSize: 14, color: theme.colors.primary, fontFamily: "Righteous_400Regular" }}>
+            C
+          </Text>
+        ) : null}
+      </View>
+    );
+  }
+  return (
+    <View style={{ position: "relative" }}>
+      <Image
+        source={{ uri: url }}
         style={{
           width: size,
           height: size,
           borderRadius: size / 2,
           backgroundColor: theme.colors.neutral200,
-          alignItems: "center",
-          justifyContent: "center",
         }}
-      >
-        <Text style={{ fontSize: Math.max(12, Math.floor(size * 0.35)), fontWeight: "700", color: theme.colors.text }}>
-          {initial}
+      />
+      {isCertified ? (
+        <Text style={{ position: "absolute", top: -8, right: -7, fontSize: 14, color: theme.colors.primary, fontFamily: "Righteous_400Regular" }}>
+          C
         </Text>
-      </View>
-    );
-  }
-  return (
-    <Image
-      source={{ uri: url }}
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: theme.colors.neutral200,
-      }}
-    />
+      ) : null}
+    </View>
   );
 }
 
@@ -122,7 +137,7 @@ async function fetchAuthorProfile(authorId: string | null): Promise<FeedAuthor |
 
   const primary = await supabase
     .from("profiles")
-    .select("id, user_id, full_name, display_name, avatar_url, account_type, type")
+    .select("id, user_id, full_name, display_name, avatar_url, account_type, type, role, is_verified, certified, certification_status, verified_until")
     .eq("user_id", authorId)
     .maybeSingle();
 
@@ -130,7 +145,7 @@ async function fetchAuthorProfile(authorId: string | null): Promise<FeedAuthor |
   if (!data && !primary.error) {
     const fallback = await supabase
       .from("profiles")
-      .select("id, user_id, full_name, display_name, avatar_url, account_type, type")
+      .select("id, user_id, full_name, display_name, avatar_url, account_type, type, role, is_verified, certified, certification_status, verified_until")
       .eq("id", authorId)
       .maybeSingle();
     data = fallback.data;
@@ -146,6 +161,11 @@ async function fetchAuthorProfile(authorId: string | null): Promise<FeedAuthor |
     avatar_url: typeof (data as any).avatar_url === "string" ? (data as any).avatar_url : null,
     account_type: typeof (data as any).account_type === "string" ? (data as any).account_type : null,
     type: typeof (data as any).type === "string" ? (data as any).type : null,
+    role: typeof (data as any).role === "string" ? (data as any).role : null,
+    is_verified: typeof (data as any).is_verified === "boolean" ? (data as any).is_verified : null,
+    certified: typeof (data as any).certified === "boolean" ? (data as any).certified : null,
+    certification_status: typeof (data as any).certification_status === "string" ? (data as any).certification_status : null,
+    verified_until: typeof (data as any).verified_until === "string" ? (data as any).verified_until : null,
   };
 }
 
@@ -177,6 +197,7 @@ function PostCard({ post, title }: { post: PostDetail; title?: string }) {
   const text = getPostText(post.raw);
   const mediaUrl = asString((post.raw as any)?.media_url);
   const mediaType = asString((post.raw as any)?.media_type);
+  const certifiedClub = isCertifiedClub(post.author ?? null);
 
   return (
     <View
@@ -196,7 +217,7 @@ function PostCard({ post, title }: { post: PostDetail; title?: string }) {
       ) : null}
 
       <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-        <Avatar url={post.author?.avatar_url ?? null} size={44} name={authorName} />
+        <Avatar url={post.author?.avatar_url ?? null} size={44} name={authorName} isCertified={certifiedClub} />
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 16, fontWeight: "800", color: theme.colors.text }}>
             {authorName}
