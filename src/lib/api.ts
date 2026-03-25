@@ -149,7 +149,13 @@ export type FeedCommentAuthor = {
   display_name?: string | null;
   avatar_url?: string | null;
   account_type?: string | null;
+  type?: string | null;
+  role?: string | null;
   status?: string | null;
+  is_verified?: boolean | null;
+  certified?: boolean | null;
+  certification_status?: string | null;
+  verified_until?: string | null;
 };
 
 export type FeedComment = {

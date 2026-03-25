@@ -137,7 +137,7 @@ async function fetchAuthorProfile(authorId: string | null): Promise<FeedAuthor |
 
   const primary = await supabase
     .from("profiles")
-    .select("id, user_id, full_name, display_name, avatar_url, account_type, type")
+    .select("id, user_id, full_name, display_name, avatar_url, account_type, type, role, is_verified, certified, certification_status, verified_until")
     .eq("user_id", authorId)
     .maybeSingle();
 
@@ -145,7 +145,7 @@ async function fetchAuthorProfile(authorId: string | null): Promise<FeedAuthor |
   if (!data && !primary.error) {
     const fallback = await supabase
       .from("profiles")
-      .select("id, user_id, full_name, display_name, avatar_url, account_type, type")
+      .select("id, user_id, full_name, display_name, avatar_url, account_type, type, role, is_verified, certified, certification_status, verified_until")
       .eq("id", authorId)
       .maybeSingle();
     data = fallback.data;
@@ -161,6 +161,11 @@ async function fetchAuthorProfile(authorId: string | null): Promise<FeedAuthor |
     avatar_url: typeof (data as any).avatar_url === "string" ? (data as any).avatar_url : null,
     account_type: typeof (data as any).account_type === "string" ? (data as any).account_type : null,
     type: typeof (data as any).type === "string" ? (data as any).type : null,
+    role: typeof (data as any).role === "string" ? (data as any).role : null,
+    is_verified: typeof (data as any).is_verified === "boolean" ? (data as any).is_verified : null,
+    certified: typeof (data as any).certified === "boolean" ? (data as any).certified : null,
+    certification_status: typeof (data as any).certification_status === "string" ? (data as any).certification_status : null,
+    verified_until: typeof (data as any).verified_until === "string" ? (data as any).verified_until : null,
   };
 }
 
