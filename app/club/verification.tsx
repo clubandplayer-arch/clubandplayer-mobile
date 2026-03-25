@@ -6,7 +6,6 @@ import {
   Text,
   View,
 } from "react-native";
-import * as DocumentPicker from "expo-document-picker";
 
 import {
   fetchClubVerificationStatus,
@@ -160,7 +159,15 @@ export default function ClubVerificationScreen() {
     setError(null);
     setSuccess(null);
 
-    const picked = await DocumentPicker.getDocumentAsync({
+    const documentPicker = await (0, eval)('import("expo-document-picker")').catch(() => null);
+    if (!documentPicker?.getDocumentAsync) {
+      setError(
+        "Modulo selezione documenti non disponibile su questa build. Aggiorna la build nativa o usa Expo Go.",
+      );
+      return;
+    }
+
+    const picked = await documentPicker.getDocumentAsync({
       type: "application/pdf",
       copyToCacheDirectory: true,
       multiple: false,
