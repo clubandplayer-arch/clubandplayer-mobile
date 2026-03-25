@@ -280,6 +280,43 @@ export type NotificationsUnreadCountResponse = {
   count: number;
 };
 
+export type ClubVerificationStatus =
+  | "draft"
+  | "submitted"
+  | "approved"
+  | "rejected"
+  | string;
+
+export type ClubVerificationPaymentStatus = "unpaid" | "paid" | "waived" | string;
+
+export type ClubVerificationRequest = {
+  id: string;
+  status: ClubVerificationStatus;
+  certificate_path?: string | null;
+  submitted_at?: string | null;
+  reviewed_at?: string | null;
+  rejection_reason?: string | null;
+  verified_until?: string | null;
+  payment_status?: ClubVerificationPaymentStatus | null;
+  paid_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type ClubVerificationStatusResponse = {
+  request: ClubVerificationRequest | null;
+};
+
+export type ClubVerificationUploadResponse = {
+  ok: boolean;
+  request: ClubVerificationRequest | null;
+};
+
+export type ClubVerificationSubmitResponse = {
+  ok: boolean;
+  request: ClubVerificationRequest | null;
+};
+
 export type NotificationItem = {
   id: string;
   kind: string;
@@ -1112,6 +1149,36 @@ export async function updateClubRoster(input: { playerProfileId: string; inRoste
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+export async function fetchClubVerificationStatus(): Promise<ApiResponse<ClubVerificationStatusResponse>> {
+  return apiFetch<ClubVerificationStatusResponse>("/api/club/verification/status", { method: "GET" });
+}
+
+type ClubVerificationUploadInput = {
+  uri: string;
+  fileName?: string;
+  mimeType?: string;
+};
+
+export async function uploadClubVerificationPdf(
+  input: ClubVerificationUploadInput,
+): Promise<ApiResponse<ClubVerificationUploadResponse>> {
+  const form = new FormData();
+  form.append("file", {
+    uri: input.uri,
+    name: input.fileName ?? `club-verification-${Date.now()}.pdf`,
+    type: input.mimeType ?? "application/pdf",
+  } as any);
+
+  return apiFetch<ClubVerificationUploadResponse>("/api/club/verification/upload", {
+    method: "POST",
+    body: form,
+  });
+}
+
+export async function submitClubVerificationRequest(): Promise<ApiResponse<ClubVerificationSubmitResponse>> {
+  return apiFetch<ClubVerificationSubmitResponse>("/api/club/verification/submit", { method: "POST" });
 }
 
 export async function fetchReactionsForIds(ids: string[]): Promise<ApiResponse<FeedReactionsGetResponse>> {
