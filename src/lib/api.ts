@@ -600,6 +600,8 @@ export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
 export async function fetchFeedPosts(params?: {
   scope?: "all" | "following";
   nextPage?: string;
+  mine?: boolean;
+  limit?: number;
 }): Promise<ApiResponse<FeedPostsApiResponse>> {
   if (params?.nextPage) {
     const base = getWebBaseUrl();
@@ -615,6 +617,10 @@ export async function fetchFeedPosts(params?: {
 
   const sp = new URLSearchParams();
   if (params?.scope) sp.set("scope", params.scope);
+  if (params?.mine) sp.set("mine", "true");
+  if (typeof params?.limit === "number" && Number.isFinite(params.limit) && params.limit > 0) {
+    sp.set("limit", String(Math.trunc(params.limit)));
+  }
   const query = sp.toString();
   const path = query ? `/api/feed/posts?${query}` : "/api/feed/posts";
   return apiFetch<FeedPostsApiResponse>(path, { method: "GET" });

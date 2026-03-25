@@ -155,6 +155,7 @@ export default function TabsLayout() {
   }, [router]);
 
   const avatarMenuItems = [
+    { label: "La mia libreria", onPress: () => navigateFromAvatarMenu("/mymedia"), danger: false },
     { label: "Profilo", onPress: () => navigateFromAvatarMenu(isClub ? "/club/profile" : "/player/profile"), danger: false },
     { label: "Impostazioni", onPress: () => navigateFromAvatarMenu("/settings"), danger: false },
     { label: "Logout", onPress: onLogoutFromAvatarMenu, danger: true },
