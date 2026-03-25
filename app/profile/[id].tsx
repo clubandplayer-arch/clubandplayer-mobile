@@ -132,11 +132,12 @@ export default function ProfileByIdScreen() {
             <Text
               style={{
                 position: "absolute",
-                top: -7,
-                right: -5,
+                top: -12,
+                right: -10,
                 fontSize: 19,
                 fontWeight: "900",
                 color: theme.colors.primary,
+                fontFamily: "Righteous_400Regular",
               }}
             >
               C
@@ -164,11 +165,12 @@ export default function ProfileByIdScreen() {
           <Text
             style={{
               position: "absolute",
-              top: -7,
-              right: -5,
+              top: -12,
+              right: -10,
               fontSize: 19,
               fontWeight: "900",
               color: theme.colors.primary,
+              fontFamily: "Righteous_400Regular",
             }}
           >
             C

@@ -105,7 +105,7 @@ function Avatar({ url, size = 44, name, isCertified = false }: { url?: string | 
           </Text>
         </View>
         {isCertified ? (
-          <Text style={{ position: "absolute", top: -6, right: -4, fontSize: 14, fontWeight: "900", color: theme.colors.primary }}>
+          <Text style={{ position: "absolute", top: -11, right: -10, fontSize: 14, fontWeight: "900", color: theme.colors.primary, fontFamily: "Righteous_400Regular" }}>
             C
           </Text>
         ) : null}
@@ -124,7 +124,7 @@ function Avatar({ url, size = 44, name, isCertified = false }: { url?: string | 
         }}
       />
       {isCertified ? (
-        <Text style={{ position: "absolute", top: -6, right: -4, fontSize: 14, fontWeight: "900", color: theme.colors.primary }}>
+        <Text style={{ position: "absolute", top: -11, right: -10, fontSize: 14, fontWeight: "900", color: theme.colors.primary, fontFamily: "Righteous_400Regular" }}>
           C
         </Text>
       ) : null}

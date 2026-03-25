@@ -7,6 +7,7 @@ import { getFeedPosts, type FeedPost } from "../../src/lib/feed/getFeedPosts";
 import FeedCard from "../../src/components/feed/FeedCard";
 import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
 import PublicProfileHeader, { type PublicProfileLinks } from "../../src/components/profiles/PublicProfileHeader";
+import { isCertifiedClub } from "../../src/lib/profiles/certification";
 import { theme } from "../../src/theme";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -41,6 +42,8 @@ type ProfileRow = {
   certified?: boolean | null;
   certification?: string | boolean | null;
   verified?: boolean | null;
+  verified_until?: string | null;
+  certification_status?: string | null;
   [key: string]: unknown;
 };
 
@@ -327,12 +330,15 @@ export default function ClubProfileScreen() {
   const facility = [stadium, stadiumAddress].filter(Boolean).join(" • ") || "—";
   const biography = getTextValue(profile?.bio) || getTextValue(profile?.description) || "—";
 
-  const isCertified =
-    profile?.is_certified === true ||
-    profile?.certified === true ||
-    profile?.verified === true ||
-    profile?.certification === true ||
-    (typeof profile?.certification === "string" && profile.certification.trim().length > 0);
+  const isCertified = isCertifiedClub({
+    account_type: profile?.account_type,
+    type: profile?.type,
+    role: "club",
+    is_verified: profile?.is_certified === true || profile?.verified === true,
+    certified: profile?.certified,
+    verified_until: typeof profile?.verified_until === "string" ? profile.verified_until : null,
+    certification_status: typeof profile?.certification_status === "string" ? profile.certification_status : null,
+  });
 
   if (!id) {
     return (
