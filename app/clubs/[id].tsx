@@ -132,6 +132,7 @@ export default function ClubProfileScreen() {
   const [rosterLoading, setRosterLoading] = useState(false);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
+  const [verifiedFromView, setVerifiedFromView] = useState<boolean>(false);
   const isLoading = loading || web.loading || whoami.loading;
 
   useEffect(() => {
@@ -153,6 +154,39 @@ export default function ClubProfileScreen() {
     };
 
     void load();
+
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadVerification = async () => {
+      if (!id) {
+        setVerifiedFromView(false);
+        return;
+      }
+
+      const result = await supabase
+        .from("club_verification_requests_view")
+        .select("is_verified")
+        .eq("club_id", id)
+        .limit(1)
+        .maybeSingle();
+
+      if (!mounted) return;
+
+      if (result.error) {
+        setVerifiedFromView(false);
+        return;
+      }
+
+      setVerifiedFromView(Boolean((result.data as any)?.is_verified));
+    };
+
+    void loadVerification();
 
     return () => {
       mounted = false;
@@ -334,7 +368,7 @@ export default function ClubProfileScreen() {
     account_type: profile?.account_type,
     type: profile?.type,
     role: "club",
-    is_verified: profile?.is_certified === true || profile?.verified === true,
+    is_verified: verifiedFromView || profile?.is_certified === true || profile?.verified === true,
     certified: profile?.certified,
     verified_until: typeof profile?.verified_until === "string" ? profile.verified_until : null,
     certification_status: typeof profile?.certification_status === "string" ? profile.certification_status : null,

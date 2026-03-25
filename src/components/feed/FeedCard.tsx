@@ -174,10 +174,9 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
             <Text
               style={{
                 position: "absolute",
-                top: -11,
-                right: -10,
+                top: -8,
+                right: -7,
                 fontSize: 14,
-                fontWeight: "900",
                 color: theme.colors.primary,
                 fontFamily: "Righteous_400Regular",
               }}

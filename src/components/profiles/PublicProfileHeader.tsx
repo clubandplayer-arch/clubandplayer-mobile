@@ -224,10 +224,9 @@ export default function PublicProfileHeader({
             <Text
               style={{
                 position: "absolute",
-                top: -13,
-                right: -11,
+                top: -9,
+                right: -8,
                 fontSize: 20,
-                fontWeight: "900",
                 color: theme.colors.primary,
                 fontFamily: "Righteous_400Regular",
               }}
