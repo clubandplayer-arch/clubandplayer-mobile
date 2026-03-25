@@ -263,8 +263,7 @@ export default function MyMediaScreen() {
       <Stack.Screen options={{ title: "La mia libreria" }} />
 
       <View style={{ flex: 1, backgroundColor: theme.colors.background, paddingHorizontal: 16, paddingTop: 16 }}>
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <Text style={{ fontSize: 24, fontWeight: "800", color: theme.colors.text }}>La mia libreria</Text>
+        <View style={{ flexDirection: "row", justifyContent: "flex-end", alignItems: "center", marginBottom: 12 }}>
           <Pressable
             onPress={onShareSection}
             style={{ borderWidth: 1, borderColor: theme.colors.primary, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 }}
