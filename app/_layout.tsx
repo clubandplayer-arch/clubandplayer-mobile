@@ -92,6 +92,7 @@ export default function RootLayout() {
 
     const allowAuthedOutsideTabs =
       pathname.startsWith("/mymedia") ||
+      pathname.startsWith("/admin/") ||
       pathname.startsWith("/posts/") ||
       pathname.startsWith("/clubs/") ||
       pathname.startsWith("/players/") ||
@@ -154,6 +155,7 @@ export default function RootLayout() {
         <Stack.Screen name="players/[id]" options={{ headerShown: true, title: "Player" }} />
         <Stack.Screen name="club/profile" options={{ headerShown: true, title: "Profilo Club" }} />
         <Stack.Screen name="player/profile" options={{ headerShown: true, title: "Profilo" }} />
+        <Stack.Screen name="admin/users" options={{ headerShown: true, title: "Admin users" }} />
         <Stack.Screen name="settings" options={{ headerShown: true, title: "Impostazioni" }} />
         <Stack.Screen name="profile/location-settings" options={{ headerShown: true, title: "Località" }} />
         <Stack.Screen name="applications/index" options={{ headerShown: false }} />

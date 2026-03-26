@@ -58,13 +58,7 @@ export default function MeProfileDispatcher() {
           onPress={() => router.push("/admin/users")}
           style={{ borderWidth: 1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14 }}
         >
-          <Text style={{ fontWeight: "600" }}>Apri Admin · Approva utenti</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => router.push("/player/profile")}
-          style={{ borderWidth: 1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14 }}
-        >
-          <Text style={{ fontWeight: "600" }}>Apri profilo personale</Text>
+          <Text style={{ fontWeight: "600" }}>Admin users</Text>
         </Pressable>
       </View>
     );
