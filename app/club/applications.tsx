@@ -90,7 +90,7 @@ export default function ClubApplicationsScreen() {
     ? params.opportunity_id[0]?.trim() || ""
     : String(params.opportunity_id ?? "").trim();
 
-  const [status, setStatus] = useState<ClubFilterStatus>("all");
+  const [status, setStatus] = useState<ClubFilterStatus>("in_review");
   const [items, setItems] = useState<ReceivedApplicationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useRouter } from "expo-router";
 
 import { fetchClubRoster, fetchFollowingList, updateClubRoster, useWebSession } from "../../src/lib/api";
 import { supabase } from "../../src/lib/supabase";
@@ -132,6 +133,7 @@ function parseErrorCode(errorText?: string): string | null {
 }
 
 export default function FollowingScreen() {
+  const router = useRouter();
   const web = useWebSession();
   const [sessionPresent, setSessionPresent] = useState(false);
   const { isClub, loading: isClubLoading } = useIsClub(sessionPresent);
@@ -432,9 +434,13 @@ export default function FollowingScreen() {
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
           renderItem={({ item }) => {
             const pending = pendingRosterIds.has(item.id);
+            const profilePath = item.accountType === "club" ? "/clubs/[id]" : "/players/[id]";
 
             return (
-              <View
+              <Pressable
+                onPress={() => {
+                  router.push({ pathname: profilePath as any, params: { id: item.id } });
+                }}
                 style={{
                   borderWidth: 1,
                   borderColor: theme.colors.neutral200,
@@ -481,7 +487,7 @@ export default function FollowingScreen() {
                     />
                   </View>
                 ) : null}
-              </View>
+              </Pressable>
             );
           }}
         />

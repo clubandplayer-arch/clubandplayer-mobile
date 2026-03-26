@@ -199,6 +199,7 @@ export default function DiscoverScreen() {
         const res = await fetch(`${WEB_BASE_URL}/api/follows/toggle`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ targetProfileId }),
         });
 
@@ -248,7 +249,13 @@ export default function DiscoverScreen() {
           }}
         >
           <Pressable
-            onPress={() => setTab("club")}
+            onPress={() => {
+              if (tab === "club") return;
+              setItems([]);
+              setNextCursor(null);
+              setError(null);
+              setTab("club");
+            }}
             style={{
               minHeight: 34,
               paddingVertical: 6,
@@ -270,7 +277,13 @@ export default function DiscoverScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => setTab("player")}
+            onPress={() => {
+              if (tab === "player") return;
+              setItems([]);
+              setNextCursor(null);
+              setError(null);
+              setTab("player");
+            }}
             style={{
               minHeight: 34,
               paddingVertical: 6,

@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useRouter } from "expo-router";
 
 import { fetchClubRoster, updateClubRoster, type ClubRosterItem } from "../../../src/lib/api";
 import { theme } from "../../../src/theme";
@@ -27,6 +28,7 @@ function getApiErrorMessage(errorText: string | undefined, status: number): stri
 }
 
 export default function ClubRosterScreen() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,11 +89,37 @@ export default function ClubRosterScreen() {
   const listHeader = useMemo(
     () => (
       <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 }}>
+        <Text style={{ color: theme.colors.text, fontWeight: "800", fontSize: 18 }}>Rosa</Text>
+        <Text style={{ color: theme.colors.muted, marginTop: 6 }}>
+          Qui trovi i player in rosa. Puoi aggiungerli/rimuoverli dal toggle “In Rosa” nella pagina Seguiti.
+        </Text>
         {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
       </View>
     ),
     [error],
   );
+
+  const groupedItems = useMemo(() => {
+    const byRole = new Map<string, ClubRosterItem[]>();
+    for (const item of items) {
+      const roleLabel = String(item.role ?? "").trim() || "Senza ruolo";
+      const current = byRole.get(roleLabel) ?? [];
+      current.push(item);
+      byRole.set(roleLabel, current);
+    }
+
+    return Array.from(byRole.entries())
+      .sort(([a], [b]) => a.localeCompare(b, "it"))
+      .flatMap(([role, members]) => [
+        { type: "header" as const, key: `header-${role}`, role, member: null },
+        ...members.map((member) => ({
+          type: "player" as const,
+          key: member.playerProfileId,
+          role,
+          member,
+        })),
+      ]);
+  }, [items]);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background, paddingTop: 12 }}>
@@ -103,17 +131,31 @@ export default function ClubRosterScreen() {
         <FlatList
           style={{ flex: 1, backgroundColor: theme.colors.background }}
           contentContainerStyle={{ paddingBottom: 24 }}
-          data={error ? [] : items}
-          keyExtractor={(item) => item.playerProfileId}
+          data={error ? [] : groupedItems}
+          keyExtractor={(item) => item.key}
           ListHeaderComponent={listHeader}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadRoster("refresh")} />}
           renderItem={({ item }) => {
-            const subtitle = [item.role, item.sport].filter(Boolean).join(" • ");
-            const busy = removingId === item.playerProfileId;
-            const name = getProfileDisplayName({ ...item, account_type: "athlete" });
+            if (item.type === "header") {
+              return (
+                <View style={{ marginHorizontal: 16, marginTop: 6, marginBottom: 8 }}>
+                  <Text style={{ color: theme.colors.muted, fontWeight: "800", textTransform: "uppercase", fontSize: 12 }}>
+                    {item.role}
+                  </Text>
+                </View>
+              );
+            }
+
+            const member = item.member;
+            const subtitle = [member.role, member.sport].filter(Boolean).join(" • ");
+            const busy = removingId === member.playerProfileId;
+            const name = getProfileDisplayName({ ...member, account_type: "athlete" });
 
             return (
-              <View
+              <Pressable
+                onPress={() => {
+                  router.push({ pathname: "/players/[id]", params: { id: member.playerProfileId } });
+                }}
                 style={{
                   marginHorizontal: 16,
                   marginBottom: 10,
@@ -125,9 +167,9 @@ export default function ClubRosterScreen() {
                 }}
               >
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                  {item.avatar_url ? (
+                  {member.avatar_url ? (
                     <Image
-                      source={{ uri: item.avatar_url }}
+                      source={{ uri: member.avatar_url }}
                       style={{ width: 40, height: 40, borderRadius: 999, backgroundColor: theme.colors.neutral100 }}
                     />
                   ) : null}
@@ -139,7 +181,10 @@ export default function ClubRosterScreen() {
 
                 <Pressable
                   disabled={busy}
-                  onPress={() => void onRemove(item)}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    void onRemove(member);
+                  }}
                   style={{
                     marginTop: 10,
                     alignSelf: "flex-start",
@@ -153,7 +198,7 @@ export default function ClubRosterScreen() {
                 >
                   <Text style={{ color: theme.colors.danger, fontWeight: "700" }}>{busy ? "Rimozione..." : "Rimuovi"}</Text>
                 </Pressable>
-              </View>
+              </Pressable>
             );
           }}
           ListEmptyComponent={
