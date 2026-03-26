@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { Ionicons } from "@expo/vector-icons";
-import { Image, Linking, Pressable, Text, View, type TextStyle, type ViewStyle } from "react-native";
+import { FontAwesome6, Ionicons } from "@expo/vector-icons";
+import { Alert, Image, Linking, Pressable, Text, View, type TextStyle, type ViewStyle } from "react-native";
 
 import FollowButton from "../follow/FollowButton";
 import { theme } from "../../theme";
@@ -52,6 +52,21 @@ function asLink(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function normalizeExternalUrl(value: string): string | null {
+  const raw = value.trim();
+  if (!raw) return null;
+
+  const direct = raw.match(/^[a-z][a-z0-9+\-.]*:/i) ? raw : `https://${raw}`;
+
+  try {
+    const parsed = new URL(direct);
+    if (!["http:", "https:"].includes(parsed.protocol)) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
 function socialItems(socialLinks?: PublicProfileLinks): SocialItem[] {
   const instagram = asLink(socialLinks?.instagram);
   const facebook = asLink(socialLinks?.facebook);
@@ -83,7 +98,7 @@ function socialItems(socialLinks?: PublicProfileLinks): SocialItem[] {
           href: tiktok,
           label: "TikTok",
           accentColor: theme.colors.text,
-          content: <Text style={{ color: theme.colors.text, fontSize: 12, fontWeight: "800" }}>TT</Text>,
+          content: <FontAwesome6 name="tiktok" size={16} color={theme.colors.text} />,
         }
       : null,
     x
@@ -99,9 +114,22 @@ function socialItems(socialLinks?: PublicProfileLinks): SocialItem[] {
 }
 
 async function openExternalUrl(url: string) {
-  const supported = await Linking.canOpenURL(url);
-  if (supported) {
-    await Linking.openURL(url);
+  const normalizedUrl = normalizeExternalUrl(url);
+  if (!normalizedUrl) {
+    Alert.alert("Link non valido", "Questo social non contiene un URL valido.");
+    return;
+  }
+
+  try {
+    const supported = await Linking.canOpenURL(normalizedUrl);
+    if (!supported) {
+      Alert.alert("Link non supportato", "Impossibile aprire questo link.");
+      return;
+    }
+
+    await Linking.openURL(normalizedUrl);
+  } catch {
+    Alert.alert("Errore", "Impossibile aprire il link.");
   }
 }
 

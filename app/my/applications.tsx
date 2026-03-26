@@ -25,6 +25,7 @@ type ApplicationItem = {
   opportunity_id: string;
   status: ApplicationStatus;
   created_at?: string | null;
+  updated_at?: string | null;
   note?: string | null;
   club_id?: string | null;
   opportunity?: {
@@ -68,6 +69,7 @@ function normalizeApplicationItem(input: any): ApplicationItem {
     opportunity_id: String(input?.opportunity_id ?? input?.opportunity?.id ?? ""),
     status: (input?.status ?? "submitted") as ApplicationStatus,
     created_at: typeof input?.created_at === "string" ? input.created_at : null,
+    updated_at: typeof input?.updated_at === "string" ? input.updated_at : null,
     note: typeof input?.note === "string" ? input.note : null,
     club_id: typeof input?.club_id === "string" ? input.club_id : null,
     opportunity: input?.opportunity
@@ -86,7 +88,17 @@ function sortByCreatedAtDesc(items: ApplicationItem[]): ApplicationItem[] {
   return [...items].sort((a, b) => {
     const at = a.created_at ? new Date(a.created_at).getTime() : 0;
     const bt = b.created_at ? new Date(b.created_at).getTime() : 0;
-    return bt - at;
+    if (bt !== at) return bt - at;
+    return String(a.id).localeCompare(String(b.id));
+  });
+}
+
+function sortByStatusEventDesc(items: ApplicationItem[]): ApplicationItem[] {
+  return [...items].sort((a, b) => {
+    const at = a.updated_at ? new Date(a.updated_at).getTime() : (a.created_at ? new Date(a.created_at).getTime() : 0);
+    const bt = b.updated_at ? new Date(b.updated_at).getTime() : (b.created_at ? new Date(b.created_at).getTime() : 0);
+    if (bt !== at) return bt - at;
+    return String(a.id).localeCompare(String(b.id));
   });
 }
 
@@ -142,7 +154,11 @@ export default function MyApplicationsScreen() {
         .map((it) => normalizeApplicationItem(it))
         .filter((it) => it.id && it.opportunity_id);
 
-      setItems(sortByCreatedAtDesc(normalized));
+      const sorted =
+        selectedFilter === "accepted" || selectedFilter === "rejected"
+          ? sortByStatusEventDesc(normalized)
+          : sortByCreatedAtDesc(normalized);
+      setItems(sorted);
     } catch (e: any) {
       setError(e?.message ? String(e.message) : "Errore nel caricamento");
       setItems([]);
