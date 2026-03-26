@@ -350,6 +350,9 @@ export default function FollowingScreen() {
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <View style={{ paddingTop: 12 }} />
       <View style={{ paddingHorizontal: theme.spacing.xl, gap: 10, paddingBottom: 8 }}>
+        <Text style={{ fontSize: 30, fontWeight: "900", color: theme.colors.primary }}>
+          Chi segui
+        </Text>
         <View
           style={{
             flexDirection: "row",

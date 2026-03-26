@@ -175,12 +175,15 @@ export default function MyApplicationsScreen() {
   );
 
   const displayedItems = useMemo(() => {
+    if (selectedFilter === "accepted" || selectedFilter === "rejected") {
+      return items;
+    }
     if (!focusedApplicationId && !focusedOpportunityId) return items;
 
     const focused = items.filter((item) => item.id === focusedApplicationId || item.opportunity_id === focusedOpportunityId);
     const others = items.filter((item) => item.id !== focusedApplicationId && item.opportunity_id !== focusedOpportunityId);
     return [...focused, ...others];
-  }, [items, focusedApplicationId, focusedOpportunityId]);
+  }, [items, focusedApplicationId, focusedOpportunityId, selectedFilter]);
 
   const emptyState = useMemo(() => {
     if (loading) return null;
@@ -266,7 +269,11 @@ export default function MyApplicationsScreen() {
           const title = item.opportunity?.title ?? "Opportunità";
           const club = item.opportunity?.club_name ?? "Club";
           const role = item.opportunity?.role ?? "";
-          const when = formatDate(item.created_at);
+          const eventDate =
+            selectedFilter === "accepted" || selectedFilter === "rejected"
+              ? (item.updated_at ?? item.created_at)
+              : item.created_at;
+          const when = formatDate(eventDate);
           const status = statusLabel(item.status);
           const isFocused = item.id === focusedApplicationId || item.opportunity_id === focusedOpportunityId;
 

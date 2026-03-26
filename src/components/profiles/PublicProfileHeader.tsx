@@ -121,15 +121,9 @@ async function openExternalUrl(url: string) {
   }
 
   try {
-    const supported = await Linking.canOpenURL(normalizedUrl);
-    if (!supported) {
-      Alert.alert("Link non supportato", "Impossibile aprire questo link.");
-      return;
-    }
-
     await Linking.openURL(normalizedUrl);
   } catch {
-    Alert.alert("Errore", "Impossibile aprire il link.");
+    Alert.alert("Link non supportato", "Impossibile aprire questo link.");
   }
 }
 
