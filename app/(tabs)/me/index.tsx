@@ -9,6 +9,8 @@ function normalizeRole(role: unknown) {
   return String(role ?? "").toLowerCase().trim();
 }
 
+const ADMIN_ME_ENTRY_EMAILS = new Set(["clubandplayer@gmail.com"]);
+
 export default function MeProfileDispatcher() {
   const router = useRouter();
   const web = useWebSession();
@@ -48,7 +50,11 @@ export default function MeProfileDispatcher() {
   }
 
   const role = normalizeRole((who.data as { role?: unknown } | null)?.role);
-  const isAdmin = Boolean((who.data as { admin?: unknown } | null)?.admin);
+  const whoamiData = (who.data as { admin?: unknown; clubsAdmin?: unknown; user?: { email?: unknown } } | null) ?? null;
+  const email = typeof whoamiData?.user?.email === "string" ? whoamiData.user.email.toLowerCase().trim() : "";
+  const isAdminByFlag = Boolean(whoamiData?.admin) || Boolean(whoamiData?.clubsAdmin);
+  const isAdminByEmail = ADMIN_ME_ENTRY_EMAILS.has(email);
+  const isAdmin = isAdminByFlag || isAdminByEmail;
   if (isAdmin) {
     return (
       <View style={{ flex: 1, padding: 20, gap: 12, justifyContent: "center" }}>
