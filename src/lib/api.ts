@@ -36,6 +36,20 @@ export type WhoamiResponse = {
   admin?: boolean;
 };
 
+export type AdminUserStatus = "pending" | "active" | "rejected" | "orphan";
+
+export type AdminUserRow = {
+  id: string;
+  user_id: string | null;
+  display_name: string | null;
+  full_name: string | null;
+  account_type: string | null;
+  status: string | null;
+  created_at: string | null;
+  auth_email?: string | null;
+  email?: string | null;
+};
+
 export type ProfileMe = {
   id?: string;
   user_id?: string | null;
@@ -606,6 +620,20 @@ export async function clearSession(): Promise<ApiResponse<{ ok: boolean; cleared
 
 export async function fetchWhoami(): Promise<ApiResponse<WhoamiResponse>> {
   return apiFetch<WhoamiResponse>("/api/auth/whoami", { method: "GET" });
+}
+
+export async function fetchAdminUsers(status: AdminUserStatus = "pending"): Promise<ApiResponse<{ data: AdminUserRow[] }>> {
+  return apiFetch<{ data: AdminUserRow[] }>(`/api/admin/users?status=${encodeURIComponent(status)}`, { method: "GET" });
+}
+
+export async function updateAdminUserStatus(
+  userId: string,
+  status: "active" | "rejected",
+): Promise<ApiResponse<{ data?: { user_id?: string; status?: string } }>> {
+  return apiFetch<{ data?: { user_id?: string; status?: string } }>("/api/admin/users/status", {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId, status }),
+  });
 }
 
 export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {

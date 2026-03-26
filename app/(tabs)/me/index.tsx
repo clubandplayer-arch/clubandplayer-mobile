@@ -48,6 +48,27 @@ export default function MeProfileDispatcher() {
   }
 
   const role = normalizeRole((who.data as { role?: unknown } | null)?.role);
+  const isAdmin = Boolean((who.data as { admin?: unknown } | null)?.admin);
+  if (isAdmin) {
+    return (
+      <View style={{ flex: 1, padding: 20, gap: 12, justifyContent: "center" }}>
+        <Text style={{ fontSize: 22, fontWeight: "700" }}>Pannello profilo</Text>
+        <Text>Account admin rilevato.</Text>
+        <Pressable
+          onPress={() => router.push("/admin/users")}
+          style={{ borderWidth: 1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14 }}
+        >
+          <Text style={{ fontWeight: "600" }}>Apri Admin · Approva utenti</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => router.push("/player/profile")}
+          style={{ borderWidth: 1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14 }}
+        >
+          <Text style={{ fontWeight: "600" }}>Apri profilo personale</Text>
+        </Pressable>
+      </View>
+    );
+  }
   if (role === "club") return <ClubProfile />;
   return <PlayerProfile />;
 }
