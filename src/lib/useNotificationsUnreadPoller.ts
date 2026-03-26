@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { AppState } from "react-native";
 import { fetchNotifications } from "./api";
 import { on } from "./events/appEvents";
 import { setNotificationsBadgeCount } from "./notificationsBadge";
@@ -29,7 +30,7 @@ export function useNotificationsUnreadPoller(options?: { enabled?: boolean }) {
       }
 
       if (cancelled) return;
-      timer = setTimeout(tick, 45_000); // parity web: 45s
+      timer = setTimeout(tick, 15_000);
     }
 
     function handleNotificationsUpdated() {
@@ -41,11 +42,16 @@ export function useNotificationsUnreadPoller(options?: { enabled?: boolean }) {
     }
 
     void tick();
+    const appStateSubscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState !== "active") return;
+      handleNotificationsUpdated();
+    });
     const unsubscribe = on("app:notifications-updated", handleNotificationsUpdated);
 
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
+      appStateSubscription.remove();
       unsubscribe();
     };
   }, [enabled]);

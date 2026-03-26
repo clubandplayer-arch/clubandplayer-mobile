@@ -1102,18 +1102,24 @@ export async function fetchFollowSuggestions(params?: { limit?: number; kind?: "
 
 function normalizeClubRosterItem(raw: unknown): ClubRosterItem | null {
   const item = (raw ?? {}) as Record<string, unknown>;
-  const playerProfileIdRaw = item.playerProfileId ?? item.player_profile_id;
-  const playerProfileId = typeof playerProfileIdRaw === "string" ? playerProfileIdRaw.trim() : "";
+  const player = (item.player ?? {}) as Record<string, unknown>;
+
+  const playerProfileIdRaw =
+    item.playerProfileId ??
+    item.player_profile_id ??
+    player.playerProfileId ??
+    player.player_profile_id ??
+    player.id;
+  const playerProfileId = typeof playerProfileIdRaw === "string" ? playerProfileIdRaw.trim() : String(playerProfileIdRaw ?? "").trim();
 
   if (!playerProfileId) {
     devWarn("fetchClubRoster: roster item missing playerProfileId", { raw: item });
     return null;
   }
 
-  const player = (item.player ?? {}) as Record<string, unknown>;
   const displayNameRaw = player.display_name ?? player.full_name ?? player.name ?? item.display_name ?? item.full_name;
   const fullNameRaw = player.full_name ?? player.name ?? item.full_name;
-  const avatarUrlRaw = player.avatarUrl ?? item.avatar_url ?? item.avatarUrl;
+  const avatarUrlRaw = player.avatarUrl ?? player.avatar_url ?? item.avatar_url ?? item.avatarUrl;
   const roleRaw = player.role ?? item.role;
   const sportRaw = player.sport ?? item.sport;
 
