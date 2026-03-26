@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { getMunicipalities, getProvinces, getRegions, type LocationOption } from "../../lib/geo/location";
 import { AGE_OPTIONS, CATEGORIES_BY_SPORT, GENDER_OPTIONS, SPORTS, SPORTS_ROLES } from "../../lib/opportunities/formOptions";
@@ -60,6 +61,7 @@ function SelectField({ label, value, placeholder, disabled, onPress }: { label: 
 }
 
 export function OpportunityUpsertForm({ heading, submitLabel, submitError, submitting, initialValues, onSubmit }: Props) {
+  const insets = useSafeAreaInsets();
   const [title, setTitle] = useState(initialValues?.title ?? "");
   const [description, setDescription] = useState(initialValues?.description ?? "");
   const [country, setCountry] = useState(initialValues?.country ?? "IT");
@@ -130,9 +132,11 @@ export function OpportunityUpsertForm({ heading, submitLabel, submitError, submi
     if (!selectedRegion) {
       setProvinces([]);
       setCities([]);
-      setProvince("");
-      setCity("");
-      previousRegionRef.current = "";
+      if (!region) {
+        setProvince("");
+        setCity("");
+        previousRegionRef.current = "";
+      }
       return;
     }
 
@@ -158,14 +162,16 @@ export function OpportunityUpsertForm({ heading, submitLabel, submitError, submi
     return () => {
       mounted = false;
     };
-  }, [province, region, selectedRegion?.id]);
+  }, [region, selectedRegion?.id]);
 
   useEffect(() => {
     let mounted = true;
     if (!selectedProvince) {
       setCities([]);
-      setCity("");
-      previousProvinceRef.current = "";
+      if (!province) {
+        setCity("");
+        previousProvinceRef.current = "";
+      }
       return;
     }
 
@@ -186,7 +192,7 @@ export function OpportunityUpsertForm({ heading, submitLabel, submitError, submi
     return () => {
       mounted = false;
     };
-  }, [city, province, selectedProvince?.id]);
+  }, [province, selectedProvince?.id]);
 
   useEffect(() => {
     setRole("");
@@ -285,7 +291,7 @@ export function OpportunityUpsertForm({ heading, submitLabel, submitError, submi
 
   return (
     <>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 42 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: Math.max(insets.bottom + 24, 42) }}>
         <Text style={{ fontSize: 24, fontWeight: "800", color: theme.colors.text }}>{heading}</Text>
 
         {submitError ? <Text style={{ color: theme.colors.danger }}>{submitError}</Text> : null}
