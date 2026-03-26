@@ -206,8 +206,11 @@ export default function OpportunityDetailScreen() {
 
     if (response.ok || response.status === 409) {
       setAlreadyApplied(true);
+      setIsApplying(false);
+      return;
     }
 
+    Alert.alert("Errore", response.errorText || "Impossibile inviare candidatura");
     setIsApplying(false);
   }, [alreadyApplied, id, isPlayer]);
 
@@ -344,6 +347,21 @@ export default function OpportunityDetailScreen() {
               }}
             >
               <Text style={{ fontWeight: "700", color: theme.colors.text }}>Modifica</Text>
+            </Pressable>
+          ) : null}
+
+          {showOwnerActions ? (
+            <Pressable
+              onPress={() => router.push({ pathname: "/opportunities/[id]/applications", params: { id } })}
+              style={{
+                borderWidth: 1,
+                borderColor: theme.colors.neutral200,
+                borderRadius: 10,
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+              }}
+            >
+              <Text style={{ fontWeight: "700", color: theme.colors.text }}>Candidature</Text>
             </Pressable>
           ) : null}
 

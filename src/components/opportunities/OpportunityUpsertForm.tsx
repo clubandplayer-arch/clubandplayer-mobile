@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, Text, TextIn
 
 import { getMunicipalities, getProvinces, getRegions, type LocationOption } from "../../lib/geo/location";
 import { AGE_OPTIONS, CATEGORIES_BY_SPORT, GENDER_OPTIONS, SPORTS, SPORTS_ROLES } from "../../lib/opportunities/formOptions";
+import { rangeFromAgeBracket } from "../../lib/opportunities/ageRange";
 import type { CreateOpportunityPayload } from "../../types/opportunity";
 import { theme } from "../../theme";
 
@@ -263,6 +264,8 @@ export function OpportunityUpsertForm({ heading, submitLabel, submitError, submi
     }
 
     setLocalError(null);
+    const ageRange = rangeFromAgeBracket(ageBracket);
+
     await onSubmit({
       title: title.trim(),
       description: description.trim() || null,
@@ -275,8 +278,8 @@ export function OpportunityUpsertForm({ heading, submitLabel, submitError, submi
       category: category || null,
       gender: gender || null,
       age_bracket: ageBracket === "Indifferente" ? null : ageBracket,
-      age_min: null,
-      age_max: null,
+      age_min: ageRange.age_min,
+      age_max: ageRange.age_max,
     });
   };
 

@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { OpportunityUpsertForm } from "../../../src/components/opportunities/OpportunityUpsertForm";
 import { fetchOpportunityById, useWebSession, useWhoami } from "../../../src/lib/api";
+import { ageBracketFromRange } from "../../../src/lib/opportunities/ageRange";
 import { updateOpportunity } from "../../../src/lib/opportunities/updateOpportunity";
 import type { CreateOpportunityPayload, OpportunityDetail } from "../../../src/types/opportunity";
 import { theme } from "../../../src/theme";
@@ -110,7 +111,7 @@ export default function EditOpportunityScreen() {
         category: item.category ?? "",
         role: item.role ?? "",
         gender: item.gender ?? "",
-        ageBracket: (item as any).age_bracket ?? "Indifferente",
+        ageBracket: (item as any).age_bracket ?? ageBracketFromRange(item.age_min, item.age_max),
       }}
       onSubmit={async (payload: CreateOpportunityPayload) => {
         setSubmitError(null);
