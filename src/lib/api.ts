@@ -781,6 +781,7 @@ export async function fetchOpportunities(params?: FetchOpportunitiesParams): Pro
   sp.set("pageSize", String(params?.pageSize ?? 20));
   sp.set("sort", params?.sort ?? "recent");
   if (typeof params?.q === "string" && params.q.trim()) sp.set("q", params.q.trim());
+  if (typeof params?.clubId === "string" && params.clubId.trim()) sp.set("clubId", params.clubId.trim());
 
   const response = await apiFetch<OpportunitiesListResponse>(`/api/opportunities?${sp.toString()}`, { method: "GET" });
 

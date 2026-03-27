@@ -122,16 +122,18 @@ export default function OpportunityApplicationsScreen() {
   const empty = useMemo(() => {
     if (loading || error) return null;
     return (
-      <View style={{ padding: 16 }}>
+      <View style={{ padding: 16, gap: 6 }}>
         <Text style={{ fontWeight: "700" }}>Nessuna candidatura per questa opportunità.</Text>
+        <Text style={{ color: theme.colors.muted }}>Quando i player si candidano, compariranno qui.</Text>
       </View>
     );
   }, [error, loading]);
 
-  if (loading) {
+  if (loading && !refreshing) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator />
+        <Text style={{ marginTop: 10, color: theme.colors.muted }}>Caricamento candidature…</Text>
       </View>
     );
   }
@@ -140,7 +142,25 @@ export default function OpportunityApplicationsScreen() {
     <View style={{ flex: 1 }}>
       {error ? (
         <View style={{ padding: 16 }}>
-          <Text style={{ color: theme.colors.danger }}>{error}</Text>
+          <View
+            style={{
+              borderWidth: 1,
+              borderColor: "#fecaca",
+              backgroundColor: "#fef2f2",
+              borderRadius: 10,
+              padding: 12,
+              gap: 8,
+            }}
+          >
+            <Text style={{ color: theme.colors.danger, fontWeight: "700" }}>Errore nel caricamento candidature</Text>
+            <Text style={{ color: theme.colors.danger }}>{error}</Text>
+            <Pressable
+              onPress={() => void load("initial")}
+              style={{ alignSelf: "flex-start", borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}
+            >
+              <Text style={{ fontWeight: "600" }}>Riprova</Text>
+            </Pressable>
+          </View>
         </View>
       ) : null}
 
