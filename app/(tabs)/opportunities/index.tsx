@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   Pressable,
@@ -275,6 +274,7 @@ export default function OpportunitiesScreen() {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"recent" | "oldest">("recent");
   const [onlyMine, setOnlyMine] = useState(false);
+  const [mineServerFilterActive, setMineServerFilterActive] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -285,7 +285,7 @@ export default function OpportunitiesScreen() {
   const isPlayer = role === "player" || role === "athlete";
   const currentUserIds = useMemo(() => getCurrentUserIds(whoami.data), [whoami.data]);
 
-  const visibleItems = useMemo(() => {
+  const clientFilteredItems = useMemo(() => {
     if (!isClub || !onlyMine) return items;
     return items.filter((opp) => {
       const ownerIds = [opp.owner_id, opp.created_by, opp.club_id]
@@ -294,6 +294,7 @@ export default function OpportunitiesScreen() {
       return ownerIds.some((candidate) => currentUserIds.includes(candidate));
     });
   }, [currentUserIds, isClub, items, onlyMine]);
+  const visibleItems = clientFilteredItems;
 
   const canLoadMore = useMemo(() => page < pageCount, [page, pageCount]);
 
@@ -301,7 +302,16 @@ export default function OpportunitiesScreen() {
     if (mode === "replace") setLoading(true);
     else setLoadingMore(true);
 
-    const response = await fetchOpportunities({ page: nextPage, pageSize: 20, sort, q: query });
+    const clubIdForServerFilter = isClub && onlyMine ? currentUserIds[0] ?? "" : "";
+    const useServerMineFilter = isClub && onlyMine && !!clubIdForServerFilter;
+
+    const response = await fetchOpportunities({
+      page: nextPage,
+      pageSize: 20,
+      sort,
+      q: query,
+      clubId: useServerMineFilter ? clubIdForServerFilter : undefined,
+    });
 
     if (!response.ok || !response.data) {
       setError(response.errorText || "Errore nel caricamento opportunità");
@@ -312,6 +322,7 @@ export default function OpportunitiesScreen() {
     }
 
     setError(null);
+    setMineServerFilterActive(useServerMineFilter);
 
     if (mode === "replace" && isPlayer) {
       const applicationsResponse = await fetchMyAppliedOpportunityIds({ status: "all" });
@@ -441,7 +452,6 @@ export default function OpportunitiesScreen() {
 
       const message = response.errorText || "Impossibile inviare candidatura";
       setErrorsByOpportunityId((prev) => ({ ...prev, [opportunityId]: message }));
-      Alert.alert("Errore", message);
     } finally {
       setActingOpportunityId(null);
     }
@@ -550,6 +560,11 @@ export default function OpportunitiesScreen() {
               );
             })}
           </View>
+          {isClub && onlyMine && !mineServerFilterActive ? (
+            <Text style={{ color: theme.colors.muted, fontSize: 12 }}>
+              Filtro “Le mie” in fallback client-side: i risultati possono essere incompleti con paginazione server.
+            </Text>
+          ) : null}
         </View>
       }
       keyExtractor={(item) => String(item.id)}

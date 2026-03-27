@@ -51,6 +51,7 @@ export type FetchOpportunitiesParams = {
   pageSize?: number;
   sort?: string;
   q?: string;
+  clubId?: string;
 };
 
 export type FetchOpportunitiesResult = {

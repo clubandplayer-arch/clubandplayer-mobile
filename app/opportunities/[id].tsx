@@ -95,6 +95,7 @@ export default function OpportunityDetailScreen() {
   const [alreadyApplied, setAlreadyApplied] = useState(false);
   const [checkingApplied, setCheckingApplied] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
   const [clubAvatarFromProfile, setClubAvatarFromProfile] = useState<string | null>(null);
   const isLoading = loading || web.loading || whoami.loading;
 
@@ -167,6 +168,10 @@ export default function OpportunityDetailScreen() {
   }, [load]);
 
   useEffect(() => {
+    setApplyError(null);
+  }, [id]);
+
+  useEffect(() => {
     const opportunityId = String(item?.id ?? "").trim();
     if (!opportunityId || !isPlayer || web.loading || whoami.loading) {
       setAlreadyApplied(false);
@@ -201,6 +206,7 @@ export default function OpportunityDetailScreen() {
   const onApply = useCallback(async () => {
     if (!id || alreadyApplied || !isPlayer) return;
 
+    setApplyError(null);
     setIsApplying(true);
     const response = await applyToOpportunity(id);
 
@@ -210,7 +216,7 @@ export default function OpportunityDetailScreen() {
       return;
     }
 
-    Alert.alert("Errore", response.errorText || "Impossibile inviare candidatura");
+    setApplyError(response.errorText || "Impossibile inviare candidatura");
     setIsApplying(false);
   }, [alreadyApplied, id, isPlayer]);
 
@@ -398,23 +404,26 @@ export default function OpportunityDetailScreen() {
                 <Text style={{ color: "#065F46", fontWeight: "800" }}>Candidatura inviata</Text>
               </View>
             ) : (
-              <Pressable
-                disabled={isApplying || checkingApplied}
-                onPress={() => {
-                  void onApply();
-                }}
-                style={{
-                  borderRadius: 10,
-                  paddingVertical: 10,
-                  paddingHorizontal: 12,
-                  backgroundColor: theme.colors.primary,
-                  opacity: isApplying || checkingApplied ? 0.6 : 1,
-                }}
-              >
-                <Text style={{ fontWeight: "700", color: theme.colors.background }}>
-                  {isApplying ? "Invio..." : "Candidati"}
-                </Text>
-              </Pressable>
+              <View style={{ gap: 8 }}>
+                {applyError ? <Text style={{ color: theme.colors.danger }}>{applyError}</Text> : null}
+                <Pressable
+                  disabled={isApplying || checkingApplied}
+                  onPress={() => {
+                    void onApply();
+                  }}
+                  style={{
+                    borderRadius: 10,
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    backgroundColor: theme.colors.primary,
+                    opacity: isApplying || checkingApplied ? 0.6 : 1,
+                  }}
+                >
+                  <Text style={{ fontWeight: "700", color: theme.colors.background }}>
+                    {isApplying ? "Invio..." : "Candidati"}
+                  </Text>
+                </Pressable>
+              </View>
             )
           ) : null}
         </View>
