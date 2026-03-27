@@ -101,8 +101,9 @@ export default function ClubApplicationsScreen() {
 
   useEffect(() => {
     trackOpportunityApplyTelemetry("applications_open", {
-      screen: "club_applications",
-      opportunity_id: opportunityId || null,
+      surface: "club_applications",
+      opportunityId: opportunityId || null,
+      outcome: "open",
     });
   }, [opportunityId]);
 

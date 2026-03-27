@@ -125,8 +125,9 @@ export default function OpportunityApplicationsScreen() {
 
   useEffect(() => {
     trackOpportunityApplyTelemetry("applications_open", {
-      screen: "opportunity_applications",
-      opportunity_id: id || null,
+      surface: "opportunity_applications",
+      opportunityId: id || null,
+      outcome: "open",
     });
   }, [id]);
 

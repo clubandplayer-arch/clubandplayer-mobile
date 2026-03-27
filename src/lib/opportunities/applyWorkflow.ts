@@ -1,6 +1,8 @@
 import type { ApiResponse, ApplyToOpportunityResult } from "../api";
 import { devLog } from "../debug/devLog";
 import { emit } from "../events/appEvents";
+import { resolveOpportunityApplyErrorCopy } from "./applyErrorCatalog";
+import type { OpportunityApplyTelemetryEvent, OpportunityApplyTelemetryPayload } from "../telemetry/opportunityTelemetry";
 
 export type ApplyFlowState = "idle" | "checking" | "submitting" | "applied" | "error";
 
@@ -17,44 +19,44 @@ export function resolveApplyFlowState(params: {
   return "idle";
 }
 
-function includes(text: string | undefined, pattern: string): boolean {
-  return String(text ?? "").toLowerCase().includes(pattern.toLowerCase());
-}
-
 export function normalizeApplyErrorMessage(response: Pick<ApiResponse<ApplyToOpportunityResult>, "status" | "errorText">): string {
-  const message = String(response.errorText ?? "").trim();
-
-  if (response.status === 409 || includes(message, "already applied")) {
-    return "Hai già inviato la candidatura.";
-  }
-  if (response.status === 404 || includes(message, "not found")) {
-    return "Questa opportunità non è più disponibile.";
-  }
-  if (
-    response.status === 401 ||
-    response.status === 403 ||
-    includes(message, "cannot apply to your own opportunity") ||
-    includes(message, "not allowed")
-  ) {
-    return "Non puoi candidarti a questa opportunità.";
-  }
-  if (response.status === 429) {
-    return "Hai effettuato troppi tentativi. Riprova tra poco.";
-  }
-
-  return "Impossibile inviare la candidatura. Riprova.";
+  return resolveOpportunityApplyErrorCopy(response);
 }
 
-type OpportunityApplyTelemetryEvent =
-  | "application_submit_attempt"
-  | "application_submit"
-  | "application_submit_failed"
-  | "applications_open";
+export type OpportunityApplyTelemetryInput = {
+  opportunityId?: string | null;
+  surface?: string | null;
+  outcome?: string | null;
+  status?: number;
+  idempotent?: boolean;
+};
+
+function defaultOutcomeForEvent(eventName: OpportunityApplyTelemetryEvent): string {
+  if (eventName === "application_submit_attempt") return "attempt";
+  if (eventName === "application_submit") return "success";
+  if (eventName === "application_submit_failed") return "failed";
+  return "open";
+}
+
+export function buildOpportunityApplyTelemetryPayload(
+  eventName: OpportunityApplyTelemetryEvent,
+  payload?: OpportunityApplyTelemetryInput,
+): OpportunityApplyTelemetryPayload {
+  return {
+    opportunityId: payload?.opportunityId ? String(payload.opportunityId).trim() || null : null,
+    surface: payload?.surface ? String(payload.surface).trim() || "unknown" : "unknown",
+    outcome: payload?.outcome ? String(payload.outcome).trim() || defaultOutcomeForEvent(eventName) : defaultOutcomeForEvent(eventName),
+    timestamp: new Date().toISOString(),
+    status: typeof payload?.status === "number" ? payload.status : undefined,
+    idempotent: typeof payload?.idempotent === "boolean" ? payload.idempotent : undefined,
+  };
+}
 
 export function trackOpportunityApplyTelemetry(
   eventName: OpportunityApplyTelemetryEvent,
-  payload?: Record<string, unknown>,
+  payload?: OpportunityApplyTelemetryInput,
 ) {
-  emit("telemetry:event", { name: eventName, ...payload });
-  devLog("[telemetry]", eventName, payload ?? {});
+  const normalizedPayload = buildOpportunityApplyTelemetryPayload(eventName, payload);
+  emit("telemetry:event", { name: eventName, payload: normalizedPayload });
+  devLog("[telemetry]", eventName, normalizedPayload);
 }
