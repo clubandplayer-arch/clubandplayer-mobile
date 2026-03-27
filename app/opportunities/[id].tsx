@@ -6,6 +6,11 @@ import { applyToOpportunity, fetchOpportunityById, useWebSession, useWhoami } fr
 import { deleteOpportunity } from "../../src/lib/opportunities/deleteOpportunity";
 import { fetchMyAppliedOpportunityIds } from "../../src/lib/opportunities/fetchMyAppliedOpportunityIds";
 import {
+  normalizeApplyErrorMessage,
+  resolveApplyFlowState,
+  trackOpportunityApplyTelemetry,
+} from "../../src/lib/opportunities/applyWorkflow";
+import {
   formatOpportunityGenderLabel,
   getOpportunityClubInitial,
   resolveOpportunityClubAvatarUrl,
@@ -208,15 +213,29 @@ export default function OpportunityDetailScreen() {
 
     setApplyError(null);
     setIsApplying(true);
+    trackOpportunityApplyTelemetry("application_submit_attempt", {
+      source: "opportunity_detail",
+      opportunity_id: id,
+    });
     const response = await applyToOpportunity(id);
 
     if (response.ok || response.status === 409) {
       setAlreadyApplied(true);
+      trackOpportunityApplyTelemetry("application_submit", {
+        source: "opportunity_detail",
+        opportunity_id: id,
+        idempotent: response.status === 409,
+      });
       setIsApplying(false);
       return;
     }
 
-    setApplyError(response.errorText || "Impossibile inviare candidatura");
+    setApplyError(normalizeApplyErrorMessage(response));
+    trackOpportunityApplyTelemetry("application_submit_failed", {
+      source: "opportunity_detail",
+      opportunity_id: id,
+      status: response.status,
+    });
     setIsApplying(false);
   }, [alreadyApplied, id, isPlayer]);
 
@@ -272,6 +291,12 @@ export default function OpportunityDetailScreen() {
   const showOwnerActions = !isLoading && isOwner;
   const showVisitClub = !isLoading && !!clubProfileId && !isOwner;
   const showApplyAction = !isLoading && isPlayer && !isOwner;
+  const applyFlowState = resolveApplyFlowState({
+    alreadyApplied,
+    checkingApplied,
+    isApplying,
+    errorMessage: applyError,
+  });
 
   return (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 16, paddingBottom: 40, gap: 14 }}>
@@ -406,8 +431,9 @@ export default function OpportunityDetailScreen() {
             ) : (
               <View style={{ gap: 8 }}>
                 {applyError ? <Text style={{ color: theme.colors.danger }}>{applyError}</Text> : null}
+                {__DEV__ ? <Text style={{ color: theme.colors.muted, fontSize: 12 }}>apply_state: {applyFlowState}</Text> : null}
                 <Pressable
-                  disabled={isApplying || checkingApplied}
+                  disabled={applyFlowState === "submitting" || applyFlowState === "checking"}
                   onPress={() => {
                     void onApply();
                   }}
@@ -416,11 +442,11 @@ export default function OpportunityDetailScreen() {
                     paddingVertical: 10,
                     paddingHorizontal: 12,
                     backgroundColor: theme.colors.primary,
-                    opacity: isApplying || checkingApplied ? 0.6 : 1,
+                    opacity: applyFlowState === "submitting" || applyFlowState === "checking" ? 0.6 : 1,
                   }}
                 >
                   <Text style={{ fontWeight: "700", color: theme.colors.background }}>
-                    {isApplying ? "Invio..." : "Candidati"}
+                    {applyFlowState === "submitting" ? "Invio..." : "Candidati"}
                   </Text>
                 </Pressable>
               </View>

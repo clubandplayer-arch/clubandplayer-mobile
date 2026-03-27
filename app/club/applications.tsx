@@ -11,6 +11,7 @@ import {
   patchApplicationStatus,
   type ReceivedApplicationItem,
 } from "../../src/lib/api";
+import { trackOpportunityApplyTelemetry } from "../../src/lib/opportunities/applyWorkflow";
 
 type ClubFilterStatus = "all" | "in_review" | "accepted" | "rejected";
 type NormalizedApplicationStatus = "in_review" | "accepted" | "rejected";
@@ -97,6 +98,13 @@ export default function ClubApplicationsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
   const hasFocusedOnceRef = useRef(false);
+
+  useEffect(() => {
+    trackOpportunityApplyTelemetry("applications_open", {
+      screen: "club_applications",
+      opportunity_id: opportunityId || null,
+    });
+  }, [opportunityId]);
 
   const load = useCallback(
     async (mode: "initial" | "refresh") => {

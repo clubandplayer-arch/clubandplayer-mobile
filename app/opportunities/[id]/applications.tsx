@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -19,6 +19,7 @@ import {
   patchApplicationStatus,
   type OpportunityApplicationItem,
 } from "../../../src/lib/api";
+import { trackOpportunityApplyTelemetry } from "../../../src/lib/opportunities/applyWorkflow";
 import { supabase } from "../../../src/lib/supabase";
 
 function asSingle(value: string | string[] | undefined): string {
@@ -121,6 +122,13 @@ export default function OpportunityApplicationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    trackOpportunityApplyTelemetry("applications_open", {
+      screen: "opportunity_applications",
+      opportunity_id: id || null,
+    });
+  }, [id]);
 
   const load = useCallback(
     async (mode: "initial" | "refresh") => {
