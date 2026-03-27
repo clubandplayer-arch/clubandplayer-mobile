@@ -20,6 +20,11 @@ import {
 } from "../../../src/lib/api";
 import { fetchMyAppliedOpportunityIds } from "../../../src/lib/opportunities/fetchMyAppliedOpportunityIds";
 import {
+  normalizeApplyErrorMessage,
+  resolveApplyFlowState,
+  trackOpportunityApplyTelemetry,
+} from "../../../src/lib/opportunities/applyWorkflow";
+import {
   formatOpportunityGenderLabel,
   getOpportunityClubInitial,
   resolveOpportunityClubAvatarUrl,
@@ -112,6 +117,12 @@ function OpportunityCard({
   const genderLabel = formatOpportunityGenderLabel(item.gender);
 
   const opportunityId = String(item.id ?? "").trim();
+  const applyFlowState = resolveApplyFlowState({
+    alreadyApplied,
+    checkingApplied: false,
+    isApplying,
+    errorMessage: applyError,
+  });
 
   const onOpenOpportunity = () => {
     if (!opportunityId) {
@@ -232,9 +243,10 @@ function OpportunityCard({
             />
 
             {applyError ? <Text style={{ color: theme.colors.danger }}>{applyError}</Text> : null}
+            {__DEV__ ? <Text style={{ color: theme.colors.muted, fontSize: 12 }}>apply_state: {applyFlowState}</Text> : null}
 
             <Pressable
-              disabled={isApplying}
+              disabled={applyFlowState === "submitting"}
               onPress={(event) => {
                 event.stopPropagation();
                 onApply();
@@ -245,10 +257,12 @@ function OpportunityCard({
                 backgroundColor: theme.colors.primary,
                 paddingVertical: 8,
                 paddingHorizontal: 12,
-                opacity: isApplying ? 0.6 : 1,
+                opacity: applyFlowState === "submitting" ? 0.6 : 1,
               }}
             >
-              <Text style={{ color: theme.colors.background, fontWeight: "700" }}>{isApplying ? "Invio..." : "Candidati"}</Text>
+              <Text style={{ color: theme.colors.background, fontWeight: "700" }}>
+                {applyFlowState === "submitting" ? "Invio..." : "Candidati"}
+              </Text>
             </Pressable>
           </View>
         )
@@ -426,6 +440,10 @@ export default function OpportunitiesScreen() {
     try {
       setActingOpportunityId(opportunityId);
       setErrorsByOpportunityId((prev) => ({ ...prev, [opportunityId]: null }));
+      trackOpportunityApplyTelemetry("application_submit_attempt", {
+        source: "opportunities_list",
+        opportunity_id: opportunityId,
+      });
 
       const response = await applyToOpportunity(opportunityId, notesByOpportunityId[opportunityId]);
 
@@ -447,11 +465,21 @@ export default function OpportunitiesScreen() {
           delete next[opportunityId];
           return next;
         });
+        trackOpportunityApplyTelemetry("application_submit", {
+          source: "opportunities_list",
+          opportunity_id: opportunityId,
+          idempotent: response.status === 409,
+        });
         return;
       }
 
-      const message = response.errorText || "Impossibile inviare candidatura";
+      const message = normalizeApplyErrorMessage(response);
       setErrorsByOpportunityId((prev) => ({ ...prev, [opportunityId]: message }));
+      trackOpportunityApplyTelemetry("application_submit_failed", {
+        source: "opportunities_list",
+        opportunity_id: opportunityId,
+        status: response.status,
+      });
     } finally {
       setActingOpportunityId(null);
     }

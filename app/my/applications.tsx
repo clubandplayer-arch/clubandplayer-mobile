@@ -1,8 +1,9 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 
 import { fetchMyApplications } from "../../src/lib/api";
+import { trackOpportunityApplyTelemetry } from "../../src/lib/opportunities/applyWorkflow";
 import { theme } from "../../src/theme";
 
 type ApplicationStatus =
@@ -138,6 +139,10 @@ export default function MyApplicationsScreen() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<ApplicationsFilter>(initialFilter);
+
+  useEffect(() => {
+    trackOpportunityApplyTelemetry("applications_open", { screen: "my_applications" });
+  }, []);
 
   const fetchMine = useCallback(async (mode: "initial" | "refresh") => {
     try {
