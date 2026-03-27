@@ -17,7 +17,6 @@ import {
   fetchOpportunityApplications,
   fetchWhoami,
   patchApplicationStatus,
-  type ApplicationStatus,
   type OpportunityApplicationItem,
 } from "../../../src/lib/api";
 import { supabase } from "../../../src/lib/supabase";
@@ -46,7 +45,11 @@ function athleteProfileId(item: OpportunityApplicationItem): string | null {
   return typeof raw === "string" && raw.trim() ? raw : null;
 }
 
-const STATUS_OPTIONS: ApplicationStatus[] = ["submitted", "seen", "accepted", "rejected"];
+const STATUS_ACTIONS: Array<{ label: string; value: "submitted" | "accepted" | "rejected" }> = [
+  { label: "In valutazione", value: "submitted" },
+  { label: "Accettata", value: "accepted" },
+  { label: "Rifiutata", value: "rejected" },
+];
 
 async function enrichAthletesFromProfiles(items: OpportunityApplicationItem[]): Promise<OpportunityApplicationItem[]> {
   const athleteIds = Array.from(
@@ -158,12 +161,12 @@ export default function OpportunityApplicationsScreen() {
 
   const onSelectStatus = useCallback(
     (appId: string) => {
-      const buttons = STATUS_OPTIONS.map((status) => ({
-        text: statusLabel(status),
+      const buttons = STATUS_ACTIONS.map((status) => ({
+        text: status.label,
         onPress: async () => {
           try {
             setActingId(appId);
-            const response = await patchApplicationStatus(appId, status);
+            const response = await patchApplicationStatus(appId, status.value);
             if (!response.ok) throw new Error(response.errorText || "Aggiornamento non riuscito");
             await load("refresh");
           } catch (e: any) {
