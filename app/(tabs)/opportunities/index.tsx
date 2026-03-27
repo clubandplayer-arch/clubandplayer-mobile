@@ -75,6 +75,13 @@ function normalizeRole(role: unknown): string {
   return String(role ?? "").trim().toLowerCase();
 }
 
+function getCurrentUserIds(data: any): string[] {
+  const user = data?.user ?? {};
+  return [data?.id, data?.user_id, data?.profile_id, user?.id, user?.user_id]
+    .map((x) => String(x ?? "").trim())
+    .filter(Boolean);
+}
+
 function OpportunityCard({
   item,
   showApplyActions,
@@ -267,6 +274,7 @@ export default function OpportunitiesScreen() {
   const [queryInput, setQueryInput] = useState("");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"recent" | "oldest">("recent");
+  const [onlyMine, setOnlyMine] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -275,6 +283,17 @@ export default function OpportunitiesScreen() {
   const role = normalizeRole((whoami.data as { role?: unknown } | null)?.role);
   const isClub = role === "club";
   const isPlayer = role === "player" || role === "athlete";
+  const currentUserIds = useMemo(() => getCurrentUserIds(whoami.data), [whoami.data]);
+
+  const visibleItems = useMemo(() => {
+    if (!isClub || !onlyMine) return items;
+    return items.filter((opp) => {
+      const ownerIds = [opp.owner_id, opp.created_by, opp.club_id]
+        .map((value) => String(value ?? "").trim())
+        .filter(Boolean);
+      return ownerIds.some((candidate) => currentUserIds.includes(candidate));
+    });
+  }, [currentUserIds, isClub, items, onlyMine]);
 
   const canLoadMore = useMemo(() => page < pageCount, [page, pageCount]);
 
@@ -458,7 +477,7 @@ export default function OpportunitiesScreen() {
 
   return (
     <FlatList
-      data={items}
+      data={visibleItems}
       ListHeaderComponent={
         <View style={{ marginBottom: 12, gap: 10 }}>
           <TextInput
@@ -477,17 +496,34 @@ export default function OpportunitiesScreen() {
 
           <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
             {isClub ? (
-              <Pressable
-                onPress={() => router.push("/opportunities/new" as any)}
-                style={{
-                  borderRadius: 999,
-                  backgroundColor: theme.colors.primary,
-                  paddingVertical: 6,
-                  paddingHorizontal: 12,
-                }}
-              >
-                <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Crea opportunità</Text>
-              </Pressable>
+              <>
+                <Pressable
+                  onPress={() => router.push("/opportunities/new" as any)}
+                  style={{
+                    borderRadius: 999,
+                    backgroundColor: theme.colors.primary,
+                    paddingVertical: 6,
+                    paddingHorizontal: 12,
+                  }}
+                >
+                  <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Crea opportunità</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setOnlyMine((prev) => !prev)}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: theme.colors.neutral200,
+                    borderRadius: 999,
+                    paddingVertical: 6,
+                    paddingHorizontal: 12,
+                    backgroundColor: onlyMine ? theme.colors.text : theme.colors.background,
+                  }}
+                >
+                  <Text style={{ color: onlyMine ? theme.colors.background : theme.colors.text, fontWeight: "700" }}>
+                    {onlyMine ? "Le mie: ON" : "Le mie"}
+                  </Text>
+                </Pressable>
+              </>
             ) : null}
             {[
               { key: "recent", label: "Più recenti" },
