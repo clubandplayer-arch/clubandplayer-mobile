@@ -22,6 +22,7 @@ import { fetchMyAppliedOpportunityIds } from "../../../src/lib/opportunities/fet
 import {
   normalizeApplyErrorMessage,
   resolveApplyFlowState,
+  SHOW_APPLY_FLOW_DEBUG_LABEL,
   trackOpportunityApplyTelemetry,
 } from "../../../src/lib/opportunities/applyWorkflow";
 import {
@@ -243,7 +244,7 @@ function OpportunityCard({
             />
 
             {applyError ? <Text style={{ color: theme.colors.danger }}>{applyError}</Text> : null}
-            {__DEV__ ? <Text style={{ color: theme.colors.muted, fontSize: 12 }}>apply_state: {applyFlowState}</Text> : null}
+            {__DEV__ && SHOW_APPLY_FLOW_DEBUG_LABEL ? <Text style={{ color: theme.colors.muted, fontSize: 12 }}>apply_state: {applyFlowState}</Text> : null}
 
             <Pressable
               disabled={applyFlowState === "submitting"}
@@ -441,8 +442,10 @@ export default function OpportunitiesScreen() {
       setActingOpportunityId(opportunityId);
       setErrorsByOpportunityId((prev) => ({ ...prev, [opportunityId]: null }));
       trackOpportunityApplyTelemetry("application_submit_attempt", {
-        source: "opportunities_list",
-        opportunity_id: opportunityId,
+        opportunityId,
+        surface: "list",
+        outcome: "open",
+        timestamp: new Date().toISOString(),
       });
 
       const response = await applyToOpportunity(opportunityId, notesByOpportunityId[opportunityId]);
@@ -466,9 +469,10 @@ export default function OpportunitiesScreen() {
           return next;
         });
         trackOpportunityApplyTelemetry("application_submit", {
-          source: "opportunities_list",
-          opportunity_id: opportunityId,
-          idempotent: response.status === 409,
+          opportunityId,
+          surface: "list",
+          outcome: response.status === 409 ? "idempotent" : "success",
+          timestamp: new Date().toISOString(),
         });
         return;
       }
@@ -476,9 +480,11 @@ export default function OpportunitiesScreen() {
       const message = normalizeApplyErrorMessage(response);
       setErrorsByOpportunityId((prev) => ({ ...prev, [opportunityId]: message }));
       trackOpportunityApplyTelemetry("application_submit_failed", {
-        source: "opportunities_list",
-        opportunity_id: opportunityId,
+        opportunityId,
+        surface: "list",
+        outcome: "failure",
         status: response.status,
+        timestamp: new Date().toISOString(),
       });
     } finally {
       setActingOpportunityId(null);

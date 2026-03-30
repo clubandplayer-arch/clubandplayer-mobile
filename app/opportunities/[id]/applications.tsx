@@ -20,6 +20,7 @@ import {
   type OpportunityApplicationItem,
 } from "../../../src/lib/api";
 import { trackOpportunityApplyTelemetry } from "../../../src/lib/opportunities/applyWorkflow";
+import { emit, on } from "../../../src/lib/events/appEvents";
 import { supabase } from "../../../src/lib/supabase";
 
 function asSingle(value: string | string[] | undefined): string {
@@ -29,11 +30,9 @@ function asSingle(value: string | string[] | undefined): string {
 
 function statusLabel(value?: string | null): string {
   const v = String(value || "").toLowerCase();
-  if (v === "submitted") return "Inviata";
-  if (v === "seen") return "Visualizzata";
   if (v === "accepted") return "Accettata";
   if (v === "rejected") return "Rifiutata";
-  return value ? String(value) : "-";
+  return "In valutazione";
 }
 
 function athleteLabel(item: OpportunityApplicationItem): string {
@@ -125,8 +124,10 @@ export default function OpportunityApplicationsScreen() {
 
   useEffect(() => {
     trackOpportunityApplyTelemetry("applications_open", {
-      screen: "opportunity_applications",
-      opportunity_id: id || null,
+      opportunityId: id || null,
+      surface: "opportunity_applications",
+      outcome: "open",
+      timestamp: new Date().toISOString(),
     });
   }, [id]);
 
@@ -167,6 +168,16 @@ export default function OpportunityApplicationsScreen() {
     }, [load]),
   );
 
+  useEffect(() => {
+    const unsubscribe = on<{ opportunityId?: string | null }>("applications:status_changed", (eventPayload) => {
+      const changedOpportunityId = String(eventPayload?.opportunityId ?? "").trim();
+      if (!changedOpportunityId || changedOpportunityId !== id) return;
+      void load("refresh");
+    });
+
+    return unsubscribe;
+  }, [id, load]);
+
   const onSelectStatus = useCallback(
     (appId: string) => {
       const buttons = STATUS_ACTIONS.map((status) => ({
@@ -176,6 +187,7 @@ export default function OpportunityApplicationsScreen() {
             setActingId(appId);
             const response = await patchApplicationStatus(appId, status.value);
             if (!response.ok) throw new Error(response.errorText || "Aggiornamento non riuscito");
+            emit("applications:status_changed", { opportunityId: id });
             await load("refresh");
           } catch (e: any) {
             setError(e?.message ? String(e.message) : "Aggiornamento non riuscito");
@@ -190,7 +202,7 @@ export default function OpportunityApplicationsScreen() {
         { text: "Annulla", style: "cancel" },
       ]);
     },
-    [load],
+    [id, load],
   );
 
   const empty = useMemo(() => {
