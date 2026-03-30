@@ -11,6 +11,7 @@ import {
   patchApplicationStatus,
   type ReceivedApplicationItem,
 } from "../../src/lib/api";
+import { emit, on } from "../../src/lib/events/appEvents";
 import { trackOpportunityApplyTelemetry } from "../../src/lib/opportunities/applyWorkflow";
 
 type ClubFilterStatus = "all" | "in_review" | "accepted" | "rejected";
@@ -91,7 +92,7 @@ export default function ClubApplicationsScreen() {
     ? params.opportunity_id[0]?.trim() || ""
     : String(params.opportunity_id ?? "").trim();
 
-  const [status, setStatus] = useState<ClubFilterStatus>("in_review");
+  const [status, setStatus] = useState<ClubFilterStatus>("all");
   const [items, setItems] = useState<ReceivedApplicationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -150,6 +151,14 @@ export default function ClubApplicationsScreen() {
     void load("refresh");
   }, [opportunityId, load]);
 
+  useEffect(() => {
+    return on<{ opportunityId: string | null }>("applications:status-updated", (event) => {
+      if (!opportunityId || event?.opportunityId === opportunityId) {
+        void load("refresh");
+      }
+    });
+  }, [load, opportunityId]);
+
   const filteredItems = useMemo(() => items.filter((item) => matchesFilter(item, status)), [items, status]);
 
   const empty = useMemo(() => {
@@ -172,14 +181,16 @@ export default function ClubApplicationsScreen() {
         setActingId(appId);
         const response = await patchApplicationStatus(appId, next);
         if (!response.ok) throw new Error(response.errorText || "Aggiornamento non riuscito");
+        setStatus("all");
         await load("refresh");
+        emit("applications:status-updated", { opportunityId: opportunityId || null });
       } catch (e: any) {
         setError(e?.message ? String(e.message) : "Aggiornamento non riuscito");
       } finally {
         setActingId(null);
       }
     },
-    [load],
+    [load, opportunityId],
   );
 
   if (loading && !refreshing) {

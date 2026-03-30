@@ -434,7 +434,6 @@ export default function OpportunityDetailScreen() {
             ) : (
               <View style={{ gap: 8 }}>
                 {applyError ? <Text style={{ color: theme.colors.danger }}>{applyError}</Text> : null}
-                {__DEV__ ? <Text style={{ color: theme.colors.muted, fontSize: 12 }}>apply_state: {applyFlowState}</Text> : null}
                 <Pressable
                   disabled={applyFlowState === "submitting" || applyFlowState === "checking"}
                   onPress={() => {
