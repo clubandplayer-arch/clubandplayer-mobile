@@ -97,6 +97,9 @@ export function AvatarUploader({ value, onChange }: Props) {
           <Text style={{ color: "#fff", fontWeight: "700" }}>Cambia foto</Text>
         )}
       </Pressable>
+      <Text style={{ fontSize: 12, color: "#6b7280" }}>
+        Nell'editor di ritaglio usa il comando “RITAGLIA” in alto a destra per confermare.
+      </Text>
     </View>
   );
 }
