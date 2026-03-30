@@ -11,6 +11,7 @@ import {
   patchApplicationStatus,
   type ReceivedApplicationItem,
 } from "../../src/lib/api";
+import { on, emit } from "../../src/lib/events/appEvents";
 import { trackOpportunityApplyTelemetry } from "../../src/lib/opportunities/applyWorkflow";
 
 type ClubFilterStatus = "all" | "in_review" | "accepted" | "rejected";
@@ -91,7 +92,7 @@ export default function ClubApplicationsScreen() {
     ? params.opportunity_id[0]?.trim() || ""
     : String(params.opportunity_id ?? "").trim();
 
-  const [status, setStatus] = useState<ClubFilterStatus>("in_review");
+  const [status, setStatus] = useState<ClubFilterStatus>("all");
   const [items, setItems] = useState<ReceivedApplicationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -101,8 +102,10 @@ export default function ClubApplicationsScreen() {
 
   useEffect(() => {
     trackOpportunityApplyTelemetry("applications_open", {
-      screen: "club_applications",
-      opportunity_id: opportunityId || null,
+      opportunityId: opportunityId || null,
+      surface: "club_applications",
+      outcome: "open",
+      timestamp: new Date().toISOString(),
     });
   }, [opportunityId]);
 
@@ -149,6 +152,16 @@ export default function ClubApplicationsScreen() {
     void load("refresh");
   }, [opportunityId, load]);
 
+  useEffect(() => {
+    const unsubscribe = on<{ opportunityId?: string | null }>("applications:status_changed", (eventPayload) => {
+      const changedOpportunityId = String(eventPayload?.opportunityId ?? "").trim();
+      if (opportunityId && changedOpportunityId && changedOpportunityId !== opportunityId) return;
+      void load("refresh");
+    });
+
+    return unsubscribe;
+  }, [load, opportunityId]);
+
   const filteredItems = useMemo(() => items.filter((item) => matchesFilter(item, status)), [items, status]);
 
   const empty = useMemo(() => {
@@ -171,6 +184,9 @@ export default function ClubApplicationsScreen() {
         setActingId(appId);
         const response = await patchApplicationStatus(appId, next);
         if (!response.ok) throw new Error(response.errorText || "Aggiornamento non riuscito");
+        const updated = items.find((item) => item.id === appId);
+        setStatus("all");
+        emit("applications:status_changed", { opportunityId: updated?.opportunity_id ?? null });
         await load("refresh");
       } catch (e: any) {
         setError(e?.message ? String(e.message) : "Aggiornamento non riuscito");
@@ -178,7 +194,7 @@ export default function ClubApplicationsScreen() {
         setActingId(null);
       }
     },
-    [load],
+    [items, load],
   );
 
   if (loading && !refreshing) {

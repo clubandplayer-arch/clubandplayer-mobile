@@ -141,7 +141,12 @@ export default function MyApplicationsScreen() {
   const [selectedFilter, setSelectedFilter] = useState<ApplicationsFilter>(initialFilter);
 
   useEffect(() => {
-    trackOpportunityApplyTelemetry("applications_open", { screen: "my_applications" });
+    trackOpportunityApplyTelemetry("applications_open", {
+      opportunityId: null,
+      surface: "my_applications",
+      outcome: "open",
+      timestamp: new Date().toISOString(),
+    });
   }, []);
 
   const fetchMine = useCallback(async (mode: "initial" | "refresh") => {

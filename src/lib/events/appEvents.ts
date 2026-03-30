@@ -2,6 +2,10 @@ type AppEventHandler<T = unknown> = (payload?: T) => void;
 
 const listeners = new Map<string, Set<AppEventHandler>>();
 
+export function hasListeners(eventName: string): boolean {
+  return (listeners.get(eventName)?.size ?? 0) > 0;
+}
+
 export function emit<T = unknown>(eventName: string, payload?: T) {
   const handlers = listeners.get(eventName);
   if (!handlers || handlers.size === 0) return;

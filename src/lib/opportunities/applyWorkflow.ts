@@ -1,8 +1,23 @@
 import type { ApiResponse, ApplyToOpportunityResult } from "../api";
-import { devLog } from "../debug/devLog";
-import { emit } from "../events/appEvents";
+import { devLog, devWarn } from "../debug/devLog";
+import { emit, hasListeners } from "../events/appEvents";
 
 export type ApplyFlowState = "idle" | "checking" | "submitting" | "applied" | "error";
+
+export type ApplySurface =
+  | "list"
+  | "detail"
+  | "club_applications"
+  | "my_applications"
+  | "opportunity_applications";
+
+export type OpportunityApplyTelemetryEvent =
+  | "application_submit_attempt"
+  | "application_submit"
+  | "application_submit_failed"
+  | "applications_open";
+
+export const SHOW_APPLY_FLOW_DEBUG_LABEL = false;
 
 export function resolveApplyFlowState(params: {
   alreadyApplied: boolean;
@@ -45,16 +60,28 @@ export function normalizeApplyErrorMessage(response: Pick<ApiResponse<ApplyToOpp
   return "Impossibile inviare la candidatura. Riprova.";
 }
 
-type OpportunityApplyTelemetryEvent =
-  | "application_submit_attempt"
-  | "application_submit"
-  | "application_submit_failed"
-  | "applications_open";
+export type OpportunityApplyTelemetryPayload = {
+  opportunityId: string | null;
+  surface: ApplySurface;
+  outcome: "success" | "failure" | "idempotent" | "open";
+  timestamp: string;
+  status?: number;
+};
 
 export function trackOpportunityApplyTelemetry(
   eventName: OpportunityApplyTelemetryEvent,
-  payload?: Record<string, unknown>,
+  payload: OpportunityApplyTelemetryPayload,
 ) {
-  emit("telemetry:event", { name: eventName, ...payload });
-  devLog("[telemetry]", eventName, payload ?? {});
+  try {
+    if (!hasListeners("telemetry:event")) {
+      devWarn("[telemetry] provider missing, skipping emit", eventName, payload);
+      return;
+    }
+
+    emit("telemetry:event", { name: eventName, ...payload });
+  } catch (error) {
+    devWarn("[telemetry] emit failed", eventName, error);
+  } finally {
+    devLog("[telemetry]", eventName, payload);
+  }
 }
