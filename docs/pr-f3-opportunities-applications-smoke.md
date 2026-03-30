@@ -48,3 +48,4 @@
 ## Smoke commands (mobile)
 - `npm run lint`
 - `npm run typecheck`
+- `pnpm run smoke:opportunities` (PR-F4 automation minima)

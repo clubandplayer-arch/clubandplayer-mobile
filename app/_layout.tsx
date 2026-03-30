@@ -4,6 +4,7 @@ import { ActivityIndicator, View } from "react-native";
 import { useFonts } from "expo-font";
 import { AuthApiError, type Session } from "@supabase/supabase-js";
 import { CrashBoundary } from "../src/components/CrashBoundary";
+import { installOpportunityTelemetryConsumer } from "../src/lib/telemetry/opportunityTelemetry";
 import { supabase } from "../src/lib/supabase";
 import { getOnboardingSeen, subscribeOnboardingSeen } from "../src/lib/onboarding";
 import { theme } from "../src/theme";
@@ -40,6 +41,7 @@ export default function RootLayout() {
   const lastTargetRef = useRef<string | null>(null);
 
   useEffect(() => {
+    const unsubscribeTelemetry = installOpportunityTelemetryConsumer();
     let mounted = true;
 
     const init = async () => {
@@ -77,6 +79,7 @@ export default function RootLayout() {
 
     return () => {
       mounted = false;
+      unsubscribeTelemetry();
       authListener.subscription.unsubscribe();
       unsubOnboarding();
     };

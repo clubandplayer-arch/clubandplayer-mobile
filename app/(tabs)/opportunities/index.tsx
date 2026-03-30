@@ -243,7 +243,6 @@ function OpportunityCard({
             />
 
             {applyError ? <Text style={{ color: theme.colors.danger }}>{applyError}</Text> : null}
-            {__DEV__ ? <Text style={{ color: theme.colors.muted, fontSize: 12 }}>apply_state: {applyFlowState}</Text> : null}
 
             <Pressable
               disabled={applyFlowState === "submitting"}
@@ -441,8 +440,9 @@ export default function OpportunitiesScreen() {
       setActingOpportunityId(opportunityId);
       setErrorsByOpportunityId((prev) => ({ ...prev, [opportunityId]: null }));
       trackOpportunityApplyTelemetry("application_submit_attempt", {
-        source: "opportunities_list",
-        opportunity_id: opportunityId,
+        surface: "opportunities_list",
+        opportunityId,
+        outcome: "attempt",
       });
 
       const response = await applyToOpportunity(opportunityId, notesByOpportunityId[opportunityId]);
@@ -466,8 +466,9 @@ export default function OpportunitiesScreen() {
           return next;
         });
         trackOpportunityApplyTelemetry("application_submit", {
-          source: "opportunities_list",
-          opportunity_id: opportunityId,
+          surface: "opportunities_list",
+          opportunityId,
+          outcome: response.status === 409 ? "success_idempotent" : "success",
           idempotent: response.status === 409,
         });
         return;
@@ -476,8 +477,9 @@ export default function OpportunitiesScreen() {
       const message = normalizeApplyErrorMessage(response);
       setErrorsByOpportunityId((prev) => ({ ...prev, [opportunityId]: message }));
       trackOpportunityApplyTelemetry("application_submit_failed", {
-        source: "opportunities_list",
-        opportunity_id: opportunityId,
+        surface: "opportunities_list",
+        opportunityId,
+        outcome: "failed",
         status: response.status,
       });
     } finally {

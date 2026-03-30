@@ -19,6 +19,7 @@ import {
   patchApplicationStatus,
   type OpportunityApplicationItem,
 } from "../../../src/lib/api";
+import { emit, on } from "../../../src/lib/events/appEvents";
 import { trackOpportunityApplyTelemetry } from "../../../src/lib/opportunities/applyWorkflow";
 import { supabase } from "../../../src/lib/supabase";
 
@@ -125,8 +126,9 @@ export default function OpportunityApplicationsScreen() {
 
   useEffect(() => {
     trackOpportunityApplyTelemetry("applications_open", {
-      screen: "opportunity_applications",
-      opportunity_id: id || null,
+      surface: "opportunity_applications",
+      opportunityId: id || null,
+      outcome: "open",
     });
   }, [id]);
 
@@ -167,6 +169,14 @@ export default function OpportunityApplicationsScreen() {
     }, [load]),
   );
 
+  useEffect(() => {
+    return on<{ opportunityId: string | null }>("applications:status-updated", (event) => {
+      if (!id || event?.opportunityId === id) {
+        void load("refresh");
+      }
+    });
+  }, [id, load]);
+
   const onSelectStatus = useCallback(
     (appId: string) => {
       const buttons = STATUS_ACTIONS.map((status) => ({
@@ -177,6 +187,7 @@ export default function OpportunityApplicationsScreen() {
             const response = await patchApplicationStatus(appId, status.value);
             if (!response.ok) throw new Error(response.errorText || "Aggiornamento non riuscito");
             await load("refresh");
+            emit("applications:status-updated", { opportunityId: id || null });
           } catch (e: any) {
             setError(e?.message ? String(e.message) : "Aggiornamento non riuscito");
           } finally {
@@ -190,7 +201,7 @@ export default function OpportunityApplicationsScreen() {
         { text: "Annulla", style: "cancel" },
       ]);
     },
-    [load],
+    [id, load],
   );
 
   const empty = useMemo(() => {

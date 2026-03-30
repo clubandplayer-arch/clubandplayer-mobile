@@ -214,16 +214,18 @@ export default function OpportunityDetailScreen() {
     setApplyError(null);
     setIsApplying(true);
     trackOpportunityApplyTelemetry("application_submit_attempt", {
-      source: "opportunity_detail",
-      opportunity_id: id,
+      surface: "opportunity_detail",
+      opportunityId: id,
+      outcome: "attempt",
     });
     const response = await applyToOpportunity(id);
 
     if (response.ok || response.status === 409) {
       setAlreadyApplied(true);
       trackOpportunityApplyTelemetry("application_submit", {
-        source: "opportunity_detail",
-        opportunity_id: id,
+        surface: "opportunity_detail",
+        opportunityId: id,
+        outcome: response.status === 409 ? "success_idempotent" : "success",
         idempotent: response.status === 409,
       });
       setIsApplying(false);
@@ -232,8 +234,9 @@ export default function OpportunityDetailScreen() {
 
     setApplyError(normalizeApplyErrorMessage(response));
     trackOpportunityApplyTelemetry("application_submit_failed", {
-      source: "opportunity_detail",
-      opportunity_id: id,
+      surface: "opportunity_detail",
+      opportunityId: id,
+      outcome: "failed",
       status: response.status,
     });
     setIsApplying(false);
@@ -431,7 +434,6 @@ export default function OpportunityDetailScreen() {
             ) : (
               <View style={{ gap: 8 }}>
                 {applyError ? <Text style={{ color: theme.colors.danger }}>{applyError}</Text> : null}
-                {__DEV__ ? <Text style={{ color: theme.colors.muted, fontSize: 12 }}>apply_state: {applyFlowState}</Text> : null}
                 <Pressable
                   disabled={applyFlowState === "submitting" || applyFlowState === "checking"}
                   onPress={() => {
