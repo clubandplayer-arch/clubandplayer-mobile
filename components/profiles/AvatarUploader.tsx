@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Image, Pressable, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { Platform } from "react-native";
 import { uploadProfileAvatar } from "../../src/lib/api";
 
 type Props = {
@@ -17,36 +18,42 @@ export function AvatarUploader({ value, onChange }: Props) {
   }, [value]);
 
   const onPick = useCallback(async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Permesso richiesto", "Consenti accesso alle foto per cambiare avatar.");
-      return;
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert("Permesso richiesto", "Consenti accesso alle foto per cambiare avatar.");
+        return;
+      }
+
+      const picked = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.8,
+        allowsEditing: true,
+        aspect: [1, 1],
+        legacy: Platform.OS === "android",
+      });
+
+      if (picked.canceled || !picked.assets?.length) return;
+      const asset = picked.assets[0];
+
+      setUploading(true);
+      const result = await uploadProfileAvatar({
+        uri: asset.uri,
+        fileName: asset.fileName ?? undefined,
+        mimeType: asset.mimeType ?? undefined,
+      });
+
+      if (!result.ok) {
+        Alert.alert("Errore", result.errorText ?? "Upload avatar fallito.");
+        return;
+      }
+
+      onChange(result.data?.avatar_url ?? null);
+    } catch (error) {
+      Alert.alert("Errore", "Impossibile completare la selezione o il caricamento dell'avatar.");
+    } finally {
+      setUploading(false);
     }
-
-    const picked = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.8,
-      allowsEditing: true,
-      aspect: [1, 1],
-    });
-
-    if (picked.canceled || !picked.assets?.length) return;
-    const asset = picked.assets[0];
-
-    setUploading(true);
-    const result = await uploadProfileAvatar({
-      uri: asset.uri,
-      fileName: asset.fileName ?? undefined,
-      mimeType: asset.mimeType ?? undefined,
-    });
-    setUploading(false);
-
-    if (!result.ok) {
-      Alert.alert("Errore", result.errorText ?? "Upload avatar fallito.");
-      return;
-    }
-
-    onChange(result.data?.avatar_url ?? null);
   }, [onChange]);
 
   return (
