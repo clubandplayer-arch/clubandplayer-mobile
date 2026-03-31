@@ -31,8 +31,7 @@ export function AvatarUploader({ value, onChange }: Props) {
       const picked = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         quality: 0.8,
-        allowsEditing: true,
-        aspect: [1, 1],
+        allowsEditing: false,
       });
 
       if (picked.canceled || !picked.assets?.length) return;
@@ -124,7 +123,7 @@ export function AvatarUploader({ value, onChange }: Props) {
           <View style={{ backgroundColor: "#fff", borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: "88%" }}>
             <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }}>
               <Text style={{ fontSize: 18, fontWeight: "700" }}>Conferma avatar</Text>
-              <Text style={{ color: "#4b5563" }}>Regola l'inquadratura nel crop e poi conferma qui.</Text>
+              <Text style={{ color: "#4b5563" }}>Controlla l'anteprima e conferma l'avatar.</Text>
 
               <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 8 }}>
                 <View style={{ width: 240, height: 240, borderRadius: 120, overflow: "hidden", backgroundColor: "#e5e7eb" }}>
