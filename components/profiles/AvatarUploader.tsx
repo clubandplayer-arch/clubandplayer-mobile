@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Image, Modal, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { uploadProfileAvatar } from "../../src/lib/api";
+import { emit } from "../../src/lib/events/appEvents";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Props = {
   value?: string | null;
@@ -9,6 +11,7 @@ type Props = {
 };
 
 export function AvatarUploader({ value, onChange }: Props) {
+  const insets = useSafeAreaInsets();
   const [uploading, setUploading] = useState(false);
   const [pendingAsset, setPendingAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
 
@@ -28,7 +31,8 @@ export function AvatarUploader({ value, onChange }: Props) {
       const picked = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         quality: 0.8,
-        allowsEditing: false,
+        allowsEditing: true,
+        aspect: [1, 1],
       });
 
       if (picked.canceled || !picked.assets?.length) return;
@@ -54,6 +58,8 @@ export function AvatarUploader({ value, onChange }: Props) {
       }
 
       onChange(result.data?.avatar_url ?? null);
+      emit("app:avatar-updated", { avatarUrl: result.data?.avatar_url ?? null, ts: Date.now() });
+      emit("feed:refresh");
       setPendingAsset(null);
       Alert.alert("Salvato", "Avatar aggiornato. Ricordati di salvare il profilo.");
     } catch (error) {
@@ -115,19 +121,32 @@ export function AvatarUploader({ value, onChange }: Props) {
         }}
       >
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" }}>
-          <View style={{ backgroundColor: "#fff", borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, gap: 14 }}>
-            <Text style={{ fontSize: 18, fontWeight: "700" }}>Conferma avatar</Text>
-            <Text style={{ color: "#4b5563" }}>Controlla l'anteprima prima di confermare l'avatar.</Text>
+          <View style={{ backgroundColor: "#fff", borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: "88%" }}>
+            <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }}>
+              <Text style={{ fontSize: 18, fontWeight: "700" }}>Conferma avatar</Text>
+              <Text style={{ color: "#4b5563" }}>Regola l'inquadratura nel crop e poi conferma qui.</Text>
 
-            <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 8 }}>
-              <View style={{ width: 240, height: 240, borderRadius: 120, overflow: "hidden", backgroundColor: "#e5e7eb" }}>
-                {pendingAsset ? (
-                  <Image source={{ uri: pendingAsset.uri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
-                ) : null}
+              <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 8 }}>
+                <View style={{ width: 240, height: 240, borderRadius: 120, overflow: "hidden", backgroundColor: "#e5e7eb" }}>
+                  {pendingAsset ? (
+                    <Image source={{ uri: pendingAsset.uri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                  ) : null}
+                </View>
               </View>
-            </View>
+            </ScrollView>
 
-            <View style={{ flexDirection: "row", gap: 10 }}>
+            <View
+              style={{
+                flexDirection: "row",
+                gap: 10,
+                paddingHorizontal: 16,
+                paddingTop: 10,
+                paddingBottom: Math.max(insets.bottom, 12),
+                borderTopWidth: 1,
+                borderTopColor: "#e5e7eb",
+                backgroundColor: "#fff",
+              }}
+            >
               <Pressable
                 disabled={uploading}
                 onPress={() => setPendingAsset(null)}
@@ -138,6 +157,8 @@ export function AvatarUploader({ value, onChange }: Props) {
                   borderRadius: 10,
                   paddingVertical: 12,
                   alignItems: "center",
+                  minHeight: 48,
+                  justifyContent: "center",
                 }}
               >
                 <Text style={{ fontWeight: "600", color: "#111827" }}>Annulla</Text>
@@ -152,6 +173,8 @@ export function AvatarUploader({ value, onChange }: Props) {
                   borderRadius: 10,
                   paddingVertical: 12,
                   alignItems: "center",
+                  minHeight: 48,
+                  justifyContent: "center",
                 }}
               >
                 {uploading ? (

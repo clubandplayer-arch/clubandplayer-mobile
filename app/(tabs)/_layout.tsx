@@ -20,6 +20,13 @@ import MobileSearchOverlay from "../../src/components/search/MobileSearchOverlay
 const BRAND_DARK = "#00527a"; // blu scuro logo
 const BRAND_LIGHT = "#2a7aa0"; // blu chiaro logo (lo rifiniamo dopo)
 
+function withCacheBust(url: string | null, ts: number = Date.now()) {
+  const clean = typeof url === "string" ? url.trim() : "";
+  if (!clean) return null;
+  const separator = clean.includes("?") ? "&" : "?";
+  return `${clean}${separator}avatar_ts=${ts}`;
+}
+
 export default function TabsLayout() {
   const router = useRouter();
 
@@ -90,7 +97,7 @@ export default function TabsLayout() {
       if (cancelled || !response.ok || !response.data) return;
       const profile = (response.data as any)?.data ?? response.data;
       const nextAvatarUrl = profile?.avatar_url ?? profile?.avatarUrl ?? null;
-      setAvatarUrl(typeof nextAvatarUrl === "string" && nextAvatarUrl.length > 0 ? nextAvatarUrl : null);
+      setAvatarUrl(withCacheBust(typeof nextAvatarUrl === "string" ? nextAvatarUrl : null));
     });
 
     return () => {
@@ -102,6 +109,14 @@ export default function TabsLayout() {
     const response = await fetchDirectMessagesUnreadCount();
     if (!response.ok || !response.data) return;
     setMessagesUnreadCount(response.data.unreadThreads || 0);
+  }, []);
+
+  useEffect(() => {
+    const unsubscribeAvatarUpdated = on<{ avatarUrl?: string | null; ts?: number }>("app:avatar-updated", (payload) => {
+      const next = withCacheBust(payload?.avatarUrl ?? null, payload?.ts ?? Date.now());
+      setAvatarUrl(next);
+    });
+    return unsubscribeAvatarUpdated;
   }, []);
 
   useEffect(() => {
