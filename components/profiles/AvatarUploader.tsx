@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Image, Modal, Pressable, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import * as ImageManipulator from "expo-image-manipulator";
 import { uploadProfileAvatar } from "../../src/lib/api";
 
 type Props = {
@@ -43,22 +42,10 @@ export function AvatarUploader({ value, onChange }: Props) {
     if (!pendingAsset) return;
     setUploading(true);
     try {
-      const width = Math.max(1, Math.floor(pendingAsset.width ?? 1));
-      const height = Math.max(1, Math.floor(pendingAsset.height ?? 1));
-      const size = Math.max(1, Math.min(width, height));
-      const originX = Math.max(0, Math.floor((width - size) / 2));
-      const originY = Math.max(0, Math.floor((height - size) / 2));
-
-      const cropped = await ImageManipulator.manipulateAsync(
-        pendingAsset.uri,
-        [{ crop: { originX, originY, width: size, height: size } }],
-        { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG },
-      );
-
       const result = await uploadProfileAvatar({
-        uri: cropped.uri,
+        uri: pendingAsset.uri,
         fileName: pendingAsset.fileName ?? `avatar-${Date.now()}.jpg`,
-        mimeType: "image/jpeg",
+        mimeType: pendingAsset.mimeType ?? undefined,
       });
 
       if (!result.ok) {
@@ -130,7 +117,7 @@ export function AvatarUploader({ value, onChange }: Props) {
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" }}>
           <View style={{ backgroundColor: "#fff", borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, gap: 14 }}>
             <Text style={{ fontSize: 18, fontWeight: "700" }}>Conferma avatar</Text>
-            <Text style={{ color: "#4b5563" }}>Controlla l'anteprima: applichiamo un crop quadrato centrato.</Text>
+            <Text style={{ color: "#4b5563" }}>Controlla l'anteprima prima di confermare l'avatar.</Text>
 
             <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 8 }}>
               <View style={{ width: 240, height: 240, borderRadius: 120, overflow: "hidden", backgroundColor: "#e5e7eb" }}>
