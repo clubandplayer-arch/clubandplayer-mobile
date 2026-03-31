@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Image, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { uploadProfileAvatar } from "../../src/lib/api";
+import { emit } from "../../src/lib/events/appEvents";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Props = {
   value?: string | null;
@@ -9,7 +11,9 @@ type Props = {
 };
 
 export function AvatarUploader({ value, onChange }: Props) {
+  const insets = useSafeAreaInsets();
   const [uploading, setUploading] = useState(false);
+  const [pendingAsset, setPendingAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
 
   const preview = useMemo(() => {
     const url = String(value ?? "").trim();
@@ -17,37 +21,52 @@ export function AvatarUploader({ value, onChange }: Props) {
   }, [value]);
 
   const onPick = useCallback(async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Permesso richiesto", "Consenti accesso alle foto per cambiare avatar.");
-      return;
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert("Permesso richiesto", "Consenti accesso alle foto per cambiare avatar.");
+        return;
+      }
+
+      const picked = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.8,
+        allowsEditing: false,
+      });
+
+      if (picked.canceled || !picked.assets?.length) return;
+      setPendingAsset(picked.assets[0]);
+    } catch (error) {
+      Alert.alert("Errore", "Impossibile completare la selezione o il caricamento dell'avatar.");
     }
+  }, []);
 
-    const picked = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.8,
-      allowsEditing: true,
-      aspect: [1, 1],
-    });
-
-    if (picked.canceled || !picked.assets?.length) return;
-    const asset = picked.assets[0];
-
+  const onConfirmAvatar = useCallback(async () => {
+    if (!pendingAsset) return;
     setUploading(true);
-    const result = await uploadProfileAvatar({
-      uri: asset.uri,
-      fileName: asset.fileName ?? undefined,
-      mimeType: asset.mimeType ?? undefined,
-    });
-    setUploading(false);
+    try {
+      const result = await uploadProfileAvatar({
+        uri: pendingAsset.uri,
+        fileName: pendingAsset.fileName ?? `avatar-${Date.now()}.jpg`,
+        mimeType: pendingAsset.mimeType ?? undefined,
+      });
 
-    if (!result.ok) {
-      Alert.alert("Errore", result.errorText ?? "Upload avatar fallito.");
-      return;
+      if (!result.ok) {
+        Alert.alert("Errore", result.errorText ?? "Upload avatar fallito.");
+        return;
+      }
+
+      onChange(result.data?.avatar_url ?? null);
+      emit("app:avatar-updated", { avatarUrl: result.data?.avatar_url ?? null, ts: Date.now() });
+      emit("feed:refresh");
+      setPendingAsset(null);
+      Alert.alert("Salvato", "Avatar aggiornato. Ricordati di salvare il profilo.");
+    } catch (error) {
+      Alert.alert("Errore", "Impossibile confermare l'avatar.");
+    } finally {
+      setUploading(false);
     }
-
-    onChange(result.data?.avatar_url ?? null);
-  }, [onChange]);
+  }, [onChange, pendingAsset]);
 
   return (
     <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 12 }}>
@@ -90,6 +109,83 @@ export function AvatarUploader({ value, onChange }: Props) {
           <Text style={{ color: "#fff", fontWeight: "700" }}>Cambia foto</Text>
         )}
       </Pressable>
+
+      <Modal
+        visible={Boolean(pendingAsset)}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          if (uploading) return;
+          setPendingAsset(null);
+        }}
+      >
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: "#fff", borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: "88%" }}>
+            <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }}>
+              <Text style={{ fontSize: 18, fontWeight: "700" }}>Conferma avatar</Text>
+              <Text style={{ color: "#4b5563" }}>Controlla l'anteprima e conferma l'avatar.</Text>
+
+              <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 8 }}>
+                <View style={{ width: 240, height: 240, borderRadius: 120, overflow: "hidden", backgroundColor: "#e5e7eb" }}>
+                  {pendingAsset ? (
+                    <Image source={{ uri: pendingAsset.uri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                  ) : null}
+                </View>
+              </View>
+            </ScrollView>
+
+            <View
+              style={{
+                flexDirection: "row",
+                gap: 10,
+                paddingHorizontal: 16,
+                paddingTop: 10,
+                paddingBottom: Math.max(insets.bottom, 12),
+                borderTopWidth: 1,
+                borderTopColor: "#e5e7eb",
+                backgroundColor: "#fff",
+              }}
+            >
+              <Pressable
+                disabled={uploading}
+                onPress={() => setPendingAsset(null)}
+                style={{
+                  flex: 1,
+                  borderWidth: 1,
+                  borderColor: "#d1d5db",
+                  borderRadius: 10,
+                  paddingVertical: 12,
+                  alignItems: "center",
+                  minHeight: 48,
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ fontWeight: "600", color: "#111827" }}>Annulla</Text>
+              </Pressable>
+
+              <Pressable
+                disabled={uploading}
+                onPress={() => void onConfirmAvatar()}
+                style={{
+                  flex: 1,
+                  backgroundColor: uploading ? "#9ca3af" : "#111827",
+                  borderRadius: 10,
+                  paddingVertical: 12,
+                  alignItems: "center",
+                  minHeight: 48,
+                  justifyContent: "center",
+                }}
+              >
+                {uploading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={{ fontWeight: "700", color: "#fff" }}>Conferma avatar</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
