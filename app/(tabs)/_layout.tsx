@@ -98,22 +98,6 @@ export default function TabsLayout() {
     };
   }, [sessionPresent]);
 
-  useEffect(() => {
-    const unsubscribe = on<{ avatarUrl?: string | null; at?: number }>("profile:avatar-updated", (payload) => {
-      const rawAvatar = typeof payload?.avatarUrl === "string" ? payload.avatarUrl.trim() : "";
-      if (!rawAvatar) {
-        setAvatarUrl(null);
-        return;
-      }
-      const hasQuery = rawAvatar.includes("?");
-      const stamp = typeof payload?.at === "number" ? payload.at : Date.now();
-      setAvatarUrl(`${rawAvatar}${hasQuery ? "&" : "?"}t=${stamp}`);
-    });
-    return () => {
-      unsubscribe();
-    };
-  }, []);
-
   const loadMessagesUnreadCount = useCallback(async () => {
     const response = await fetchDirectMessagesUnreadCount();
     if (!response.ok || !response.data) return;
