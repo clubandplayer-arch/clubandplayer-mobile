@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Image, Modal, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Modal, Platform, Pressable, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { uploadProfileAvatar } from "../../src/lib/api";
@@ -30,7 +30,9 @@ export function AvatarUploader({ value, onChange }: Props) {
     const picked = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       quality: 0.8,
-      allowsEditing: false,
+      allowsEditing: true,
+      aspect: [1, 1],
+      legacy: Platform.OS === "android",
     });
 
     if (picked.canceled || !picked.assets?.length) return;
@@ -68,7 +70,7 @@ export function AvatarUploader({ value, onChange }: Props) {
     <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 12 }}>
       <Text style={{ fontSize: 16, fontWeight: "700" }}>Avatar</Text>
       <Text style={{ color: "#4b5563" }}>
-        Seleziona una foto e conferma dall'anteprima. Suggerimento: centra il soggetto prima nella tua galleria.
+        Seleziona una foto, centrala nel ritaglio e conferma dall'anteprima.
       </Text>
       <View style={{ alignItems: "center", justifyContent: "center" }}>
         {preview ? (
