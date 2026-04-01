@@ -30,8 +30,7 @@ export function AvatarUploader({ value, onChange }: Props) {
     const picked = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       quality: 0.8,
-      allowsEditing: true,
-      aspect: [1, 1],
+      allowsEditing: false,
     });
 
     if (picked.canceled || !picked.assets?.length) return;
@@ -68,7 +67,9 @@ export function AvatarUploader({ value, onChange }: Props) {
   return (
     <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 12 }}>
       <Text style={{ fontSize: 16, fontWeight: "700" }}>Avatar</Text>
-      <Text style={{ color: "#4b5563" }}>Seleziona una foto, centrala nel ritaglio e conferma dall'anteprima.</Text>
+      <Text style={{ color: "#4b5563" }}>
+        Seleziona una foto e conferma dall'anteprima. Suggerimento: centra il soggetto prima nella tua galleria.
+      </Text>
       <View style={{ alignItems: "center", justifyContent: "center" }}>
         {preview ? (
           <Image
