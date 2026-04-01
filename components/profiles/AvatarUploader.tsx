@@ -30,8 +30,7 @@ export function AvatarUploader({ value, onChange }: Props) {
     const picked = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       quality: 0.8,
-      allowsEditing: true,
-      aspect: [1, 1],
+      allowsEditing: false,
     });
 
     if (picked.canceled || !picked.assets?.length) return;
@@ -68,6 +67,7 @@ export function AvatarUploader({ value, onChange }: Props) {
   return (
     <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 12 }}>
       <Text style={{ fontSize: 16, fontWeight: "700" }}>Avatar</Text>
+      <Text style={{ color: "#4b5563" }}>Seleziona una foto e conferma dall'anteprima.</Text>
       <View style={{ alignItems: "center", justifyContent: "center" }}>
         {preview ? (
           <Image
@@ -110,14 +110,16 @@ export function AvatarUploader({ value, onChange }: Props) {
       <Modal visible={Boolean(pendingAsset)} transparent animationType="slide" onRequestClose={onCancelConfirm}>
         <View style={{ flex: 1, backgroundColor: "rgba(17, 24, 39, 0.45)", justifyContent: "flex-end" }}>
           <View style={{ backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 14, paddingHorizontal: 16 }}>
-            <Text style={{ fontSize: 17, fontWeight: "700", textAlign: "center", marginBottom: 12 }}>Conferma avatar</Text>
+            <Text style={{ fontSize: 30, lineHeight: 34, textAlign: "center", marginBottom: 2 }}>👤</Text>
+            <Text style={{ fontSize: 28, fontWeight: "800", textAlign: "center", marginBottom: 8, color: "#111827" }}>Conferma avatar</Text>
+            <Text style={{ color: "#4b5563", textAlign: "center", marginBottom: 12 }}>Controlla l'anteprima prima di confermare l'avatar.</Text>
             <View style={{ alignItems: "center", paddingBottom: 14 }}>
               {pendingAsset?.uri ? (
                 <Image source={{ uri: pendingAsset.uri }} style={{ width: 176, height: 176, borderRadius: 88, backgroundColor: "#e5e7eb" }} />
               ) : null}
             </View>
 
-            <View style={{ flexDirection: "row", gap: 10, paddingBottom: Math.max(insets.bottom, 12) }}>
+            <View style={{ flexDirection: "row", gap: 10, paddingBottom: Math.max(insets.bottom, 16) + 20 }}>
               <Pressable
                 onPress={onCancelConfirm}
                 disabled={uploading}

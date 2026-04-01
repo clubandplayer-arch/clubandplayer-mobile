@@ -96,7 +96,7 @@ export default function TabsLayout() {
     return () => {
       cancelled = true;
     };
-  }, [sessionPresent]);
+  }, [pathname, sessionPresent]);
 
   const loadMessagesUnreadCount = useCallback(async () => {
     const response = await fetchDirectMessagesUnreadCount();
