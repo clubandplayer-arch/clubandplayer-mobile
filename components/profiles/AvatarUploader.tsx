@@ -317,9 +317,10 @@ export function AvatarUploader({ value, onChange }: Props) {
                 source={{ uri: selectedImage.uri }}
                 style={{
                   position: "absolute",
-                  width: selectedImage.width,
-                  height: selectedImage.height,
-                  transform: [{ translateX }, { translateY }, { scale }],
+                  width: selectedImage.width * scale,
+                  height: selectedImage.height * scale,
+                  left: translateX,
+                  top: translateY,
                 }}
               />
             ) : null}
