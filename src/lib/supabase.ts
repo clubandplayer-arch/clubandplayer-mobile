@@ -2,9 +2,8 @@ import "react-native-url-polyfill/auto";
 import { AuthApiError, createClient } from "@supabase/supabase-js";
 import { secureStoreAdapter } from "./supabaseStorage";
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
-
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
 function isInvalidRefreshTokenError(error: unknown) {
   if (error instanceof AuthApiError) {
@@ -14,6 +13,24 @@ function isInvalidRefreshTokenError(error: unknown) {
   return message.toLowerCase().includes("invalid refresh token");
 }
 
+function getMissingEnvMessage() {
+  const missing: string[] = [];
+
+  if (!supabaseUrl) missing.push("EXPO_PUBLIC_SUPABASE_URL");
+  if (!supabaseAnonKey) missing.push("EXPO_PUBLIC_SUPABASE_ANON_KEY");
+
+  return [
+    "[Supabase] Missing required Expo public environment variables.",
+    `Missing: ${missing.join(", ") || "unknown"}`,
+    "Create a .env file in the project root with:",
+    "EXPO_PUBLIC_SUPABASE_URL=...",
+    "EXPO_PUBLIC_SUPABASE_ANON_KEY=...",
+  ].join("\n");
+}
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(getMissingEnvMessage());
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
@@ -31,6 +48,8 @@ if (__DEV__) {
       const { data: sessionData } = await supabase.auth.getSession();
       const { data: userData } = await supabase.auth.getUser();
 
+      console.log("[Supabase][DEV] urlLoaded", Boolean(supabaseUrl));
+      console.log("[Supabase][DEV] anonKeyLoaded", Boolean(supabaseAnonKey));
       console.log("[Supabase][DEV] sessionPresent", Boolean(sessionData.session));
       console.log("[Supabase][DEV] userId", userData.user?.id ?? null);
     } catch (error) {
