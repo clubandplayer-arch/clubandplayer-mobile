@@ -13,6 +13,7 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { SaveFormat, manipulateAsync } from "expo-image-manipulator";
 import { uploadProfileAvatar } from "../../src/lib/api";
+import { emit } from "../../src/lib/events/appEvents";
 
 type Props = {
   value?: string | null;
@@ -230,7 +231,9 @@ export function AvatarUploader({ value, onChange }: Props) {
         return;
       }
 
-      onChange(result.data?.avatar_url ?? null);
+      const nextAvatarUrl = result.data?.avatar_url ?? null;
+      onChange(nextAvatarUrl);
+      emit("app:profile-avatar-updated", { avatarUrl: nextAvatarUrl });
       closeEditor();
     } catch {
       Alert.alert("Errore", "Non siamo riusciti a ritagliare la foto. Riprova.");
