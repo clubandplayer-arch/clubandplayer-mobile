@@ -584,10 +584,6 @@ export default function PostDetailScreen() {
         contentContainerStyle={{ padding: 24, paddingBottom: Math.max(32, insets.bottom + 16), gap: 18 }}
         keyboardShouldPersistTaps="handled"
       >
-        <Pressable onPress={() => router.back()} style={{ alignSelf: "flex-start" }}>
-          <Text style={{ fontWeight: "700", color: theme.colors.text }}>← Indietro</Text>
-        </Pressable>
-
         <PostCard post={post} />
         {quotedPost ? <PostCard post={quotedPost} title="Post citato" /> : null}
 
