@@ -20,6 +20,10 @@ import MobileSearchOverlay from "../../src/components/search/MobileSearchOverlay
 const BRAND_DARK = "#00527a"; // blu scuro logo
 const BRAND_LIGHT = "#2a7aa0"; // blu chiaro logo (lo rifiniamo dopo)
 
+type ProfileAvatarUpdatedPayload = {
+  avatarUrl?: string | null;
+};
+
 export default function TabsLayout() {
   const router = useRouter();
 
@@ -113,6 +117,17 @@ export default function TabsLayout() {
       unsubscribeMessages();
     };
   }, [loadMessagesUnreadCount]);
+
+  useEffect(() => {
+    const unsubscribeAvatar = on<ProfileAvatarUpdatedPayload>("app:profile-avatar-updated", (payload) => {
+      const nextAvatarUrl = typeof payload?.avatarUrl === "string" ? payload.avatarUrl.trim() : "";
+      setAvatarUrl(nextAvatarUrl.length > 0 ? nextAvatarUrl : null);
+    });
+
+    return () => {
+      unsubscribeAvatar();
+    };
+  }, []);
 
   const closeAvatarMenu = useCallback(() => {
     setAvatarMenuOpen(false);
