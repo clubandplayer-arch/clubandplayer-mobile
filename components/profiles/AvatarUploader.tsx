@@ -14,6 +14,7 @@ import * as ImagePicker from "expo-image-picker";
 import { SaveFormat, manipulateAsync } from "expo-image-manipulator";
 import { uploadProfileAvatar } from "../../src/lib/api";
 import { emit } from "../../src/lib/events/appEvents";
+import { theme } from "../../src/theme";
 
 type Props = {
   value?: string | null;
@@ -246,7 +247,7 @@ export function AvatarUploader({ value, onChange }: Props) {
   const maxScale = minScale * MAX_ZOOM_FACTOR;
 
   return (
-    <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 12 }}>
+    <View style={{ borderWidth: 1, borderColor: theme.colors.primarySoft, borderRadius: 12, padding: 16, gap: 12 }}>
       <Text style={{ fontSize: 16, fontWeight: "700" }}>Avatar</Text>
       <View style={{ alignItems: "center", justifyContent: "center" }}>
         {preview ? (
@@ -274,7 +275,7 @@ export function AvatarUploader({ value, onChange }: Props) {
         disabled={uploading}
         onPress={() => void onPick()}
         style={{
-          backgroundColor: uploading ? "#9ca3af" : "#111827",
+          backgroundColor: uploading ? theme.colors.primarySoft : theme.colors.primary,
           borderRadius: 10,
           paddingVertical: 10,
           alignItems: "center",
