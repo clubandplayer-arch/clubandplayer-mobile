@@ -115,8 +115,8 @@ function SelectField({
 }) {
   return (
     <View style={{ flex: 1, gap: 6 }}>
-      <Text style={{ fontWeight: "600" }}>{label}</Text>
-      <Pressable onPress={onPress} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12 }}>
+      <Text style={{ fontWeight: "600", color: theme.colors.primary }}>{label}</Text>
+      <Pressable onPress={onPress} style={{ borderWidth: 1, borderColor: theme.colors.primarySoft, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12 }}>
         <Text style={{ color: value ? theme.colors.text : theme.colors.muted }}>{value || placeholder}</Text>
       </Pressable>
     </View>
@@ -146,8 +146,8 @@ function PickerModal({
         <View style={{ backgroundColor: theme.colors.background, padding: 16, paddingBottom: Math.max(insets.bottom, 12), borderTopLeftRadius: 16, borderTopRightRadius: 16, gap: 12, maxHeight: "70%" }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
             <Text style={{ fontSize: 18, fontWeight: "700" }}>{title}</Text>
-            <Pressable onPress={onClose} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.neutral200 }}>
-              <Text>Chiudi</Text>
+            <Pressable onPress={onClose} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.primarySoft }}>
+              <Text style={{ color: theme.colors.primary }}>Chiudi</Text>
             </Pressable>
           </View>
           <ScrollView contentContainerStyle={{ gap: 8, paddingBottom: Math.max(insets.bottom, 12) + 12 }}>
@@ -160,9 +160,9 @@ function PickerModal({
                     onSelect(option.value);
                     onClose();
                   }}
-                  style={{ borderWidth: 1, borderColor: selected ? theme.colors.text : theme.colors.neutral200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12, backgroundColor: selected ? theme.colors.neutral100 : theme.colors.background }}
+                  style={{ borderWidth: 1, borderColor: selected ? theme.colors.primary : theme.colors.primarySoft, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12, backgroundColor: selected ? theme.colors.neutral100 : theme.colors.background }}
                 >
-                  <Text style={{ fontWeight: selected ? "700" : "500" }}>{option.label}</Text>
+                  <Text style={{ fontWeight: selected ? "700" : "500", color: theme.colors.text }}>{option.label}</Text>
                 </Pressable>
               );
             })}
@@ -348,7 +348,7 @@ export default function ClubProfileScreen() {
 
         <AvatarUploader value={avatarUrl} onChange={setAvatarUrl} />
 
-        <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
+        <View style={{ borderWidth: 1, borderColor: theme.colors.primarySoft, borderRadius: 12, padding: 16, gap: 8 }}>
           <TextInput placeholder="Nome del club" value={fullName} onChangeText={setFullName} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
           <View style={{ flexDirection: "row", gap: 12 }}>
             <SelectField label="Nazione del club" value={getCountryLabel(country)} placeholder="Seleziona nazione" onPress={() => setOpenPicker("country")} />
@@ -361,53 +361,53 @@ export default function ClubProfileScreen() {
           </View>
           <View style={{ flexDirection: "row", gap: 12 }}>
             <View style={{ flex: 1, gap: 6 }}>
-              <Text style={{ fontWeight: "600" }}>Anno di fondazione</Text>
+              <Text style={{ fontWeight: "600", color: theme.colors.primary }}>Anno di fondazione</Text>
               <TextInput placeholder="2025" value={clubFoundationYear} onChangeText={setClubFoundationYear} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
             </View>
             <View style={{ flex: 1, gap: 6 }}>
-              <Text style={{ fontWeight: "600" }}>Stadio o impianto</Text>
+              <Text style={{ fontWeight: "600", color: theme.colors.primary }}>Stadio o impianto</Text>
               <TextInput placeholder="Nome stadio" value={clubStadium} onChangeText={setClubStadium} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
             </View>
           </View>
           <View style={{ gap: 6 }}>
-            <Text style={{ fontWeight: "600" }}>Indirizzo stadio</Text>
+            <Text style={{ fontWeight: "600", color: theme.colors.primary }}>Indirizzo stadio</Text>
             <TextInput placeholder="Indirizzo stadio" value={clubStadiumAddress} onChangeText={setClubStadiumAddress} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
           </View>
           <View style={{ gap: 6 }}>
-            <Text style={{ fontWeight: "600" }}>Biografia del club</Text>
+            <Text style={{ fontWeight: "600", color: theme.colors.primary }}>Biografia del club</Text>
             <TextInput placeholder="Biografia del club" value={bio} onChangeText={setBio} multiline style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10, minHeight: 100, textAlignVertical: "top" }} />
           </View>
         </View>
 
-        <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
-          <Text style={{ fontSize: 16, fontWeight: "700" }}>Profili social</Text>
+        <View style={{ borderWidth: 1, borderColor: theme.colors.primarySoft, borderRadius: 12, padding: 16, gap: 8 }}>
+          <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.primary }}>Profili social</Text>
           <Text style={{ color: theme.colors.muted, fontSize: 13 }}>Inserisci URL completi o semplici @handle.</Text>
           <View style={{ flexDirection: "row", gap: 12 }}>
             <View style={{ flex: 1, gap: 6 }}>
-              <Text style={{ fontWeight: "600" }}>Instagram</Text>
+              <Text style={{ fontWeight: "600", color: theme.colors.primary }}>Instagram</Text>
               <TextInput placeholder="https://instagram.com/..." value={socials.instagram} onChangeText={(value) => setSocials((current) => ({ ...current, instagram: value }))} autoCapitalize="none" autoCorrect={false} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
             </View>
             <View style={{ flex: 1, gap: 6 }}>
-              <Text style={{ fontWeight: "600" }}>Facebook</Text>
+              <Text style={{ fontWeight: "600", color: theme.colors.primary }}>Facebook</Text>
               <TextInput placeholder="https://facebook.com/..." value={socials.facebook} onChangeText={(value) => setSocials((current) => ({ ...current, facebook: value }))} autoCapitalize="none" autoCorrect={false} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
             </View>
           </View>
           <View style={{ flexDirection: "row", gap: 12 }}>
             <View style={{ flex: 1, gap: 6 }}>
-              <Text style={{ fontWeight: "600" }}>TikTok</Text>
+              <Text style={{ fontWeight: "600", color: theme.colors.primary }}>TikTok</Text>
               <TextInput placeholder="https://tiktok.com/@..." value={socials.tiktok} onChangeText={(value) => setSocials((current) => ({ ...current, tiktok: value }))} autoCapitalize="none" autoCorrect={false} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
             </View>
             <View style={{ flex: 1, gap: 6 }}>
-              <Text style={{ fontWeight: "600" }}>X (Twitter)</Text>
+              <Text style={{ fontWeight: "600", color: theme.colors.primary }}>X (Twitter)</Text>
               <TextInput placeholder="@tuonome" value={socials.x} onChangeText={(value) => setSocials((current) => ({ ...current, x: value }))} autoCapitalize="none" autoCorrect={false} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
             </View>
           </View>
         </View>
 
-        <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
-          <Text style={{ fontSize: 16, fontWeight: "700" }}>Notifiche</Text>
+        <View style={{ borderWidth: 1, borderColor: theme.colors.primarySoft, borderRadius: 12, padding: 16, gap: 8 }}>
+          <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.primary }}>Notifiche</Text>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <Text style={{ fontWeight: "600" }}>Email per nuovi messaggi</Text>
+            <Text style={{ fontWeight: "600", color: theme.colors.primary }}>Email per nuovi messaggi</Text>
             <Switch value={notifyEmail} onValueChange={setNotifyEmail} />
           </View>
         </View>

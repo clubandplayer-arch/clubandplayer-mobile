@@ -248,7 +248,7 @@ export function AvatarUploader({ value, onChange }: Props) {
 
   return (
     <View style={{ borderWidth: 1, borderColor: theme.colors.primarySoft, borderRadius: 12, padding: 16, gap: 12 }}>
-      <Text style={{ fontSize: 16, fontWeight: "700" }}>Avatar</Text>
+      <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.primary }}>Avatar</Text>
       <View style={{ alignItems: "center", justifyContent: "center" }}>
         {preview ? (
           <Image

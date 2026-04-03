@@ -41,7 +41,7 @@ function SelectInput({
 }) {
   return (
     <View style={{ gap: 6 }}>
-      <Text style={{ fontWeight: "600" }}>{label}</Text>
+      <Text style={{ fontWeight: "600", color: theme.colors.primary }}>{label}</Text>
       <Pressable
         disabled={disabled}
         onPress={onPress}
@@ -54,7 +54,7 @@ function SelectInput({
           backgroundColor: disabled ? "#f3f4f6" : "#fff",
         }}
       >
-        <Text style={{ color: value ? theme.colors.primary : theme.colors.muted }}>{value ?? "Seleziona"}</Text>
+        <Text style={{ color: value ? theme.colors.text : theme.colors.muted }}>{value ?? "Seleziona"}</Text>
       </Pressable>
     </View>
   );
@@ -182,7 +182,7 @@ export function LocationFields({ mode, title, values, onChange }: Props) {
 
   return (
     <View style={{ borderWidth: 1, borderColor: theme.colors.primarySoft, borderRadius: 12, padding: 16, gap: 12 }}>
-      <Text style={{ fontSize: 16, fontWeight: "700" }}>{title ?? "Location"}</Text>
+      <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.primary }}>{title ?? "Location"}</Text>
 
       <SelectInput label="Regione" value={values.region_label} onPress={() => setOpenPicker("region")} />
 
