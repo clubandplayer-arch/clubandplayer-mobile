@@ -31,6 +31,7 @@ import { devWarn } from "../../src/lib/debug/devLog";
 import { theme } from "../../src/theme";
 import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
 import { isCertifiedClub } from "../../src/lib/profiles/certification";
+import { resolveProfileByAuthorId } from "../../src/lib/profiles/resolveProfile";
 
 const POST_FIELDS =
   "id, content, created_at, author_id, media_url, media_type, media_aspect, kind, event_payload, quoted_post_id";
@@ -134,38 +135,21 @@ function Avatar({ url, size = 44, name, isCertified = false }: { url?: string | 
 
 async function fetchAuthorProfile(authorId: string | null): Promise<FeedAuthor | null> {
   if (!authorId) return null;
-
-  const primary = await supabase
-    .from("profiles")
-    .select("id, user_id, full_name, display_name, avatar_url, account_type, type, role, is_verified, certified, certification_status, verified_until")
-    .eq("user_id", authorId)
-    .maybeSingle();
-
-  let data = primary.data;
-  if (!data && !primary.error) {
-    const fallback = await supabase
-      .from("profiles")
-      .select("id, user_id, full_name, display_name, avatar_url, account_type, type, role, is_verified, certified, certification_status, verified_until")
-      .eq("id", authorId)
-      .maybeSingle();
-    data = fallback.data;
-  }
-
+  const data = await resolveProfileByAuthorId(authorId, supabase);
   if (!data) return null;
 
   return {
-    id: asString((data as any).id) ?? undefined,
-    user_id: asString((data as any).user_id) ?? null,
-    full_name: typeof (data as any).full_name === "string" ? (data as any).full_name : null,
-    display_name: typeof (data as any).display_name === "string" ? (data as any).display_name : null,
-    avatar_url: typeof (data as any).avatar_url === "string" ? (data as any).avatar_url : null,
-    account_type: typeof (data as any).account_type === "string" ? (data as any).account_type : null,
-    type: typeof (data as any).type === "string" ? (data as any).type : null,
-    role: typeof (data as any).role === "string" ? (data as any).role : null,
-    is_verified: typeof (data as any).is_verified === "boolean" ? (data as any).is_verified : null,
-    certified: typeof (data as any).certified === "boolean" ? (data as any).certified : null,
-    certification_status: typeof (data as any).certification_status === "string" ? (data as any).certification_status : null,
-    verified_until: typeof (data as any).verified_until === "string" ? (data as any).verified_until : null,
+    id: data.id ?? undefined,
+    user_id: data.user_id ?? null,
+    full_name: data.full_name,
+    display_name: data.display_name,
+    avatar_url: data.avatar_url,
+    account_type: data.account_type,
+    type: data.type,
+    role: data.role,
+    certified: data.certified,
+    certification_status: data.certification_status,
+    verified_until: data.verified_until,
   };
 }
 
@@ -600,10 +584,6 @@ export default function PostDetailScreen() {
         contentContainerStyle={{ padding: 24, paddingBottom: Math.max(32, insets.bottom + 16), gap: 18 }}
         keyboardShouldPersistTaps="handled"
       >
-        <Pressable onPress={() => router.back()} style={{ alignSelf: "flex-start" }}>
-          <Text style={{ fontWeight: "700", color: theme.colors.text }}>← Indietro</Text>
-        </Pressable>
-
         <PostCard post={post} />
         {quotedPost ? <PostCard post={quotedPost} title="Post citato" /> : null}
 
