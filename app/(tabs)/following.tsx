@@ -425,7 +425,7 @@ export default function FollowingScreen() {
         </View>
       ) : empty ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 24 }}>
-          <Text style={{ fontSize: 20, fontWeight: "800", color: theme.colors.text }}>Nessun profilo</Text>
+          <Text style={{ fontSize: 20, fontWeight: "800", color: theme.colors.primary }}>Nessun profilo</Text>
           <Text style={{ color: theme.colors.muted, textAlign: "center" }}>Non stai seguendo nessun profilo.</Text>
         </View>
       ) : (
@@ -446,7 +446,7 @@ export default function FollowingScreen() {
                 }}
                 style={{
                   borderWidth: 1,
-                  borderColor: theme.colors.neutral200,
+                  borderColor: theme.colors.primarySoft,
                   borderRadius: 12,
                   paddingHorizontal: 12,
                   paddingVertical: 10,
@@ -458,7 +458,7 @@ export default function FollowingScreen() {
               >
                 <Avatar uri={item.avatarUrl} />
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.text }}>{item.name}</Text>
+                  <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.primary }}>{item.name}</Text>
                 </View>
                 {isClub && item.accountType === "athlete" ? (
                   <View

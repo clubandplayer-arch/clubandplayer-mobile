@@ -143,13 +143,13 @@ function SelectField({
 }) {
   return (
     <View style={{ flex: 1, gap: 6 }}>
-      <Text style={{ fontWeight: "600" }}>{label}</Text>
+      <Text style={{ fontWeight: "600", color: theme.colors.primary }}>{label}</Text>
       <Pressable
         disabled={disabled}
         onPress={onPress}
         style={{
           borderWidth: 1,
-          borderColor: theme.colors.neutral200,
+          borderColor: theme.colors.primarySoft,
           borderRadius: 8,
           paddingHorizontal: 12,
           paddingVertical: 12,
@@ -186,8 +186,8 @@ function PickerModal({
         <View style={{ backgroundColor: theme.colors.background, padding: 16, paddingBottom: Math.max(insets.bottom, 12), borderTopLeftRadius: 16, borderTopRightRadius: 16, gap: 12, maxHeight: "70%" }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
             <Text style={{ fontSize: 18, fontWeight: "700" }}>{title}</Text>
-            <Pressable onPress={onClose} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.neutral200 }}>
-              <Text>Chiudi</Text>
+            <Pressable onPress={onClose} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.primarySoft }}>
+              <Text style={{ color: theme.colors.primary }}>Chiudi</Text>
             </Pressable>
           </View>
           <ScrollView contentContainerStyle={{ gap: 8, paddingBottom: Math.max(insets.bottom, 12) + 12 }}>
@@ -202,14 +202,14 @@ function PickerModal({
                   }}
                   style={{
                     borderWidth: 1,
-                    borderColor: selected ? theme.colors.text : theme.colors.neutral200,
+                    borderColor: selected ? theme.colors.primary : theme.colors.primarySoft,
                     borderRadius: 10,
                     paddingHorizontal: 12,
                     paddingVertical: 12,
                     backgroundColor: selected ? theme.colors.neutral100 : theme.colors.background,
                   }}
                 >
-                  <Text style={{ fontWeight: selected ? "700" : "500" }}>{option.label}</Text>
+                  <Text style={{ fontWeight: selected ? "700" : "500", color: theme.colors.text }}>{option.label}</Text>
                 </Pressable>
               );
             })}
@@ -417,11 +417,11 @@ export default function PlayerProfileScreen() {
 
         <AvatarUploader value={avatarUrl} onChange={setAvatarUrl} />
 
-        <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
+        <View style={{ borderWidth: 1, borderColor: theme.colors.primarySoft, borderRadius: 12, padding: 16, gap: 8 }}>
           <TextInput placeholder="Nome e cognome" value={fullName} onChangeText={setFullName} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
           <View style={{ flexDirection: "row", gap: 12 }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontWeight: "600", marginBottom: 6 }}>Anno di nascita</Text>
+              <Text style={{ fontWeight: "600", marginBottom: 6, color: theme.colors.primary }}>Anno di nascita</Text>
               <TextInput placeholder="1996" value={birthYear} onChangeText={setBirthYear} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
             </View>
             <SelectField label="Nazionalità" value={getCountryLabel(country)} placeholder="Seleziona" onPress={() => setOpenPicker("country")} helperText={`${country} ${getCountryLabel(country)}`} />
@@ -436,18 +436,18 @@ export default function PlayerProfileScreen() {
               <SelectField label="Piede preferito" value={foot} placeholder="Seleziona piede" onPress={() => setOpenPicker("foot")} />
             </View>
             <View style={{ flex: 0.85, gap: 6 }}>
-              <Text style={{ fontWeight: "600" }}>Altezza (cm)</Text>
+              <Text style={{ fontWeight: "600", color: theme.colors.primary }}>Altezza (cm)</Text>
               <TextInput placeholder="187" value={heightCm} onChangeText={setHeightCm} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
             </View>
             <View style={{ flex: 0.85, gap: 6 }}>
-              <Text style={{ fontWeight: "600" }}>Peso (kg)</Text>
+              <Text style={{ fontWeight: "600", color: theme.colors.primary }}>Peso (kg)</Text>
               <TextInput placeholder="85" value={weightKg} onChangeText={setWeightKg} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
             </View>
           </View>
         </View>
 
-        <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 10 }}>
-          <Text style={{ fontSize: 16, fontWeight: "700" }}>Competenze</Text>
+        <View style={{ borderWidth: 1, borderColor: theme.colors.primarySoft, borderRadius: 12, padding: 16, gap: 10 }}>
+          <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.primary }}>Competenze</Text>
           <Text style={{ color: theme.colors.muted }}>Aggiungi fino a 10 competenze chiave.</Text>
           <View style={{ flexDirection: "row", gap: 8 }}>
             <TextInput
@@ -475,41 +475,41 @@ export default function PlayerProfileScreen() {
           </View>
         </View>
 
-        <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 12 }}>
-          <Text style={{ fontSize: 16, fontWeight: "700" }}>Zona di interesse</Text>
+        <View style={{ borderWidth: 1, borderColor: theme.colors.primarySoft, borderRadius: 12, padding: 16, gap: 12 }}>
+          <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.primary }}>Zona di interesse</Text>
           <SelectField label="Paese" value={getCountryLabel(interestCountry)} placeholder="Seleziona paese" onPress={() => setOpenPicker("interest_country")} helperText={`${interestCountry} ${getCountryLabel(interestCountry)}`} />
           <LocationFields mode="player" title="Località" values={interest} onChange={setInterest} />
         </View>
 
-        <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
-          <Text style={{ fontSize: 16, fontWeight: "700" }}>Profili social</Text>
+        <View style={{ borderWidth: 1, borderColor: theme.colors.primarySoft, borderRadius: 12, padding: 16, gap: 8 }}>
+          <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.primary }}>Profili social</Text>
           <Text style={{ color: theme.colors.muted, fontSize: 13 }}>Inserisci URL completi o semplici @handle.</Text>
           <View style={{ flexDirection: "row", gap: 12 }}>
             <View style={{ flex: 1, gap: 6 }}>
-              <Text style={{ fontWeight: "600" }}>Instagram</Text>
+              <Text style={{ fontWeight: "600", color: theme.colors.primary }}>Instagram</Text>
               <TextInput placeholder="https://instagram.com/..." value={socials.instagram} onChangeText={(value) => setSocials((current) => ({ ...current, instagram: value }))} autoCapitalize="none" autoCorrect={false} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
             </View>
             <View style={{ flex: 1, gap: 6 }}>
-              <Text style={{ fontWeight: "600" }}>Facebook</Text>
+              <Text style={{ fontWeight: "600", color: theme.colors.primary }}>Facebook</Text>
               <TextInput placeholder="https://facebook.com/..." value={socials.facebook} onChangeText={(value) => setSocials((current) => ({ ...current, facebook: value }))} autoCapitalize="none" autoCorrect={false} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
             </View>
           </View>
           <View style={{ flexDirection: "row", gap: 12 }}>
             <View style={{ flex: 1, gap: 6 }}>
-              <Text style={{ fontWeight: "600" }}>TikTok</Text>
+              <Text style={{ fontWeight: "600", color: theme.colors.primary }}>TikTok</Text>
               <TextInput placeholder="https://tiktok.com/@..." value={socials.tiktok} onChangeText={(value) => setSocials((current) => ({ ...current, tiktok: value }))} autoCapitalize="none" autoCorrect={false} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
             </View>
             <View style={{ flex: 1, gap: 6 }}>
-              <Text style={{ fontWeight: "600" }}>X (Twitter)</Text>
+              <Text style={{ fontWeight: "600", color: theme.colors.primary }}>X (Twitter)</Text>
               <TextInput placeholder="@tuonome" value={socials.x} onChangeText={(value) => setSocials((current) => ({ ...current, x: value }))} autoCapitalize="none" autoCorrect={false} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
             </View>
           </View>
         </View>
 
-        <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 8 }}>
-          <Text style={{ fontSize: 16, fontWeight: "700" }}>Notifiche</Text>
+        <View style={{ borderWidth: 1, borderColor: theme.colors.primarySoft, borderRadius: 12, padding: 16, gap: 8 }}>
+          <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.primary }}>Notifiche</Text>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <Text style={{ fontWeight: "600" }}>Email per nuovi messaggi</Text>
+            <Text style={{ fontWeight: "600", color: theme.colors.primary }}>Email per nuovi messaggi</Text>
             <Switch value={notifyEmail} onValueChange={setNotifyEmail} />
           </View>
         </View>

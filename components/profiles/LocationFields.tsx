@@ -6,6 +6,7 @@ import {
   getRegions,
   type LocationOption,
 } from "../../src/lib/geo/location";
+import { theme } from "../../src/theme";
 
 type Mode = "club" | "player";
 
@@ -40,20 +41,20 @@ function SelectInput({
 }) {
   return (
     <View style={{ gap: 6 }}>
-      <Text style={{ fontWeight: "600" }}>{label}</Text>
+      <Text style={{ fontWeight: "600", color: theme.colors.primary }}>{label}</Text>
       <Pressable
         disabled={disabled}
         onPress={onPress}
         style={{
           borderWidth: 1,
-          borderColor: "#d1d5db",
+          borderColor: theme.colors.primarySoft,
           borderRadius: 10,
           paddingHorizontal: 12,
           paddingVertical: 11,
           backgroundColor: disabled ? "#f3f4f6" : "#fff",
         }}
       >
-        <Text style={{ color: value ? "#111827" : "#6b7280" }}>{value ?? "Seleziona"}</Text>
+        <Text style={{ color: value ? theme.colors.text : theme.colors.muted }}>{value ?? "Seleziona"}</Text>
       </Pressable>
     </View>
   );
@@ -98,9 +99,9 @@ function PickerModal({
             <Text style={{ fontSize: 18, fontWeight: "700" }}>{title}</Text>
             <Pressable
               onPress={onClose}
-              style={{ borderWidth: 1, borderColor: "#d1d5db", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }}
+              style={{ borderWidth: 1, borderColor: theme.colors.primarySoft, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }}
             >
-              <Text>Chiudi</Text>
+              <Text style={{ color: theme.colors.primary }}>Chiudi</Text>
             </Pressable>
           </View>
 
@@ -114,14 +115,14 @@ function PickerModal({
                 onPress={() => onSelect(item)}
                 style={{
                   borderWidth: 1,
-                  borderColor: selectedId === item.id ? "#111827" : "#e5e7eb",
+                  borderColor: selectedId === item.id ? theme.colors.primary : theme.colors.primarySoft,
                   borderRadius: 10,
                   paddingHorizontal: 12,
                   paddingVertical: 10,
                   marginBottom: 8,
                 }}
               >
-                <Text>{item.name}</Text>
+                <Text style={{ color: selectedId === item.id ? theme.colors.primary : theme.colors.muted }}>{item.name}</Text>
               </Pressable>
             )}
           />
@@ -180,8 +181,8 @@ export function LocationFields({ mode, title, values, onChange }: Props) {
   }, [openPicker, values.municipality_id, values.province_id, values.region_id]);
 
   return (
-    <View style={{ borderWidth: 1, borderRadius: 12, padding: 16, gap: 12 }}>
-      <Text style={{ fontSize: 16, fontWeight: "700" }}>{title ?? "Location"}</Text>
+    <View style={{ borderWidth: 1, borderColor: theme.colors.primarySoft, borderRadius: 12, padding: 16, gap: 12 }}>
+      <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.primary }}>{title ?? "Location"}</Text>
 
       <SelectInput label="Regione" value={values.region_label} onPress={() => setOpenPicker("region")} />
 

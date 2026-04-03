@@ -8,6 +8,7 @@ import {
   Image,
   Alert,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { theme } from "../../../src/theme";
 import { useWebSession } from "../../../src/lib/api";
 import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
@@ -94,6 +95,7 @@ function Avatar({ url, size = 44 }: { url?: string | null; size?: number }) {
 }
 
 export default function DiscoverScreen() {
+  const router = useRouter();
   const web = useWebSession();
 
   const [tab, setTab] = useState<"club" | "player">("club");
@@ -371,7 +373,7 @@ export default function DiscoverScreen() {
             <View
               style={{
                 borderWidth: 1,
-                borderColor: theme.colors.neutral200,
+                borderColor: theme.colors.primarySoft,
                 borderRadius: theme.radius.lg,
                 backgroundColor: theme.colors.background,
                 padding: 12,
@@ -381,11 +383,19 @@ export default function DiscoverScreen() {
               }}
             >
               <Avatar url={item.avatar_url ?? null} size={44} />
-
               <View style={{ flex: 1, gap: 2 }}>
-                <Text style={{ fontSize: 16, fontWeight: "900", color: theme.colors.text }}>
-                  {name}
-                </Text>
+                <Pressable
+                  onPress={() => {
+                    const profilePath = isClubProfile(item) ? "/clubs/[id]" : "/players/[id]";
+                    router.push({ pathname: profilePath as any, params: { id: item.id } });
+                  }}
+                  hitSlop={6}
+                  style={{ alignSelf: "flex-start" }}
+                >
+                  <Text style={{ fontSize: 16, fontWeight: "900", color: theme.colors.primary }}>
+                    {name}
+                  </Text>
+                </Pressable>
                 <Text style={{ color: theme.colors.muted }}>{meta}</Text>
               </View>
 
@@ -396,13 +406,13 @@ export default function DiscoverScreen() {
                   paddingVertical: 8,
                   paddingHorizontal: 14,
                   borderWidth: 1,
-                  borderColor: theme.colors.neutral200,
+                  borderColor: theme.colors.primarySoft,
                   borderRadius: theme.radius.md,
                   backgroundColor: theme.colors.background,
                   opacity: disabled ? 0.6 : 1,
                 }}
               >
-                <Text style={{ fontWeight: "900", color: theme.colors.text }}>
+                <Text style={{ fontWeight: "900", color: theme.colors.primary }}>
                   {disabled ? "..." : "Segui"}
                 </Text>
               </Pressable>
