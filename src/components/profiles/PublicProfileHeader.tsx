@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { FontAwesome6, Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { Alert, Image, Linking, Pressable, Text, View, type TextStyle, type ViewStyle } from "react-native";
 
 import FollowButton from "../follow/FollowButton";
@@ -31,6 +32,8 @@ type PublicProfileHeaderProps = {
   locationLabel?: string | null;
   locationContent?: ReactNode;
   socialLinks?: PublicProfileLinks;
+  showMessageButton?: boolean;
+  messageLabel?: string;
   showFollowButton?: boolean;
   isVerified?: boolean | null;
 };
@@ -198,9 +201,12 @@ export default function PublicProfileHeader({
   locationLabel,
   locationContent,
   socialLinks,
+  showMessageButton = true,
+  messageLabel = "Messaggia",
   showFollowButton = true,
   isVerified = null,
 }: PublicProfileHeaderProps) {
+  const router = useRouter();
   const name = displayName || (accountType === "club" ? "Club" : "Player");
   const initials = initialsFromName(name, accountType);
   const subtitleText = subtitle?.trim() || null;
@@ -208,7 +214,7 @@ export default function PublicProfileHeader({
   const isClub = accountType === "club";
   const badgeLabel = isClub ? "Club" : "Giocatore";
   const badge = badgeStyles(accountType);
-  const hasActions = showFollowButton;
+  const hasActions = showMessageButton || showFollowButton;
 
   return (
     <View
@@ -273,9 +279,27 @@ export default function PublicProfileHeader({
           {(socialLinks || hasActions) && (
             <View style={{ gap: 12, alignItems: "flex-start" }}>
               <ProfileSocialLinks socialLinks={socialLinks} />
-              {showFollowButton ? (
-                <View style={{ alignSelf: "flex-start" }}>
+              {hasActions ? (
+                <View style={{ alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  {showMessageButton ? (
+                    <Pressable
+                      onPress={() => router.push(`/messages/${encodeURIComponent(profileId)}` as never)}
+                      style={({ pressed }) => ({
+                        paddingVertical: 10,
+                        paddingHorizontal: 14,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        borderColor: theme.colors.neutral200,
+                        backgroundColor: theme.colors.background,
+                        opacity: pressed ? 0.8 : 1,
+                      })}
+                    >
+                      <Text style={{ color: theme.colors.text, fontWeight: "800" }}>{messageLabel}</Text>
+                    </Pressable>
+                  ) : null}
+                  {showFollowButton ? (
                   <FollowButton targetProfileId={profileId} />
+                  ) : null}
                 </View>
               ) : null}
             </View>

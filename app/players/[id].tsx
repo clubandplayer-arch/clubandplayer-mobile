@@ -13,6 +13,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 type ProfileRow = {
   id: string;
+  user_id?: string | null;
   full_name?: string | null;
   display_name?: string | null;
   avatar_url?: string | null;
@@ -233,6 +234,20 @@ export default function PlayerProfileScreen() {
   const interestLocation = interestParts.join(" • ") || "—";
 
   const biography = getTextValue(profile?.bio) || "—";
+  const viewerProfileId =
+    whoami.data?.profile && typeof whoami.data.profile === "object"
+      ? getTextValue((whoami.data.profile as Record<string, unknown>).id)
+      : null;
+  const viewerUserId =
+    whoami.data?.user && typeof whoami.data.user === "object"
+      ? getTextValue((whoami.data.user as Record<string, unknown>).id)
+      : null;
+  const profileUserId = getTextValue(profile?.user_id);
+  const isMe = Boolean(
+    id &&
+      ((viewerProfileId && viewerProfileId === id) ||
+        (viewerUserId && (viewerUserId === id || (profileUserId && viewerUserId === profileUserId)))),
+  );
 
   if (!id) {
     return (
@@ -277,6 +292,8 @@ export default function PlayerProfileScreen() {
         subtitle={sportRole}
         locationLabel={interestLocation}
         socialLinks={getLinks(profile?.links)}
+        showMessageButton={!isMe}
+        showFollowButton={!isMe}
       />
 
       <View

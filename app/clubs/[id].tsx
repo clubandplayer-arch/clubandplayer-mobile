@@ -13,6 +13,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 type ProfileRow = {
   id: string;
+  user_id?: string | null;
   full_name?: string | null;
   display_name?: string | null;
   avatar_url?: string | null;
@@ -365,6 +366,20 @@ export default function ClubProfileScreen() {
   const stadiumAddress = getTextValue(profile?.club_stadium_address);
   const facility = [stadium, stadiumAddress].filter(Boolean).join(" • ") || "—";
   const biography = getTextValue(profile?.bio) || getTextValue(profile?.description) || "—";
+  const viewerProfileId =
+    whoami.data?.profile && typeof whoami.data.profile === "object"
+      ? getTextValue((whoami.data.profile as Record<string, unknown>).id)
+      : null;
+  const viewerUserId =
+    whoami.data?.user && typeof whoami.data.user === "object"
+      ? getTextValue((whoami.data.user as Record<string, unknown>).id)
+      : null;
+  const profileUserId = getTextValue(profile?.user_id);
+  const isMe = Boolean(
+    id &&
+      ((viewerProfileId && viewerProfileId === id) ||
+        (viewerUserId && (viewerUserId === id || (profileUserId && viewerUserId === profileUserId)))),
+  );
 
   const isCertified = isCertifiedClub({
     account_type: profile?.account_type,
@@ -435,6 +450,8 @@ export default function ClubProfileScreen() {
           </View>
         }
         socialLinks={getLinks(profile?.links)}
+        showMessageButton={!isMe}
+        showFollowButton={!isMe}
         isVerified={isCertified}
       />
 
