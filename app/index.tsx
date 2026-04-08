@@ -15,7 +15,8 @@ type BootstrapState =
   | { kind: "profile-fetch-failed"; session: Session; message: string }
   | { kind: "missing-role"; session: Session }
   | { kind: "club"; session: Session }
-  | { kind: "athlete"; session: Session };
+  | { kind: "athlete"; session: Session }
+  | { kind: "fan"; session: Session };
 
 function LoadingScreen() {
   return (
@@ -75,6 +76,11 @@ export default function Index() {
       return;
     }
 
+    if (accountType === "fan") {
+      setState({ kind: "fan", session });
+      return;
+    }
+
     setState({ kind: "missing-role", session });
   }, []);
 
@@ -105,6 +111,8 @@ export default function Index() {
         return "/club/profile";
       case "athlete":
         return "/player/profile";
+      case "fan":
+        return "/(tabs)/feed";
       default:
         return null;
     }

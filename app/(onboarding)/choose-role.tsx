@@ -1,11 +1,40 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
+
 import { BrandLogo } from "../../components/brand/BrandLogo";
 import { fetchProfileMe, patchProfileMe } from "../../src/lib/api";
 import { theme } from "../../src/theme";
 
-type AccountType = "athlete" | "club";
+type AccountType = "athlete" | "club" | "fan";
+
+type RoleCard = {
+  role: AccountType;
+  title: string;
+  description: string;
+  icon: string;
+};
+
+const ROLE_CARDS: RoleCard[] = [
+  {
+    role: "club",
+    title: "CLUB",
+    description: "Gestisci il tuo club, pubblica contenuti e crea opportunità",
+    icon: "C",
+  },
+  {
+    role: "athlete",
+    title: "PLAYER",
+    description: "Vivi il tuo sport, crea il tuo profilo e trova opportunità",
+    icon: "P",
+  },
+  {
+    role: "fan",
+    title: "FAN",
+    description: "Segui, vivi e sostieni Club e Player, dentro e fuori dal campo",
+    icon: "F",
+  },
+];
 
 function getTargetRoute(accountType: string | null | undefined): "/player/profile" | "/club/profile" | "/(tabs)/feed" {
   if (accountType === "club") return "/club/profile";
@@ -16,7 +45,8 @@ function getTargetRoute(accountType: string | null | undefined): "/player/profil
 export default function ChooseRoleScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [savingRole, setSavingRole] = useState<AccountType | null>(null);
+  const [selectedRole, setSelectedRole] = useState<AccountType | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,7 +64,7 @@ export default function ChooseRoleScreen() {
 
       const accountType = typeof response.data?.account_type === "string" ? response.data.account_type : null;
 
-      if (accountType === "club" || accountType === "athlete") {
+      if (accountType === "club" || accountType === "athlete" || accountType === "fan") {
         router.replace(getTargetRoute(accountType));
         return;
       }
@@ -49,22 +79,26 @@ export default function ChooseRoleScreen() {
     };
   }, [router]);
 
-  const selectRole = async (accountType: AccountType) => {
-    try {
-      setSavingRole(accountType);
+  const continueDisabled = useMemo(() => saving || selectedRole === null, [saving, selectedRole]);
 
-      const response = await patchProfileMe({ account_type: accountType });
+  const submitRole = async () => {
+    if (!selectedRole) return;
+
+    try {
+      setSaving(true);
+
+      const response = await patchProfileMe({ account_type: selectedRole });
 
       if (!response.ok) {
         Alert.alert("Errore", response.errorText ?? "Impossibile salvare il ruolo");
+        setSaving(false);
         return;
       }
 
-      router.replace(getTargetRoute(accountType));
+      router.replace(getTargetRoute(selectedRole));
     } catch {
       Alert.alert("Errore", "Qualcosa è andato storto");
-    } finally {
-      setSavingRole(null);
+      setSaving(false);
     }
   };
 
@@ -80,63 +114,91 @@ export default function ChooseRoleScreen() {
     <View
       style={{
         flex: 1,
-        padding: 24,
-        justifyContent: "center",
-        gap: 14,
+        paddingHorizontal: 20,
+        paddingVertical: 24,
         backgroundColor: theme.colors.background,
       }}
     >
-      <BrandLogo />
+      <View style={{ alignItems: "center", marginTop: 12, marginBottom: 20 }}>
+        <BrandLogo />
+      </View>
 
-      <Text style={{ fontSize: 28, color: theme.colors.primary, fontFamily: theme.fonts.brand }}>
-        Scegli il tuo ruolo
-      </Text>
-
-      <Text style={{ fontSize: 16, color: theme.colors.muted, lineHeight: 22 }}>
-        Seleziona come vuoi usare Club & Player. Potrai completare il resto del profilo nel passaggio successivo.
-      </Text>
-
-      <View style={{ height: 12 }} />
-
-      <Pressable
-        onPress={() => selectRole("athlete")}
-        disabled={savingRole !== null}
+      <Text
         style={{
-          borderWidth: 1,
-          borderColor: theme.colors.neutral200,
-          padding: 14,
-          borderRadius: 12,
-          alignItems: "center",
-          opacity: savingRole !== null ? 0.8 : 1,
-          backgroundColor: savingRole === "athlete" ? theme.colors.neutral100 : theme.colors.background,
+          fontSize: 28,
+          color: theme.colors.primary,
+          fontFamily: theme.fonts.brand,
+          textAlign: "center",
         }}
       >
-        {savingRole === "athlete" ? (
-          <ActivityIndicator color={theme.colors.primary} />
-        ) : (
-          <Text style={{ fontWeight: "800", color: theme.colors.text }}>Player</Text>
-        )}
-      </Pressable>
+        Scegli come vuoi usare Club & Player
+      </Text>
 
-      <Pressable
-        onPress={() => selectRole("club")}
-        disabled={savingRole !== null}
-        style={{
-          borderWidth: 1,
-          borderColor: theme.colors.neutral200,
-          padding: 14,
-          borderRadius: 12,
-          alignItems: "center",
-          opacity: savingRole !== null ? 0.8 : 1,
-          backgroundColor: savingRole === "club" ? theme.colors.neutral100 : theme.colors.background,
-        }}
-      >
-        {savingRole === "club" ? (
-          <ActivityIndicator color={theme.colors.primary} />
-        ) : (
-          <Text style={{ fontWeight: "800", color: theme.colors.text }}>Club</Text>
-        )}
-      </Pressable>
+      <Text style={{ marginTop: 10, fontSize: 16, color: theme.colors.muted, textAlign: "center", lineHeight: 22 }}>
+        Ogni ruolo offre un'esperienza diversa
+      </Text>
+
+      <View style={{ marginTop: 26, gap: 12 }}>
+        {ROLE_CARDS.map((card) => {
+          const active = selectedRole === card.role;
+          return (
+            <Pressable
+              key={card.role}
+              onPress={() => {
+                if (!saving) setSelectedRole(card.role);
+              }}
+              disabled={saving}
+              style={{
+                borderWidth: active ? 2 : 1,
+                borderColor: active ? "#6da9c2" : theme.colors.neutral200,
+                borderRadius: 16,
+                backgroundColor: theme.colors.background,
+                padding: 16,
+                opacity: saving ? 0.75 : 1,
+              }}
+            >
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: "#e7f1f6",
+                }}
+              >
+                <Text style={{ color: "#1a7aa6", fontWeight: "800" }}>{card.icon}</Text>
+              </View>
+
+              <Text style={{ marginTop: 10, fontSize: 22, fontWeight: "800", color: theme.colors.text }}>{card.title}</Text>
+              <Text style={{ marginTop: 8, fontSize: 14, lineHeight: 20, color: theme.colors.muted }}>{card.description}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <View style={{ marginTop: 24 }}>
+        <Pressable
+          onPress={() => {
+            void submitRole();
+          }}
+          disabled={continueDisabled}
+          style={{
+            minHeight: 52,
+            borderRadius: 14,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "#7db0c5",
+            opacity: continueDisabled ? 0.6 : 1,
+          }}
+        >
+          {saving ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={{ color: "#ffffff", fontSize: 18, fontWeight: "700" }}>Continua</Text>
+          )}
+        </Pressable>
+      </View>
     </View>
   );
 }
