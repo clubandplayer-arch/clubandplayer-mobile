@@ -104,7 +104,7 @@ export default function RootLayout() {
       pathname.startsWith("/profile/");
 
     if (session) {
-      if (!inTabs && !allowAuthedOutsideTabs) return "/(tabs)/feed";
+      if (!inTabs && !allowAuthedOutsideTabs) return "/";
       return null;
     }
 

@@ -59,7 +59,7 @@ export default function AuthCallback() {
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
       });
-      router.replace("/(tabs)/feed");
+      router.replace("/");
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -70,7 +70,7 @@ export default function AuthCallback() {
         access_token: session.access_token,
         refresh_token: session.refresh_token,
       });
-      router.replace("/(tabs)/feed");
+      router.replace("/");
     });
 
     const timeoutId = setTimeout(() => {
@@ -116,7 +116,7 @@ export default function AuthCallback() {
         access_token: session.access_token,
         refresh_token: session.refresh_token,
       });
-      if (isMounted) router.replace("/(tabs)/feed");
+      if (isMounted) router.replace("/");
     };
 
     Linking.getInitialURL().then((url) => {
