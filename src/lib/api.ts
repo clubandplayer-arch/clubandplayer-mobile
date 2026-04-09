@@ -472,6 +472,7 @@ export const PROFILE_PATCH_FIELDS = [
   "skills",
   "notify_email_new_message",
   "account_type",
+  "type",
   "club_foundation_year",
   "club_stadium",
   "club_stadium_address",
@@ -1332,6 +1333,7 @@ async function normalizeProfilePatch(input: Partial<Record<ProfilePatchField, un
     "interest_province",
     "interest_city",
     "account_type",
+    "type",
     "club_stadium",
     "club_stadium_address",
     "club_league_category",
@@ -1396,6 +1398,9 @@ async function normalizeProfilePatch(input: Partial<Record<ProfilePatchField, un
   if (displayName && !fullName) payload.full_name = displayName;
 
   const normalizedAccountType = String(payload.account_type ?? "").toLowerCase();
+  if (normalizedAccountType === "club" || normalizedAccountType === "athlete" || normalizedAccountType === "fan") {
+    payload.type = normalizedAccountType;
+  }
   if (normalizedAccountType === "club") {
     payload.role = "Club";
   } else if (normalizedAccountType === "fan") {
