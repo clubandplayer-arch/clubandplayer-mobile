@@ -4,10 +4,7 @@ const config: ExpoConfig = {
   name: "Club & Player",
   slug: "clubandplayer",
   scheme: "clubandplayer",
-
-  // 🔥 VERSIONE VISIBILE
-  version: "2.0.2",
-
+  version: "2.0.3",
   orientation: "portrait",
   userInterfaceStyle: "automatic",
 
@@ -18,12 +15,8 @@ const config: ExpoConfig = {
 
   android: {
     package: "com.clubandplayer.app",
-
-    // 🔥 CRITICO PER PLAY STORE (DEVE SEMPRE SALIRE)
-    versionCode: 30,
-
+    versionCode: 31,
     intentFilters: [
-      // Existing custom-scheme callback deep links
       {
         action: "VIEW",
         data: [
@@ -38,8 +31,6 @@ const config: ExpoConfig = {
         ],
         category: ["BROWSABLE", "DEFAULT"],
       },
-
-      // Android App Links per condivisioni
       {
         action: "VIEW",
         autoVerify: true,
