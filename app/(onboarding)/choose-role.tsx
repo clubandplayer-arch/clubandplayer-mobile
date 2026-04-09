@@ -87,7 +87,37 @@ export default function ChooseRoleScreen() {
     try {
       setSaving(true);
 
-      const response = await patchProfileMe({ account_type: selectedRole });
+      const response = await patchProfileMe(
+        selectedRole === "fan"
+          ? {
+              account_type: "fan",
+              role: null,
+              sport: null,
+              bio: null,
+              links: null,
+              skills: [],
+              birth_year: null,
+              birth_place: null,
+              birth_country: null,
+              birth_region_id: null,
+              birth_province_id: null,
+              birth_municipality_id: null,
+              residence_region_id: null,
+              residence_province_id: null,
+              residence_municipality_id: null,
+              foot: null,
+              height_cm: null,
+              weight_kg: null,
+              club_foundation_year: null,
+              club_stadium: null,
+              club_stadium_address: null,
+              club_stadium_lat: null,
+              club_stadium_lng: null,
+              club_league_category: null,
+              club_motto: null,
+            }
+          : { account_type: selectedRole },
+      );
 
       if (!response.ok) {
         Alert.alert("Errore", response.errorText ?? "Impossibile salvare il ruolo");

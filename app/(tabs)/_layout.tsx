@@ -37,6 +37,7 @@ export default function TabsLayout() {
   const [messagesUnreadCount, setMessagesUnreadCount] = useState<number>(0);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isFan, setIsFan] = useState(false);
   const [isSearchOverlayOpen, setIsSearchOverlayOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const pathname = usePathname();
@@ -87,6 +88,7 @@ export default function TabsLayout() {
 
     if (sessionPresent !== true) {
       setAvatarUrl(null);
+      setIsFan(false);
       return;
     }
 
@@ -94,7 +96,9 @@ export default function TabsLayout() {
       if (cancelled || !response.ok || !response.data) return;
       const profile = (response.data as any)?.data ?? response.data;
       const nextAvatarUrl = profile?.avatar_url ?? profile?.avatarUrl ?? null;
+      const accountType = String(profile?.account_type ?? profile?.type ?? "").trim().toLowerCase();
       setAvatarUrl(typeof nextAvatarUrl === "string" && nextAvatarUrl.length > 0 ? nextAvatarUrl : null);
+      setIsFan(accountType === "fan");
     });
 
     return () => {
@@ -171,7 +175,7 @@ export default function TabsLayout() {
 
   const avatarMenuItems = [
     { label: "La mia libreria", onPress: () => navigateFromAvatarMenu("/mymedia"), danger: false },
-    { label: "Profilo", onPress: () => navigateFromAvatarMenu(isClub ? "/club/profile" : "/player/profile"), danger: false },
+    { label: "Profilo", onPress: () => navigateFromAvatarMenu(isClub ? "/club/profile" : isFan ? "/fan/profile" : "/player/profile"), danger: false },
     ...(isClub ? [{ label: "Verifica profilo", onPress: () => navigateFromAvatarMenu("/club/verification"), danger: false }] : []),
     { label: "Impostazioni", onPress: () => navigateFromAvatarMenu("/settings"), danger: false },
     { label: "Logout", onPress: onLogoutFromAvatarMenu, danger: true },
@@ -281,8 +285,7 @@ export default function TabsLayout() {
       <View style={styles.iconRow}>
         {[
           { route: "/feed" },
-          { route: "/opportunities" },
-          { route: "/applications" },
+          ...(isFan ? [] : [{ route: "/opportunities" }, { route: "/applications" }]),
           { route: "/following" },
           { route: "/discover" },
           { route: "/notifications" },

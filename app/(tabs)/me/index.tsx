@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 
 import { useWhoami, useWebSession } from "../../../src/lib/api";
 import ClubProfile from "../../club/profile";
+import FanProfile from "../../fan/profile";
 import PlayerProfile from "../../player/profile";
 
 function normalizeRole(role: unknown) {
@@ -49,5 +50,6 @@ export default function MeProfileDispatcher() {
 
   const role = normalizeRole((who.data as { role?: unknown } | null)?.role);
   if (role === "club") return <ClubProfile />;
+  if (role === "fan") return <FanProfile />;
   return <PlayerProfile />;
 }

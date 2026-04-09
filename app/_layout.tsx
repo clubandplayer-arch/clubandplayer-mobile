@@ -156,6 +156,7 @@ export default function RootLayout() {
         <Stack.Screen name="club/profile" options={{ headerShown: true, title: "Profilo Club" }} />
         <Stack.Screen name="club/verification" options={{ headerShown: true, title: "Verifica profilo" }} />
         <Stack.Screen name="player/profile" options={{ headerShown: true, title: "Profilo" }} />
+        <Stack.Screen name="fan/profile" options={{ headerShown: true, title: "Profilo Fan" }} />
         <Stack.Screen name="settings" options={{ headerShown: true, title: "Impostazioni" }} />
         <Stack.Screen name="profile/location-settings" options={{ headerShown: true, title: "Località" }} />
         <Stack.Screen name="applications/index" options={{ headerShown: false }} />

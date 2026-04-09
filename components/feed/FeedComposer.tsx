@@ -14,7 +14,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as VideoThumbnails from "expo-video-thumbnails";
 
 import { supabase } from "../../src/lib/supabase";
-import { createFeedPost, fetchLinkPreview } from "../../src/lib/api";
+import { createFeedPost, fetchLinkPreview, fetchProfileMe } from "../../src/lib/api";
 import { theme } from "../../src/theme";
 
 type LinkPreview = {
@@ -169,8 +169,27 @@ export default function FeedComposer({ onPosted }: FeedComposerProps) {
   const [linkPreview, setLinkPreview] = useState<LinkPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [accountType, setAccountType] = useState<"club" | "athlete" | "fan" | null>(null);
 
   const firstUrl = useMemo(() => findFirstUrl(content), [content]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const response = await fetchProfileMe();
+      if (!active || !response.ok || !response.data) return;
+      const role = String(response.data.account_type ?? (response.data as any).type ?? "").toLowerCase().trim();
+      if (role === "club" || role === "athlete" || role === "fan") {
+        setAccountType(role);
+      } else {
+        setAccountType(null);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -266,6 +285,10 @@ export default function FeedComposer({ onPosted }: FeedComposerProps) {
 
   const onPublish = useCallback(async () => {
     if (publishing) return;
+    if (accountType === "fan") {
+      Alert.alert("Azione non disponibile", "Con il profilo Fan non puoi pubblicare post.");
+      return;
+    }
     if (!content.trim() && media.length === 0) {
       Alert.alert("Contenuto mancante", "Inserisci testo o almeno un allegato.");
       return;
@@ -376,7 +399,7 @@ export default function FeedComposer({ onPosted }: FeedComposerProps) {
     } finally {
       setPublishing(false);
     }
-  }, [content, linkPreview, media, onPosted, publishing]);
+  }, [accountType, content, linkPreview, media, onPosted, publishing]);
 
   return (
     <View
@@ -390,12 +413,27 @@ export default function FeedComposer({ onPosted }: FeedComposerProps) {
       }}
     >
       <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.text }}>Post</Text>
+      {accountType === "fan" ? (
+        <View
+          style={{
+            borderWidth: 1,
+            borderColor: theme.colors.neutral200,
+            borderRadius: theme.radius.sm,
+            backgroundColor: theme.colors.neutral50,
+            padding: 10,
+          }}
+        >
+          <Text style={{ color: theme.colors.muted }}>
+            Il profilo Fan può seguire e interagire, ma non può pubblicare contenuti.
+          </Text>
+        </View>
+      ) : null}
 
       <TextInput
         value={content}
         onChangeText={setContent}
         multiline
-        editable={!publishing}
+        editable={!publishing && accountType !== "fan"}
         placeholder="Scrivi qualcosa…"
         placeholderTextColor={theme.colors.muted}
         style={{
@@ -460,7 +498,7 @@ export default function FeedComposer({ onPosted }: FeedComposerProps) {
       <View style={{ flexDirection: "row", gap: 8 }}>
         <Pressable
           onPress={onPickImage}
-          disabled={publishing}
+          disabled={publishing || accountType === "fan"}
           style={{
             borderWidth: 1,
             borderColor: theme.colors.primary,
@@ -474,7 +512,7 @@ export default function FeedComposer({ onPosted }: FeedComposerProps) {
 
         <Pressable
           onPress={onPickVideo}
-          disabled={publishing}
+          disabled={publishing || accountType === "fan"}
           style={{
             borderWidth: 1,
             borderColor: theme.colors.primary,
@@ -488,13 +526,13 @@ export default function FeedComposer({ onPosted }: FeedComposerProps) {
 
         <Pressable
           onPress={onPublish}
-          disabled={publishing}
+          disabled={publishing || accountType === "fan"}
           style={{
             backgroundColor: theme.colors.primary,
             borderRadius: theme.radius.sm,
             paddingVertical: 8,
             paddingHorizontal: 12,
-            opacity: publishing ? 0.7 : 1,
+            opacity: publishing || accountType === "fan" ? 0.7 : 1,
           }}
         >
           <Text style={{ color: theme.colors.background, fontWeight: "700" }}>
