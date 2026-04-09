@@ -1395,8 +1395,11 @@ async function normalizeProfilePatch(input: Partial<Record<ProfilePatchField, un
   if (fullName && !displayName) payload.display_name = fullName;
   if (displayName && !fullName) payload.full_name = displayName;
 
-  if (String(payload.account_type ?? "").toLowerCase() === "club") {
+  const normalizedAccountType = String(payload.account_type ?? "").toLowerCase();
+  if (normalizedAccountType === "club") {
     payload.role = "Club";
+  } else if (normalizedAccountType === "fan") {
+    payload.role = "Fan";
   }
 
   const labels = await resolveItalianLocationLabels({
