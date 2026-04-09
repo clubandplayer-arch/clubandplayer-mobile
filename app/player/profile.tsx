@@ -50,6 +50,14 @@ function asNumText(v: unknown) {
   return String(v);
 }
 
+function normalizeProfileRole(value: unknown) {
+  const nextRole = asText(value).trim();
+  if (!nextRole) return "";
+  const normalized = nextRole.toLowerCase();
+  if (normalized === "athlete" || normalized === "club" || normalized === "fan") return "";
+  return nextRole;
+}
+
 function ensureOption(options: Option[], value: string, fallbackLabel?: string) {
   const normalized = value.trim();
   if (!normalized) return options;
@@ -110,20 +118,6 @@ function buildSocialLinks(values: SocialValues) {
     tiktok: values.tiktok.trim(),
     x: values.x.trim(),
   };
-}
-
-function parseSkills(value: unknown) {
-  if (Array.isArray(value)) {
-    return value.map((item) => String(item).trim()).filter(Boolean).slice(0, 10);
-  }
-  if (typeof value === "string") {
-    return value
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean)
-      .slice(0, 10);
-  }
-  return [] as string[];
 }
 
 function SelectField({
@@ -238,8 +232,6 @@ export default function PlayerProfileScreen() {
   const [foot, setFoot] = useState("");
   const [heightCm, setHeightCm] = useState("");
   const [weightKg, setWeightKg] = useState("");
-  const [skills, setSkills] = useState<string[]>([]);
-  const [skillInput, setSkillInput] = useState("");
   const [socials, setSocials] = useState<SocialValues>({ instagram: "", facebook: "", tiktok: "", x: "" });
   const [notifyEmail, setNotifyEmail] = useState(false);
   const [interestCountry, setInterestCountry] = useState("IT");
@@ -280,13 +272,11 @@ export default function PlayerProfileScreen() {
     setBirthYear(asNumText(data.birth_year));
     setCountry(asText(data.country) || "IT");
     setSport(asText(data.sport) || "Calcio");
-    setRole(asText(data.role));
+    setRole(normalizeProfileRole(data.role));
     setBio(asText(data.bio));
     setFoot(asText(data.foot));
     setHeightCm(asNumText(data.height_cm));
     setWeightKg(asNumText(data.weight_kg));
-    setSkills(parseSkills(data.skills));
-    setSkillInput("");
     setSocials(extractSocialValues(data.links));
     setNotifyEmail(Boolean(data.notify_email_new_message));
     setInterestCountry(asText(data.interest_country || "IT") || "IT");
@@ -306,20 +296,6 @@ export default function PlayerProfileScreen() {
     void loadProfile();
   }, [loadProfile, web.ready]);
 
-  const addSkill = useCallback(() => {
-    const next = skillInput.trim();
-    if (!next) return;
-    setSkills((current) => {
-      if (current.includes(next) || current.length >= 10) return current;
-      return [...current, next];
-    });
-    setSkillInput("");
-  }, [skillInput]);
-
-  const removeSkill = useCallback((skill: string) => {
-    setSkills((current) => current.filter((item) => item !== skill));
-  }, []);
-
   const onSave = useCallback(async () => {
     setSaving(true);
     const response = await patchProfileMe({
@@ -334,7 +310,6 @@ export default function PlayerProfileScreen() {
       foot,
       height_cm: heightCm,
       weight_kg: weightKg,
-      skills: JSON.stringify(skills),
       links: JSON.stringify(buildSocialLinks(socials)),
       notify_email_new_message: notifyEmail,
       interest_country: interestCountry,
@@ -371,7 +346,6 @@ export default function PlayerProfileScreen() {
     loadProfile,
     notifyEmail,
     role,
-    skills,
     socials,
     sport,
     weightKg,
@@ -443,35 +417,6 @@ export default function PlayerProfileScreen() {
               <Text style={{ fontWeight: "600", color: theme.colors.primary }}>Peso (kg)</Text>
               <TextInput placeholder="85" value={weightKg} onChangeText={setWeightKg} keyboardType="numeric" style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
             </View>
-          </View>
-        </View>
-
-        <View style={{ borderWidth: 1, borderColor: theme.colors.primarySoft, borderRadius: 12, padding: 16, gap: 10 }}>
-          <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.primary }}>Competenze</Text>
-          <Text style={{ color: theme.colors.muted }}>Aggiungi fino a 10 competenze chiave.</Text>
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <TextInput
-              placeholder="Es. Dribbling, leadership, visione di gioco"
-              value={skillInput}
-              onChangeText={setSkillInput}
-              editable={skills.length < 10}
-              style={{ flex: 1, borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }}
-            />
-            <Pressable onPress={addSkill} disabled={skills.length >= 10 || !skillInput.trim()} style={{ backgroundColor: skills.length >= 10 || !skillInput.trim() ? theme.colors.muted : "#7c9cff", borderRadius: 10, paddingHorizontal: 16, justifyContent: "center" }}>
-              <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Aggiungi</Text>
-            </Pressable>
-          </View>
-          <Text style={{ alignSelf: "flex-end", color: theme.colors.muted }}>{skills.length}/10</Text>
-          <View style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, padding: 12, minHeight: 56, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {skills.length ? (
-              skills.map((skill) => (
-                <Pressable key={skill} onPress={() => removeSkill(skill)} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
-                  <Text>{skill} ×</Text>
-                </Pressable>
-              ))
-            ) : (
-              <Text style={{ color: theme.colors.muted }}>Nessuna competenza inserita.</Text>
-            )}
           </View>
         </View>
 

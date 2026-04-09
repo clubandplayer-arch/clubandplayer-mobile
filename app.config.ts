@@ -4,7 +4,7 @@ const config: ExpoConfig = {
   name: "Club & Player",
   slug: "clubandplayer",
   scheme: "clubandplayer",
-  version: "2.0.3",
+  version: "2.0.5",
   orientation: "portrait",
   userInterfaceStyle: "automatic",
 
@@ -15,7 +15,7 @@ const config: ExpoConfig = {
 
   android: {
     package: "com.clubandplayer.app",
-    versionCode: 31,
+    versionCode: 33,
     intentFilters: [
       {
         action: "VIEW",
