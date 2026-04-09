@@ -54,7 +54,7 @@ export default function SettingsScreen() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const [profileId, setProfileId] = useState<string | null>(null);
-  const [accountType, setAccountType] = useState<"club" | "player" | null>(null);
+  const [accountType, setAccountType] = useState<"club" | "player" | "fan" | null>(null);
   const [interestCountry, setInterestCountry] = useState("IT");
   const [interest, setInterest] = useState<LocationValue>(emptyLocation());
   const [notifyEmail, setNotifyEmail] = useState(false);
@@ -100,6 +100,7 @@ export default function SettingsScreen() {
   const publicProfileLabel = useMemo(() => {
     if (accountType === "club") return "Club";
     if (accountType === "player") return "Player";
+    if (accountType === "fan") return "Fan";
     return "—";
   }, [accountType]);
 

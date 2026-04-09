@@ -10,7 +10,7 @@ export default function LocationSettingsInfoScreen() {
   const router = useRouter();
   const web = useWebSession();
   const [loading, setLoading] = useState(true);
-  const [accountType, setAccountType] = useState<"club" | "player" | null>(null);
+  const [accountType, setAccountType] = useState<"club" | "player" | "fan" | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,11 +37,13 @@ export default function LocationSettingsInfoScreen() {
 
   const profileHref = useMemo(() => {
     if (accountType === "club") return "/club/profile" as const;
+    if (accountType === "fan") return "/fan/profile" as const;
     return "/player/profile" as const;
   }, [accountType]);
 
   const profileLabel = useMemo(() => {
     if (accountType === "club") return "Apri profilo Club";
+    if (accountType === "fan") return "Apri profilo Fan";
     return "Apri profilo Player";
   }, [accountType]);
 

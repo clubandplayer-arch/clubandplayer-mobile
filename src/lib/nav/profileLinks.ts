@@ -1,4 +1,4 @@
-export type AccountType = "club" | "player";
+export type AccountType = "club" | "player" | "fan";
 
 export function normalizeAccountType(raw: unknown): AccountType | null {
   if (typeof raw !== "string") return null;
@@ -22,14 +22,18 @@ export function normalizeAccountType(raw: unknown): AccountType | null {
   ]);
 
   if (playerAliases.has(normalized)) return "player";
+  if (normalized === "fan") return "fan";
 
   return null;
 }
 
 export function profileCanonicalHref(profileId: string, accountType: AccountType): string {
-  return accountType === "club" ? `/clubs/${profileId}` : `/players/${profileId}`;
+  if (accountType === "club") return `/clubs/${profileId}`;
+  if (accountType === "fan") return `/u/${profileId}`;
+  return `/players/${profileId}`;
 }
 
 export function profileAliasHref(profileId: string, accountType: AccountType): string {
-  return accountType === "club" ? `/c/${profileId}` : `/u/${profileId}`;
+  if (accountType === "club") return `/c/${profileId}`;
+  return `/u/${profileId}`;
 }

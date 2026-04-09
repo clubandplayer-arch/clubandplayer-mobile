@@ -108,9 +108,9 @@ export default function Index() {
       case "missing-role":
         return "/(onboarding)/choose-role";
       case "club":
-        return "/club/profile";
+        return "/(tabs)/feed";
       case "athlete":
-        return "/player/profile";
+        return "/(tabs)/feed";
       case "fan":
         return "/(tabs)/feed";
       default:
