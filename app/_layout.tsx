@@ -100,6 +100,7 @@ export default function RootLayout() {
       pathname.startsWith("/my/") ||
       pathname.startsWith("/club/") ||
       pathname.startsWith("/player/") ||
+      pathname.startsWith("/fan/") ||
       pathname.startsWith("/applications") ||
       pathname.startsWith("/settings") ||
       pathname.startsWith("/profile/");
