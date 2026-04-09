@@ -4,7 +4,7 @@ const config: ExpoConfig = {
   name: "Club & Player",
   slug: "clubandplayer",
   scheme: "clubandplayer",
-  version: "1.2.7",
+  version: "2.0.1",
   orientation: "portrait",
   userInterfaceStyle: "automatic",
 
@@ -15,6 +15,10 @@ const config: ExpoConfig = {
 
   android: {
     package: "com.clubandplayer.app",
+
+    // 🔥 IMPORTANTISSIMO PER PLAY STORE
+    versionCode: 23,
+
     intentFilters: [
       // Existing custom-scheme callback deep links
       {
