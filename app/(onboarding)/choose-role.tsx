@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BrandLogo } from "../../components/brand/BrandLogo";
 import { fetchProfileMe, patchProfileMe } from "../../src/lib/api";
@@ -44,6 +45,7 @@ function getTargetRoute(accountType: string | null | undefined): "/player/profil
 
 export default function ChooseRoleScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [selectedRole, setSelectedRole] = useState<AccountType | null>(null);
   const [saving, setSaving] = useState(false);
@@ -141,15 +143,18 @@ export default function ChooseRoleScreen() {
   }
 
   return (
-    <View
+    <ScrollView
       style={{
         flex: 1,
-        paddingHorizontal: 20,
-        paddingVertical: 24,
         backgroundColor: theme.colors.background,
       }}
+      contentContainerStyle={{
+        paddingHorizontal: 20,
+        paddingTop: Math.max(insets.top, 12) + 12,
+        paddingBottom: Math.max(insets.bottom, 16) + 16,
+      }}
     >
-      <View style={{ alignItems: "center", marginTop: 12, marginBottom: 20 }}>
+      <View style={{ alignItems: "center", marginBottom: 20 }}>
         <BrandLogo />
       </View>
 
@@ -229,6 +234,6 @@ export default function ChooseRoleScreen() {
           )}
         </Pressable>
       </View>
-    </View>
+    </ScrollView>
   );
 }
