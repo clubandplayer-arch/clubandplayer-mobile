@@ -50,6 +50,14 @@ function asNumText(v: unknown) {
   return String(v);
 }
 
+function normalizeProfileRole(value: unknown) {
+  const nextRole = asText(value).trim();
+  if (!nextRole) return "";
+  const normalized = nextRole.toLowerCase();
+  if (normalized === "athlete" || normalized === "club" || normalized === "fan") return "";
+  return nextRole;
+}
+
 function ensureOption(options: Option[], value: string, fallbackLabel?: string) {
   const normalized = value.trim();
   if (!normalized) return options;
@@ -264,7 +272,7 @@ export default function PlayerProfileScreen() {
     setBirthYear(asNumText(data.birth_year));
     setCountry(asText(data.country) || "IT");
     setSport(asText(data.sport) || "Calcio");
-    setRole(asText(data.role));
+    setRole(normalizeProfileRole(data.role));
     setBio(asText(data.bio));
     setFoot(asText(data.foot));
     setHeightCm(asNumText(data.height_cm));
