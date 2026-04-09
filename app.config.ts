@@ -4,7 +4,10 @@ const config: ExpoConfig = {
   name: "Club & Player",
   slug: "clubandplayer",
   scheme: "clubandplayer",
-  version: "2.0.1",
+
+  // 🔥 VERSIONE VISIBILE
+  version: "2.0.2",
+
   orientation: "portrait",
   userInterfaceStyle: "automatic",
 
@@ -16,8 +19,8 @@ const config: ExpoConfig = {
   android: {
     package: "com.clubandplayer.app",
 
-    // 🔥 IMPORTANTISSIMO PER PLAY STORE
-    versionCode: 23,
+    // 🔥 CRITICO PER PLAY STORE (DEVE SEMPRE SALIRE)
+    versionCode: 30,
 
     intentFilters: [
       // Existing custom-scheme callback deep links
@@ -36,7 +39,7 @@ const config: ExpoConfig = {
         category: ["BROWSABLE", "DEFAULT"],
       },
 
-      // NEW: Android App Links for https://www.clubandplayer.com/s/<token>
+      // Android App Links per condivisioni
       {
         action: "VIEW",
         autoVerify: true,
@@ -54,7 +57,6 @@ const config: ExpoConfig = {
 
   plugins: ["expo-router", "expo-video", "expo-font"],
 
-  // ✅ NECESSARIO per collegare il progetto locale a EAS (dynamic config)
   extra: {
     NEXT_PUBLIC_ADS_ENABLED: process.env.NEXT_PUBLIC_ADS_ENABLED ?? "false",
     eas: {
