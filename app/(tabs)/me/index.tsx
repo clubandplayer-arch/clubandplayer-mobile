@@ -9,6 +9,8 @@ function normalizeRole(role: unknown) {
   return String(role ?? "").toLowerCase().trim();
 }
 
+const ADMIN_ME_ENTRY_EMAILS = new Set(["clubandplayer@gmail.com"]);
+
 export default function MeProfileDispatcher() {
   const router = useRouter();
   const web = useWebSession();
@@ -48,6 +50,25 @@ export default function MeProfileDispatcher() {
   }
 
   const role = normalizeRole((who.data as { role?: unknown } | null)?.role);
+  const whoamiData = (who.data as { admin?: unknown; clubsAdmin?: unknown; user?: { email?: unknown } } | null) ?? null;
+  const email = typeof whoamiData?.user?.email === "string" ? whoamiData.user.email.toLowerCase().trim() : "";
+  const isAdminByFlag = Boolean(whoamiData?.admin) || Boolean(whoamiData?.clubsAdmin);
+  const isAdminByEmail = ADMIN_ME_ENTRY_EMAILS.has(email);
+  const isAdmin = isAdminByFlag || isAdminByEmail;
+  if (isAdmin) {
+    return (
+      <View style={{ flex: 1, padding: 20, gap: 12, justifyContent: "center" }}>
+        <Text style={{ fontSize: 22, fontWeight: "700" }}>Pannello profilo</Text>
+        <Text>Account admin rilevato.</Text>
+        <Pressable
+          onPress={() => router.push("/admin/users")}
+          style={{ borderWidth: 1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14 }}
+        >
+          <Text style={{ fontWeight: "600" }}>Admin users</Text>
+        </Pressable>
+      </View>
+    );
+  }
   if (role === "club") return <ClubProfile />;
   return <PlayerProfile />;
 }
