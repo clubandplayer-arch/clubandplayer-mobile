@@ -43,6 +43,7 @@ export default function FeedScreen() {
 
   const web = useWebSession();
   const whoami = useWhoami(web.ready);
+  const isFan = String((whoami.data as { role?: unknown } | null)?.role ?? "").toLowerCase().trim() === "fan";
 
   const showFlash = useCallback((msg: string) => {
     setFlash(msg);
@@ -154,7 +155,7 @@ export default function FeedScreen() {
       <View
         style={{
           paddingHorizontal: theme.spacing.xl,
-          paddingTop: 12,        // 🔥 AGGIUNGI QUESTA RIGA
+          paddingTop: 12,
           paddingBottom: 12,
           gap: 12,
           backgroundColor: theme.colors.background,
@@ -236,7 +237,7 @@ export default function FeedScreen() {
           </Pressable>
         </View>
 
-        <FeedComposer onPosted={refetchFeed} />
+        {!isFan ? <FeedComposer onPosted={refetchFeed} /> : null}
 
         {items.length === 0 && !error ? (
           <Text style={{ color: theme.colors.muted }}>{emptyMessage}</Text>
@@ -266,6 +267,7 @@ export default function FeedScreen() {
     error,
     feedMode,
     flash,
+    isFan,
     items.length,
     load,
     onLogout,

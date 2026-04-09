@@ -9,11 +9,11 @@ import {
   Text,
   View,
 } from "react-native";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 
 import LightboxModal from "../components/media/LightboxModal";
 import FeedVideoPreview from "../components/feed/FeedVideoPreview";
-import { fetchFeedPosts, getWebBaseUrl } from "../src/lib/api";
+import { fetchFeedPosts, getWebBaseUrl, useWebSession, useWhoami } from "../src/lib/api";
 import { sharePostById } from "../src/lib/sharePost";
 import { theme } from "../src/theme";
 
@@ -181,6 +181,9 @@ function MediaEmptyState({ tab }: { tab: MediaTab }) {
 }
 
 export default function MyMediaScreen() {
+  const router = useRouter();
+  const web = useWebSession();
+  const whoami = useWhoami(web.ready);
   const params = useLocalSearchParams<{ type?: string }>();
   const initialTab: MediaTab = params.type === "photo" ? "photo" : "video";
 
@@ -193,6 +196,13 @@ export default function MyMediaScreen() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [sharingSection, setSharingSection] = useState(false);
   const [sharingItemId, setSharingItemId] = useState<string | null>(null);
+  const isFan = String((whoami.data as { role?: unknown } | null)?.role ?? "").toLowerCase().trim() === "fan";
+
+  useEffect(() => {
+    if (!web.ready) return;
+    if (!isFan) return;
+    router.replace("/fan/profile");
+  }, [isFan, router, web.ready]);
 
   const loadMedia = useCallback(async (mode: "initial" | "refresh") => {
     if (mode === "initial") setLoading(true);
@@ -219,8 +229,9 @@ export default function MyMediaScreen() {
   }, []);
 
   useEffect(() => {
+    if (isFan) return;
     void loadMedia("initial");
-  }, [loadMedia]);
+  }, [isFan, loadMedia]);
 
   const videos = useMemo(() => mediaItems.filter((item) => item.media_type === "video"), [mediaItems]);
   const photos = useMemo(() => mediaItems.filter((item) => item.media_type === "image"), [mediaItems]);
@@ -257,6 +268,14 @@ export default function MyMediaScreen() {
       setSharingItemId(null);
     }
   }, [sharingItemId]);
+
+  if (web.loading || whoami.loading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
 
   return (
     <>
