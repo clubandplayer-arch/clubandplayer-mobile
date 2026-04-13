@@ -97,7 +97,19 @@ async function syncWebSessionAndAudit(session: { access_token: string; refresh_t
     });
   }
 
-  const whoamiRes = await fetchWhoami();
+  let whoamiRes = await fetchWhoami();
+  const role = whoamiRes.ok ? whoamiRes.data?.role ?? null : null;
+  if (role === "guest") {
+    // iOS devices can occasionally expose a race where the session cookie isn't
+    // immediately visible on the next request. Retry sync once before failing.
+    await syncSession({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    whoamiRes = await fetchWhoami();
+  }
+
   if (__DEV__) {
     console.log("[auth][whoami]", {
       ok: whoamiRes.ok,
@@ -105,6 +117,10 @@ async function syncWebSessionAndAudit(session: { access_token: string; refresh_t
       role: whoamiRes.ok ? whoamiRes.data?.role ?? null : null,
       errorText: whoamiRes.ok ? null : whoamiRes.errorText ?? null,
     });
+  }
+
+  if (whoamiRes.ok && (whoamiRes.data?.role ?? null) === "guest") {
+    throw new Error("Sessione web non sincronizzata: whoami=guest dopo login social");
   }
 
   const profileRes = await fetchProfileMe();
