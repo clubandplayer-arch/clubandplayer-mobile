@@ -189,3 +189,71 @@ export async function signInWithGoogle() {
     refresh_token: session.refresh_token,
   });
 }
+
+export async function signInWithApple() {
+  const redirectTo = Linking.createURL("callback", { scheme: "clubandplayer" });
+
+  if (__DEV__) {
+    console.log("[auth][apple] redirectTo:", redirectTo);
+  }
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "apple",
+    options: {
+      redirectTo,
+      skipBrowserRedirect: true,
+    },
+  });
+
+  if (error) throw error;
+  if (!data.url) throw new Error("Missing OAuth URL");
+
+  if (__DEV__) {
+    console.log("[auth][apple] oauth url:", sanitizeAuthUrl(data.url));
+  }
+
+  const redirectPromise = waitForRedirectUrl({
+    timeoutMs: 45_000,
+    expectedScheme: "clubandplayer",
+    expectedHost: "callback",
+  });
+
+  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+
+  let finalUrl: string | null = null;
+
+  if (result.type === "success" && "url" in result && result.url) {
+    finalUrl = result.url;
+    if (__DEV__) console.log("[auth][apple] result.url:", sanitizeAuthUrl(finalUrl));
+  } else {
+    const eventUrl = await redirectPromise;
+    if (eventUrl) {
+      finalUrl = eventUrl;
+      if (__DEV__) console.log("[auth][apple] event.url:", sanitizeAuthUrl(finalUrl));
+    }
+  }
+
+  if (!finalUrl) {
+    throw new Error("Apple login non completato (URL di ritorno mancante)");
+  }
+
+  const code = extractCodeFromUrl(finalUrl);
+  if (!code) {
+    throw new Error("OAuth code mancante nel ritorno dal browser");
+  }
+
+  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+
+  if (exchangeError) {
+    throw new Error(`Scambio sessione fallito: ${String(exchangeError)}`);
+  }
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  const session = sessionData.session;
+  if (!session) throw new Error("Sessione Supabase mancante dopo exchange");
+
+  await syncWebSessionAndAudit({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+  });
+}
