@@ -139,6 +139,7 @@ export default function RootLayout() {
         screenOptions={{
           headerTitleStyle: { fontFamily: theme.fonts.brand, color: theme.colors.primary },
           headerTintColor: theme.colors.primary,
+          headerBackButtonDisplayMode: "minimal",
           headerShadowVisible: false,
           headerStyle: { backgroundColor: theme.colors.background },
         }}

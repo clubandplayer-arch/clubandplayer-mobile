@@ -6,13 +6,14 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { BrandLogo } from "../../components/brand/BrandLogo";
 import { fetchProfileMe, fetchWhoami, syncSession } from "../../src/lib/api";
 import { supabase } from "../../src/lib/supabase";
-import { signInWithGoogle } from "../../src/lib/auth";
+import { signInWithApple, signInWithGoogle } from "../../src/lib/auth";
 import { theme } from "../../src/theme";
 
 export default function LoginScreen() {
@@ -77,6 +78,17 @@ export default function LoginScreen() {
       await signInWithGoogle();
     } catch (e: any) {
       Alert.alert("Google login fallito", e?.message ?? "Errore");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onApple = async () => {
+    try {
+      setLoading(true);
+      await signInWithApple();
+    } catch (e: any) {
+      Alert.alert("Apple login fallito", e?.message ?? "Errore");
     } finally {
       setLoading(false);
     }
@@ -163,6 +175,27 @@ export default function LoginScreen() {
         <Ionicons name="logo-google" size={18} color={theme.colors.primary} />
         <Text style={{ fontWeight: "700", color: theme.colors.primary }}>Continua con Google</Text>
       </Pressable>
+
+      {Platform.OS === "ios" ? (
+        <Pressable
+          onPress={onApple}
+          disabled={loading}
+          style={{
+            borderWidth: 1,
+            borderColor: theme.colors.neutral200,
+            padding: 14,
+            borderRadius: 12,
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "row",
+            gap: 10,
+            opacity: loading ? 0.8 : 1,
+          }}
+        >
+          <Ionicons name="logo-apple" size={22} color={theme.colors.text} />
+          <Text style={{ fontWeight: "700", color: theme.colors.text }}>Continua con Apple</Text>
+        </Pressable>
+      ) : null}
 
       <Pressable
         onPress={() => router.push("/(auth)/signup")}

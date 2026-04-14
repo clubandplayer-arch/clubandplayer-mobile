@@ -1,6 +1,5 @@
-import type { ExpoConfig } from "expo/config";
-
-const config: ExpoConfig = {
+/** @type {import('expo/config').ExpoConfig} */
+const config = {
   name: "Club & Player",
   slug: "clubandplayer",
   scheme: "clubandplayer",
@@ -11,6 +10,9 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: false,
     bundleIdentifier: "com.clubandplayer.app",
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
 
   android: {
@@ -56,4 +58,4 @@ const config: ExpoConfig = {
   },
 };
 
-export default config;
+module.exports = config;
