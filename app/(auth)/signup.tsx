@@ -197,7 +197,7 @@ export default function SignupScreen() {
             opacity: loading ? 0.8 : 1,
           }}
         >
-          <Ionicons name="logo-apple" size={18} color={theme.colors.text} />
+          <Ionicons name="logo-apple" size={36} color={theme.colors.text} />
           <Text style={{ fontWeight: "700", color: theme.colors.text }}>Continua con Apple</Text>
         </Pressable>
       ) : null}
