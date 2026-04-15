@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import type { Session } from "@supabase/supabase-js";
 
-import { fetchProfileMe } from "../src/lib/api";
+import { fetchProfileMe, syncSession } from "../src/lib/api";
 import { getOnboardingSeen } from "../src/lib/onboarding";
 import { supabase } from "../src/lib/supabase";
 import { theme } from "../src/theme";
@@ -51,6 +51,20 @@ export default function Index() {
     }
 
     setState({ kind: "profile-loading", session });
+
+    const syncResponse = await syncSession({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+    });
+
+    if (!syncResponse.ok) {
+      setState({
+        kind: "profile-fetch-failed",
+        session,
+        message: syncResponse.errorText ?? `SYNC HTTP ${syncResponse.status}`,
+      });
+      return;
+    }
 
     const response = await fetchProfileMe();
     if (!response.ok) {
