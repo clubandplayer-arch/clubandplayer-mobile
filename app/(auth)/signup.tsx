@@ -6,11 +6,12 @@ import {
   Text,
   TextInput,
   View,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { BrandLogo } from "../../components/brand/BrandLogo";
-import { signInWithGoogle } from "../../src/lib/auth";
+import { signInWithApple, signInWithGoogle } from "../../src/lib/auth";
 import { supabase } from "../../src/lib/supabase";
 import { theme } from "../../src/theme";
 
@@ -56,6 +57,18 @@ export default function SignupScreen() {
       router.replace("/(auth)/login");
     } catch {
       Alert.alert("Errore", "Qualcosa è andato storto");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  const onApple = async () => {
+    try {
+      setLoading(true);
+      await signInWithApple();
+    } catch (e: any) {
+      Alert.alert("Apple login fallito", e?.message ?? "Errore");
     } finally {
       setLoading(false);
     }
@@ -168,6 +181,28 @@ export default function SignupScreen() {
           </>
         )}
       </Pressable>
+
+      {Platform.OS === "ios" ? (
+        <Pressable
+          onPress={onApple}
+          disabled={loading}
+          style={{
+            borderWidth: 1,
+            borderColor: theme.colors.neutral200,
+            padding: 14,
+            borderRadius: 12,
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "row",
+            gap: 10,
+            opacity: loading ? 0.8 : 1,
+          }}
+        >
+          <Ionicons name="logo-apple" size={22} color={theme.colors.primary} />
+          <Text style={{ fontWeight: "700", color: theme.colors.primary }}>Continua con Apple</Text>
+        </Pressable>
+      ) : null}
+
 
       <Pressable
         onPress={() => router.replace("/(auth)/login")}
