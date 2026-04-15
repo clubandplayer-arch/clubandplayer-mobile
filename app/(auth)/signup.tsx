@@ -11,7 +11,7 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { BrandLogo } from "../../components/brand/BrandLogo";
-import { signInWithGoogle } from "../../src/lib/auth";
+import { signInWithApple, signInWithGoogle } from "../../src/lib/auth";
 import { supabase } from "../../src/lib/supabase";
 import { theme } from "../../src/theme";
 
@@ -64,7 +64,14 @@ export default function SignupScreen() {
 
 
   const onApple = async () => {
-    Alert.alert("Apple login", "Disponibile solo su iPhone in questa fase UI.");
+    try {
+      setLoading(true);
+      await signInWithApple();
+    } catch (e: any) {
+      Alert.alert("Apple login fallito", e?.message ?? "Errore");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const onGoogle = async () => {

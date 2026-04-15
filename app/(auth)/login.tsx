@@ -13,7 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BrandLogo } from "../../components/brand/BrandLogo";
 import { fetchProfileMe, fetchWhoami, syncSession } from "../../src/lib/api";
 import { supabase } from "../../src/lib/supabase";
-import { signInWithGoogle } from "../../src/lib/auth";
+import { signInWithApple, signInWithGoogle } from "../../src/lib/auth";
 import { theme } from "../../src/theme";
 
 export default function LoginScreen() {
@@ -74,7 +74,14 @@ export default function LoginScreen() {
 
 
   const onApple = async () => {
-    Alert.alert("Apple login", "Disponibile solo su iPhone in questa fase UI.");
+    try {
+      setLoading(true);
+      await signInWithApple();
+    } catch (e: any) {
+      Alert.alert("Apple login fallito", e?.message ?? "Errore");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const onGoogle = async () => {
