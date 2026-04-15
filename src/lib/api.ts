@@ -515,6 +515,13 @@ function buildUrl(path: string): string {
   return `${base}${normalized}`;
 }
 
+async function getSessionAuthorizationHeader(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  const accessToken = data.session?.access_token;
+  if (typeof accessToken !== "string" || !accessToken.trim()) return null;
+  return `Bearer ${accessToken}`;
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<ApiResponse<T>> {
   const url = buildUrl(path);
   if (__DEV__ && path.includes("/api/auth/whoami")) {
@@ -526,14 +533,17 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<Api
     });
   }
   const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData;
+  const authorizationHeader = await getSessionAuthorizationHeader();
   const headers = isFormData
     ? {
         Accept: "application/json",
+        ...(authorizationHeader ? { Authorization: authorizationHeader } : {}),
         ...(init?.headers ?? {}),
       }
     : {
         Accept: "application/json",
         "Content-Type": "application/json",
+        ...(authorizationHeader ? { Authorization: authorizationHeader } : {}),
         ...(init?.headers ?? {}),
       };
 
@@ -611,11 +621,16 @@ export async function fetchWhoami(): Promise<ApiResponse<WhoamiResponse>> {
 
 export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
   const url = buildUrl("/api/profiles/me");
+  const authorizationHeader = await getSessionAuthorizationHeader();
   const response = await fetch(url, {
     method: "GET",
     credentials: "include",
     cache: "no-store",
-    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...(authorizationHeader ? { Authorization: authorizationHeader } : {}),
+    },
   });
 
   const status = response.status;
