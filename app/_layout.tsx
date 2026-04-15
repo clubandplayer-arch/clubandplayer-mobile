@@ -141,6 +141,7 @@ export default function RootLayout() {
           headerTintColor: theme.colors.primary,
           headerShadowVisible: false,
           headerStyle: { backgroundColor: theme.colors.background },
+          headerBackButtonDisplayMode: "minimal",
         }}
       >
                 <Stack.Screen name="index" options={{ headerShown: false }} />
