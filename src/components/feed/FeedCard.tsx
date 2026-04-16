@@ -2,7 +2,15 @@ import { useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 
-import { getAuthorName, getFeedCountryCode, getPostText, type FeedPost } from "../../lib/feed/getFeedPosts";
+import {
+  FEED_REACTION_TYPES,
+  getAuthorName,
+  getFeedCountryCode,
+  getPostText,
+  isFeedReactionType,
+  type FeedPost,
+  type FeedReactionType,
+} from "../../lib/feed/getFeedPosts";
 import { isCertifiedClub } from "../../lib/profiles/certification";
 import { isUuid } from "../../lib/api";
 import FeedVideoPreview from "../../../components/feed/FeedVideoPreview";
@@ -10,9 +18,28 @@ import LightboxModal from "../../../components/media/LightboxModal";
 import { sharePostById } from "../../lib/sharePost";
 import { devWarn } from "../../lib/debug/devLog";
 import { theme } from "../../theme";
-import { togglePostLike } from "../../lib/posts/togglePostLike";
-import { supabase } from "../../lib/supabase";
+import { setPostReaction } from "../../lib/api";
 import { iso2ToFlagEmoji } from "../../lib/geo/countryFlag";
+
+const REACTION_META: Record<FeedReactionType, { emoji: string; label: string }> = {
+  like: { emoji: "👍", label: "Mi piace" },
+  love: { emoji: "❤️", label: "Love" },
+  care: { emoji: "🔥", label: "Care" },
+  angry: { emoji: "😡", label: "Angry" },
+};
+
+function cloneReactionCounts(input?: Partial<Record<FeedReactionType, number>>): Record<FeedReactionType, number> {
+  return {
+    like: Number(input?.like ?? 0),
+    love: Number(input?.love ?? 0),
+    care: Number(input?.care ?? 0),
+    angry: Number(input?.angry ?? 0),
+  };
+}
+
+function sumReactionCounts(counts: Partial<Record<FeedReactionType, number>>): number {
+  return FEED_REACTION_TYPES.reduce((acc, type) => acc + (Number(counts[type] ?? 0) || 0), 0);
+}
 
 function formatWhen(iso?: string | null) {
   if (!iso) return "";
@@ -84,10 +111,15 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
   const when = formatWhen(item.created_at);
   const countryFlag = iso2ToFlagEmoji(getFeedCountryCode(item));
   const firstMedia = item.media?.[0] ?? null;
-  const [likeCount, setLikeCount] = useState(typeof item.likeCount === "number" ? item.likeCount : 0);
-  const [viewerHasLiked, setViewerHasLiked] = useState(Boolean(item.viewerHasLiked));
+  const [reactionCounts, setReactionCounts] = useState<Record<FeedReactionType, number>>(
+    cloneReactionCounts(item.reactionCounts),
+  );
+  const [viewerReaction, setViewerReaction] = useState<FeedReactionType | null>(item.viewerReaction ?? null);
   const [isLiking, setIsLiking] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
+  const totalReactions = sumReactionCounts(reactionCounts);
+  const primaryReaction = viewerReaction ? REACTION_META[viewerReaction] : REACTION_META.like;
 
   const post = (item?.raw as any) ?? (item as any);
   const authorIdRaw = post?.author_profile?.id ?? post?.author_profile_id ?? post?.authorId ?? post?.author_id ?? null;
@@ -103,19 +135,55 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
   const postPath = resolvePostPath(item.id);
 
 
-  const handleLikePress = async () => {
+  const applyOptimisticReaction = (
+    currentCounts: Record<FeedReactionType, number>,
+    previous: FeedReactionType | null,
+    next: FeedReactionType | null,
+  ) => {
+    const patched = { ...currentCounts };
+    if (previous && patched[previous] > 0) patched[previous] -= 1;
+    if (next) patched[next] += 1;
+    return patched;
+  };
+
+  const handleReactionToggle = async (nextReaction: FeedReactionType | null) => {
     if (!item.id) return;
     if (isLiking) return;
+    const previousReaction = viewerReaction;
+    const prevCounts = { ...reactionCounts };
     try {
       setIsLiking(true);
-      const result = await togglePostLike({ postId: item.id, supabase });
-      setViewerHasLiked(result.liked);
-      setLikeCount((prev) => Math.max(0, prev + result.likeCountDelta));
+      setPickerOpen(false);
+      setViewerReaction(nextReaction);
+      setReactionCounts((prev) => applyOptimisticReaction(prev, previousReaction, nextReaction));
+
+      const res = await setPostReaction(item.id, nextReaction as any);
+      if (!res.ok) {
+        throw new Error(res.errorText ?? `Toggle HTTP ${res.status}`);
+      }
+
+      const nextCounts: Record<FeedReactionType, number> = { like: 0, love: 0, care: 0, angry: 0 };
+      for (const row of res.data?.counts ?? []) {
+        if (!row?.post_id || row.post_id !== item.id) continue;
+        if (!isFeedReactionType(row.reaction)) continue;
+        nextCounts[row.reaction] = Number(row.count) || 0;
+      }
+      const confirmedReaction = isFeedReactionType(res.data?.mine) ? res.data.mine : null;
+
+      setViewerReaction(confirmedReaction);
+      setReactionCounts(nextCounts);
     } catch (error: any) {
+      setViewerReaction(previousReaction);
+      setReactionCounts(prevCounts);
       onToast?.(error?.message ? String(error.message) : "Like non disponibile");
     } finally {
       setIsLiking(false);
     }
+  };
+
+  const handleLikePress = async () => {
+    const nextReaction = viewerReaction === "like" ? null : "like";
+    await handleReactionToggle(nextReaction);
   };
 
   const handleOpenComments = () => {
@@ -248,10 +316,95 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
         onClose={() => setLightbox({ open: false, index: 0 })}
       />
 
-      <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
-        <Pressable onPress={handleLikePress} disabled={isLiking}>
-          <Text style={{ ...theme.typography.small, color: viewerHasLiked ? theme.colors.primary : theme.colors.muted }}>👍 {likeCount}</Text>
-        </Pressable>
+      <View style={{ flexDirection: "row", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+        <View style={{ position: "relative" }}>
+          <Pressable
+            onPress={handleLikePress}
+            onLongPress={() => setPickerOpen((prev) => !prev)}
+            disabled={isLiking}
+            hitSlop={10}
+            style={{
+              minHeight: 40,
+              minWidth: 120,
+              paddingVertical: 8,
+              paddingHorizontal: 12,
+              borderRadius: 999,
+              borderWidth: 1,
+              borderColor: viewerReaction ? theme.colors.primary : theme.colors.neutral200,
+              backgroundColor: viewerReaction ? theme.colors.neutral50 : "transparent",
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+            }}
+          >
+            <Text style={{ fontSize: 16 }}>{primaryReaction.emoji}</Text>
+            <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>{totalReactions}</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setPickerOpen((prev) => !prev)}
+            hitSlop={12}
+            style={{ position: "absolute", right: -8, top: -8, padding: 8 }}
+          >
+            <Text style={{ color: theme.colors.muted, fontSize: 12 }}>▾</Text>
+          </Pressable>
+
+          {pickerOpen ? (
+            <View
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 44,
+                zIndex: 10,
+                flexDirection: "row",
+                gap: 8,
+                padding: 8,
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: theme.colors.neutral200,
+                backgroundColor: theme.colors.background,
+              }}
+            >
+              {FEED_REACTION_TYPES.map((reaction) => {
+                const meta = REACTION_META[reaction];
+                const active = viewerReaction === reaction;
+                return (
+                  <Pressable
+                    key={reaction}
+                    onPress={() => void handleReactionToggle(active ? null : reaction)}
+                    hitSlop={8}
+                    style={{
+                      minWidth: 42,
+                      minHeight: 42,
+                      borderRadius: 21,
+                      borderWidth: 1,
+                      borderColor: active ? theme.colors.primary : theme.colors.neutral200,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: active ? theme.colors.neutral50 : "transparent",
+                    }}
+                  >
+                    <Text style={{ fontSize: 20 }}>{meta.emoji}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
+        </View>
+
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          {FEED_REACTION_TYPES.map((type) => {
+            const count = reactionCounts[type] ?? 0;
+            if (count <= 0) return null;
+            const meta = REACTION_META[type];
+            return (
+              <Text key={type} style={{ ...theme.typography.small, color: theme.colors.muted }}>
+                {meta.emoji} {count}
+              </Text>
+            );
+          })}
+        </View>
         <Pressable onPress={handleOpenComments} disabled={!postPath}>
           <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>💬 {commentCount}</Text>
         </Pressable>
