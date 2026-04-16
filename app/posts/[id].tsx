@@ -669,24 +669,42 @@ export default function PostDetailScreen() {
 
           {social.error ? <Text style={{ color: theme.colors.danger }}>{social.error}</Text> : null}
 
-          <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-            <Pressable
-              onPress={handleLikeToggle}
-              style={{
-                paddingVertical: 10,
-                paddingHorizontal: 14,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: social.viewerReaction ? theme.colors.text : theme.colors.neutral200,
-                backgroundColor: social.viewerReaction ? theme.colors.text : "transparent",
-                alignSelf: "flex-start",
-                opacity: isToggling ? 0.6 : 1,
-              }}
-            >
-              <Text style={{ color: social.viewerReaction ? theme.colors.background : theme.colors.text, fontWeight: "700" }}>
-                {social.viewerReaction ? `Hai messo ${REACTION_META[social.viewerReaction].emoji}` : "Metti 👍"}
-              </Text>
-            </Pressable>
+          <View style={{ gap: 10 }}>
+            <View style={{ flexDirection: "row", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <Pressable
+                onPress={handleLikeToggle}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: social.viewerReaction ? theme.colors.text : theme.colors.neutral200,
+                  backgroundColor: social.viewerReaction ? theme.colors.text : "transparent",
+                  alignSelf: "flex-start",
+                  opacity: isToggling ? 0.6 : 1,
+                  minHeight: 40,
+                }}
+              >
+                <Text style={{ color: social.viewerReaction ? theme.colors.background : theme.colors.text, fontWeight: "700" }}>
+                  {social.viewerReaction ? `Hai messo ${REACTION_META[social.viewerReaction].emoji}` : "Metti 👍"}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handleShare}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: theme.colors.neutral200,
+                  alignSelf: "flex-start",
+                  minHeight: 40,
+                }}
+              >
+                <Text style={{ color: theme.colors.text, fontWeight: "700" }}>Condividi</Text>
+              </Pressable>
+            </View>
 
             <View style={{ flexDirection: "row", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               {FEED_REACTION_TYPES.map((reaction) => {
@@ -697,9 +715,10 @@ export default function PostDetailScreen() {
                     key={reaction}
                     onPress={() => void handleReactionToggle(active ? null : reaction)}
                     style={{
-                      minWidth: 38,
-                      minHeight: 38,
-                      borderRadius: 19,
+                      minWidth: 36,
+                      minHeight: 36,
+                      paddingHorizontal: 8,
+                      borderRadius: 18,
                       borderWidth: 1,
                       borderColor: active ? theme.colors.text : theme.colors.neutral200,
                       alignItems: "center",
@@ -708,27 +727,13 @@ export default function PostDetailScreen() {
                       opacity: isToggling ? 0.6 : 1,
                     }}
                   >
-                    <Text style={{ fontSize: 18, color: active ? theme.colors.background : theme.colors.text }}>
+                    <Text style={{ fontSize: 17, color: active ? theme.colors.background : theme.colors.text }}>
                       {meta.emoji}
                     </Text>
                   </Pressable>
                 );
               })}
             </View>
-
-            <Pressable
-              onPress={handleShare}
-              style={{
-                paddingVertical: 10,
-                paddingHorizontal: 14,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: theme.colors.neutral200,
-                alignSelf: "flex-start",
-              }}
-            >
-              <Text style={{ color: theme.colors.text, fontWeight: "700" }}>Condividi</Text>
-            </Pressable>
           </View>
         </View>
 
