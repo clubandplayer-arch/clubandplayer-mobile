@@ -10,8 +10,8 @@ import LightboxModal from "../../../components/media/LightboxModal";
 import { sharePostById } from "../../lib/sharePost";
 import { devWarn } from "../../lib/debug/devLog";
 import { theme } from "../../theme";
-import { togglePostLike } from "../../lib/posts/togglePostLike";
-import { supabase } from "../../lib/supabase";
+import { setPostReaction } from "../../lib/api";
+import { emit } from "../../lib/events/appEvents";
 import { iso2ToFlagEmoji } from "../../lib/geo/countryFlag";
 
 function formatWhen(iso?: string | null) {
@@ -106,12 +106,28 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
   const handleLikePress = async () => {
     if (!item.id) return;
     if (isLiking) return;
+    const nextHasLiked = !viewerHasLiked;
     try {
       setIsLiking(true);
-      const result = await togglePostLike({ postId: item.id, supabase });
-      setViewerHasLiked(result.liked);
-      setLikeCount((prev) => Math.max(0, prev + result.likeCountDelta));
+      setViewerHasLiked(nextHasLiked);
+      setLikeCount((prev) => Math.max(0, prev + (nextHasLiked ? 1 : -1)));
+
+      // WEB parity: unlike = reaction null
+      const res = await setPostReaction(item.id, nextHasLiked ? "like" : null);
+      if (!res.ok) {
+        throw new Error(res.errorText ?? `Toggle HTTP ${res.status}`);
+      }
+
+      const confirmedLikeCount =
+        (res.data?.counts ?? []).find((x) => x.post_id === item.id && x.reaction === "like")?.count ?? 0;
+      const confirmedHasLiked = res.data?.mine === "like";
+
+      setViewerHasLiked(confirmedHasLiked);
+      setLikeCount(Math.max(0, confirmedLikeCount));
+      emit("feed:refresh");
     } catch (error: any) {
+      setViewerHasLiked(!nextHasLiked);
+      setLikeCount((prev) => Math.max(0, prev + (nextHasLiked ? -1 : 1)));
       onToast?.(error?.message ? String(error.message) : "Like non disponibile");
     } finally {
       setIsLiking(false);
