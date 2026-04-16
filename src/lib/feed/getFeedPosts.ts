@@ -10,6 +10,11 @@ import { readCountryCodeFromCandidates } from "../geo/countryFlag";
 import { getProfileDisplayName } from "../profiles/getProfileDisplayName";
 
 export type FeedMediaItem = NormalizedMediaItem;
+export const FEED_REACTION_TYPES = ["like", "love", "care", "angry"] as const;
+export type FeedReactionType = (typeof FEED_REACTION_TYPES)[number];
+export function isFeedReactionType(value: unknown): value is FeedReactionType {
+  return typeof value === "string" && (FEED_REACTION_TYPES as readonly string[]).includes(value);
+}
 
 export type FeedAuthor = {
   id?: string;
@@ -40,6 +45,8 @@ export type FeedPost = {
   likeCount?: number;
   commentCount?: number;
   viewerHasLiked?: boolean;
+  viewerReaction?: FeedReactionType | null;
+  reactionCounts?: Partial<Record<FeedReactionType, number>>;
 };
 
 type FeedScope = "all" | "following";
@@ -136,18 +143,22 @@ function buildCountsMaps(
 ) {
   const likeCountByPost = new Map<string, number>();
   const viewerLikedSet = new Set<string>();
+  const viewerReactionByPost = new Map<string, FeedReactionType>();
+  const reactionCountsByPost = new Map<string, Partial<Record<FeedReactionType, number>>>();
   const commentCountByPost = new Map<string, number>();
 
   if (reactions?.ok) {
     for (const row of reactions.counts || []) {
-      if (row?.reaction === "like" && row?.post_id) {
-        likeCountByPost.set(row.post_id, Number(row.count) || 0);
-      }
+      if (!row?.post_id || !isFeedReactionType(row.reaction)) continue;
+      const current = reactionCountsByPost.get(row.post_id) ?? {};
+      current[row.reaction] = Number(row.count) || 0;
+      reactionCountsByPost.set(row.post_id, current);
+      if (row.reaction === "like") likeCountByPost.set(row.post_id, Number(row.count) || 0);
     }
     for (const m of reactions.mine || []) {
-      if (m?.reaction === "like" && m?.post_id) {
-        viewerLikedSet.add(m.post_id);
-      }
+      if (!m?.post_id || !isFeedReactionType(m.reaction)) continue;
+      viewerReactionByPost.set(m.post_id, m.reaction);
+      if (m.reaction === "like") viewerLikedSet.add(m.post_id);
     }
   }
 
@@ -157,7 +168,7 @@ function buildCountsMaps(
     }
   }
 
-  return { likeCountByPost, viewerLikedSet, commentCountByPost };
+  return { likeCountByPost, viewerLikedSet, viewerReactionByPost, reactionCountsByPost, commentCountByPost };
 }
 
 export async function getFeedPosts({
@@ -197,6 +208,8 @@ export async function getFeedPosts({
         likeCount: 0,
         commentCount: 0,
         viewerHasLiked: false,
+        viewerReaction: null,
+        reactionCounts: {},
       } as FeedPost;
     })
     .filter(Boolean) as FeedPost[];
@@ -216,13 +229,16 @@ export async function getFeedPosts({
   const reactions = reactionsRes.ok ? (reactionsRes.data ?? null) : null;
   const comments = commentsRes.ok ? (commentsRes.data ?? null) : null;
 
-  const { likeCountByPost, viewerLikedSet, commentCountByPost } = buildCountsMaps(reactions, comments);
+  const { likeCountByPost, viewerLikedSet, viewerReactionByPost, reactionCountsByPost, commentCountByPost } =
+    buildCountsMaps(reactions, comments);
 
   const items = basePosts.map((p) => ({
     ...p,
     likeCount: likeCountByPost.get(p.id) ?? 0,
     commentCount: commentCountByPost.get(p.id) ?? 0,
     viewerHasLiked: viewerLikedSet.has(p.id),
+    viewerReaction: viewerReactionByPost.get(p.id) ?? null,
+    reactionCounts: reactionCountsByPost.get(p.id) ?? {},
   }));
 
   return { items, nextPage: nextPageToken };

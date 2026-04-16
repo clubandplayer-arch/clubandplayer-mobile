@@ -130,10 +130,13 @@ export type ClubRosterPostResponse = {
 };
 
 // FEED: reactions/comments
+export const FEED_REACTION_TYPES = ["like", "love", "care", "angry"] as const;
+export type FeedReactionType = (typeof FEED_REACTION_TYPES)[number];
+
 export type FeedReactionsGetResponse = {
   ok: true;
-  counts: Array<{ post_id: string; reaction: string; count: number }>;
-  mine: Array<{ post_id: string; reaction: string }>;
+  counts: Array<{ post_id: string; reaction: FeedReactionType; count: number }>;
+  mine: Array<{ post_id: string; reaction: FeedReactionType }>;
   missingTable?: boolean;
 };
 
@@ -178,8 +181,8 @@ export type FeedCommentPostResponse = {
 export type FeedReactionsPostResponse = {
   ok: true;
   postId: string;
-  counts: Array<{ post_id: string; reaction: string; count: number }>;
-  mine: string | null;
+  counts: Array<{ post_id: string; reaction: FeedReactionType; count: number }>;
+  mine: FeedReactionType | null;
 };
 
 export type LinkPreviewResponse = {
@@ -1245,7 +1248,7 @@ export async function deleteComment(commentId: string): Promise<ApiResponse<{ ok
   return apiFetch<{ ok: boolean }>(`/api/feed/comments/${encodeURIComponent(commentId)}`, { method: "DELETE" });
 }
 
-export async function setPostReaction(postId: string, reaction: "like" | null): Promise<ApiResponse<FeedReactionsPostResponse>> {
+export async function setPostReaction(postId: string, reaction: FeedReactionType | null): Promise<ApiResponse<FeedReactionsPostResponse>> {
   const body = reaction ? { postId, reaction } : { postId, reaction: null };
   return apiFetch<FeedReactionsPostResponse>("/api/feed/reactions", {
     method: "POST",

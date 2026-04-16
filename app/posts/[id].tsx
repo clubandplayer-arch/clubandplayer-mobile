@@ -24,7 +24,13 @@ import {
   useWhoami,
 } from "../../src/lib/api";
 import { CommentsSection } from "../../src/components/CommentsSection";
-import { getPostText, type FeedAuthor } from "../../src/lib/feed/getFeedPosts";
+import {
+  FEED_REACTION_TYPES,
+  getPostText,
+  isFeedReactionType,
+  type FeedAuthor,
+  type FeedReactionType,
+} from "../../src/lib/feed/getFeedPosts";
 import { emit } from "../../src/lib/events/appEvents";
 import { sharePostById } from "../../src/lib/sharePost";
 import { devWarn } from "../../src/lib/debug/devLog";
@@ -49,9 +55,22 @@ type SocialState = {
   likeCount: number;
   commentCount: number;
   viewerHasLiked: boolean;
+  viewerReaction: FeedReactionType | null;
+  reactionCounts: Record<FeedReactionType, number>;
   loading: boolean;
   error: string | null;
 };
+
+const REACTION_META: Record<FeedReactionType, { emoji: string; label: string }> = {
+  like: { emoji: "👍", label: "Mi piace" },
+  love: { emoji: "❤️", label: "Love" },
+  care: { emoji: "🔥", label: "Care" },
+  angry: { emoji: "😡", label: "Angry" },
+};
+
+function emptyReactionCounts(): Record<FeedReactionType, number> {
+  return { like: 0, love: 0, care: 0, angry: 0 };
+}
 
 function asString(value: unknown): string | null {
   if (typeof value === "string") return value;
@@ -301,6 +320,8 @@ export default function PostDetailScreen() {
     likeCount: 0,
     commentCount: 0,
     viewerHasLiked: false,
+    viewerReaction: null,
+    reactionCounts: emptyReactionCounts(),
     loading: true,
     error: null,
   });
@@ -322,11 +343,16 @@ export default function PostDetailScreen() {
       if (!rRes.ok) throw new Error(rRes.errorText ?? `Reactions HTTP ${rRes.status}`);
       if (!cRes.ok) throw new Error(cRes.errorText ?? `Comments HTTP ${cRes.status}`);
 
-      const likeCount =
-        (rRes.data?.counts ?? []).find((x) => x.post_id === targetPostId && x.reaction === "like")?.count ?? 0;
-
-      const viewerHasLiked =
-        (rRes.data?.mine ?? []).some((m) => m.post_id === targetPostId && m.reaction === "like");
+      const reactionCounts = emptyReactionCounts();
+      for (const row of rRes.data?.counts ?? []) {
+        if (!row?.post_id || row.post_id !== targetPostId) continue;
+        if (!isFeedReactionType(row.reaction)) continue;
+        reactionCounts[row.reaction] = Number(row.count) || 0;
+      }
+      const likeCount = reactionCounts.like ?? 0;
+      const mineReaction = (rRes.data?.mine ?? []).find((m) => m.post_id === targetPostId)?.reaction ?? null;
+      const viewerReaction = isFeedReactionType(mineReaction) ? mineReaction : null;
+      const viewerHasLiked = viewerReaction === "like";
 
       const commentCount =
         (cRes.data?.counts ?? []).find((x) => x.post_id === targetPostId)?.count ?? 0;
@@ -335,6 +361,8 @@ export default function PostDetailScreen() {
         likeCount,
         commentCount,
         viewerHasLiked,
+        viewerReaction,
+        reactionCounts,
         loading: false,
         error: null,
       });
@@ -395,39 +423,52 @@ export default function PostDetailScreen() {
     void load();
   };
 
-  const handleLikeToggle = async () => {
+  const handleReactionToggle = async (nextReaction: FeedReactionType | null) => {
     if (!postId || isToggling) return;
     setIsToggling(true);
     setSocial((prev) => ({ ...prev, error: null }));
-
-    const nextHasLiked = !social.viewerHasLiked;
+    const prevReaction = social.viewerReaction;
+    const prevCounts = { ...social.reactionCounts };
 
     try {
-      // ✅ WEB parity: unlike = reaction null
-      const res = await setPostReaction(postId, nextHasLiked ? "like" : null);
+      const res = await setPostReaction(postId, nextReaction as any);
       if (!res.ok) throw new Error(res.errorText ?? `Toggle HTTP ${res.status}`);
 
-      const likeCount =
-        (res.data?.counts ?? []).find((x) => x.post_id === postId && x.reaction === "like")?.count ?? 0;
-
-      const viewerHasLiked = res.data?.mine === "like";
+      const reactionCounts = emptyReactionCounts();
+      for (const row of res.data?.counts ?? []) {
+        if (!row?.post_id || row.post_id !== postId) continue;
+        if (!isFeedReactionType(row.reaction)) continue;
+        reactionCounts[row.reaction] = Number(row.count) || 0;
+      }
+      const likeCount = reactionCounts.like ?? 0;
+      const viewerReaction = isFeedReactionType(res.data?.mine) ? res.data.mine : null;
+      const viewerHasLiked = viewerReaction === "like";
 
       setSocial((prev) => ({
         ...prev,
         likeCount,
         viewerHasLiked,
+        viewerReaction,
+        reactionCounts,
       }));
 
       emit("feed:refresh");
     } catch (e: any) {
       setSocial((prev) => ({
         ...prev,
+        viewerReaction: prevReaction,
+        reactionCounts: prevCounts,
         error: e?.message ? String(e.message) : "Errore nel like",
       }));
     } finally {
       setIsToggling(false);
       await loadSocial(postId);
     }
+  };
+
+  const handleLikeToggle = async () => {
+    const nextReaction = social.viewerReaction === "like" ? null : "like";
+    await handleReactionToggle(nextReaction);
   };
 
   const handleShare = async () => {
@@ -611,8 +652,17 @@ export default function PostDetailScreen() {
               <Text style={{ color: theme.colors.muted }}>Caricamento reazioni…</Text>
             </View>
           ) : (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
-              <Text style={{ color: theme.colors.text }}>👍 {social.likeCount}</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+              {FEED_REACTION_TYPES.map((reaction) => {
+                const count = social.reactionCounts[reaction] ?? 0;
+                if (count <= 0) return null;
+                const meta = REACTION_META[reaction];
+                return (
+                  <Text key={reaction} style={{ color: theme.colors.text }}>
+                    {meta.emoji} {count}
+                  </Text>
+                );
+              })}
               <Text style={{ color: theme.colors.text }}>💬 {social.commentCount}</Text>
             </View>
           )}
@@ -627,16 +677,44 @@ export default function PostDetailScreen() {
                 paddingHorizontal: 14,
                 borderRadius: 10,
                 borderWidth: 1,
-                borderColor: social.viewerHasLiked ? theme.colors.text : theme.colors.neutral200,
-                backgroundColor: social.viewerHasLiked ? theme.colors.text : "transparent",
+                borderColor: social.viewerReaction ? theme.colors.text : theme.colors.neutral200,
+                backgroundColor: social.viewerReaction ? theme.colors.text : "transparent",
                 alignSelf: "flex-start",
                 opacity: isToggling ? 0.6 : 1,
               }}
             >
-              <Text style={{ color: social.viewerHasLiked ? theme.colors.background : theme.colors.text, fontWeight: "700" }}>
-                {social.viewerHasLiked ? "Hai messo 👍" : "Metti 👍"}
+              <Text style={{ color: social.viewerReaction ? theme.colors.background : theme.colors.text, fontWeight: "700" }}>
+                {social.viewerReaction ? `Hai messo ${REACTION_META[social.viewerReaction].emoji}` : "Metti 👍"}
               </Text>
             </Pressable>
+
+            <View style={{ flexDirection: "row", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              {FEED_REACTION_TYPES.map((reaction) => {
+                const meta = REACTION_META[reaction];
+                const active = social.viewerReaction === reaction;
+                return (
+                  <Pressable
+                    key={reaction}
+                    onPress={() => void handleReactionToggle(active ? null : reaction)}
+                    style={{
+                      minWidth: 38,
+                      minHeight: 38,
+                      borderRadius: 19,
+                      borderWidth: 1,
+                      borderColor: active ? theme.colors.text : theme.colors.neutral200,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: active ? theme.colors.text : "transparent",
+                      opacity: isToggling ? 0.6 : 1,
+                    }}
+                  >
+                    <Text style={{ fontSize: 18, color: active ? theme.colors.background : theme.colors.text }}>
+                      {meta.emoji}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
 
             <Pressable
               onPress={handleShare}
