@@ -339,9 +339,6 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
             }}
           >
             <Text style={{ fontSize: 16 }}>{primaryReaction.emoji}</Text>
-            <Text style={{ ...theme.typography.smallStrong, color: viewerReaction ? theme.colors.primary : theme.colors.muted }}>
-              {primaryReaction.label}
-            </Text>
             <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>{totalReactions}</Text>
           </Pressable>
 
