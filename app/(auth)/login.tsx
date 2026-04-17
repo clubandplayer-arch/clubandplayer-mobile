@@ -166,11 +166,25 @@ export default function LoginScreen() {
         )}
       </Pressable>
 
-      <Text
-        style={{ textAlign: "center", color: theme.colors.muted, fontWeight: "600" }}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          marginVertical: 12,
+        }}
       >
-        ----- oppure -----
-      </Text>
+        <View style={{ flex: 1, height: 1, backgroundColor: "#E5E7EB" }} />
+        <Text
+          style={{
+            marginHorizontal: 10,
+            fontSize: 12,
+            color: "#6B7280",
+          }}
+        >
+          oppure
+        </Text>
+        <View style={{ flex: 1, height: 1, backgroundColor: "#E5E7EB" }} />
+      </View>
 
       <Pressable
         onPress={onGoogle}
