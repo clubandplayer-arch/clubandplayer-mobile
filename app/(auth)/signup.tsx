@@ -111,6 +111,7 @@ export default function SignupScreen() {
 
       <TextInput
         placeholder="Email"
+        placeholderTextColor={theme.colors.muted}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="email-address"
@@ -121,6 +122,7 @@ export default function SignupScreen() {
 
       <TextInput
         placeholder="Password"
+        placeholderTextColor={theme.colors.muted}
         secureTextEntry
         autoCapitalize="none"
         autoCorrect={false}
@@ -131,6 +133,7 @@ export default function SignupScreen() {
 
       <TextInput
         placeholder="Conferma password"
+        placeholderTextColor={theme.colors.muted}
         secureTextEntry
         autoCapitalize="none"
         autoCorrect={false}
@@ -156,6 +159,26 @@ export default function SignupScreen() {
           <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Registrati</Text>
         )}
       </Pressable>
+
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          marginVertical: 12,
+        }}
+      >
+        <View style={{ flex: 1, height: 1, backgroundColor: "#E5E7EB" }} />
+        <Text
+          style={{
+            marginHorizontal: 10,
+            fontSize: 12,
+            color: "#6B7280",
+          }}
+        >
+          oppure
+        </Text>
+        <View style={{ flex: 1, height: 1, backgroundColor: "#E5E7EB" }} />
+      </View>
 
       <Pressable
         onPress={onGoogle}

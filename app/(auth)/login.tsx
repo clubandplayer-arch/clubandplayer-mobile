@@ -7,6 +7,8 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -25,6 +27,7 @@ export default function LoginScreen() {
   const normalizedEmail = (v: string) => v.trim().toLowerCase();
 
   const onLogin = async () => {
+    Keyboard.dismiss();
     if (!email || !password) {
       Alert.alert("Errore", "Inserisci email e password");
       return;
@@ -74,6 +77,7 @@ export default function LoginScreen() {
 
 
   const onApple = async () => {
+    Keyboard.dismiss();
     try {
       setLoading(true);
       await signInWithApple();
@@ -85,6 +89,7 @@ export default function LoginScreen() {
   };
 
   const onGoogle = async () => {
+    Keyboard.dismiss();
     try {
       setLoading(true);
       await signInWithGoogle();
@@ -97,15 +102,16 @@ export default function LoginScreen() {
 
 
   return (
-    <View
-      style={{
-        flex: 1,
-        padding: 24,
-        justifyContent: "center",
-        gap: 12,
-        backgroundColor: theme.colors.background,
-      }}
-    >
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View
+        style={{
+          flex: 1,
+          padding: 24,
+          justifyContent: "center",
+          gap: 12,
+          backgroundColor: theme.colors.background,
+        }}
+      >
       <BrandLogo />
 
       <Text
@@ -121,6 +127,7 @@ export default function LoginScreen() {
 
       <TextInput
         placeholder="Email"
+        placeholderTextColor={theme.colors.muted}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="email-address"
@@ -131,6 +138,7 @@ export default function LoginScreen() {
 
       <TextInput
         placeholder="Password"
+        placeholderTextColor={theme.colors.muted}
         secureTextEntry
         autoCapitalize="none"
         autoCorrect={false}
@@ -157,6 +165,26 @@ export default function LoginScreen() {
           <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Accedi</Text>
         )}
       </Pressable>
+
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          marginVertical: 12,
+        }}
+      >
+        <View style={{ flex: 1, height: 1, backgroundColor: "#E5E7EB" }} />
+        <Text
+          style={{
+            marginHorizontal: 10,
+            fontSize: 12,
+            color: "#6B7280",
+          }}
+        >
+          oppure
+        </Text>
+        <View style={{ flex: 1, height: 1, backgroundColor: "#E5E7EB" }} />
+      </View>
 
       <Pressable
         onPress={onGoogle}
@@ -211,6 +239,7 @@ export default function LoginScreen() {
           </Text>
         </Text>
       </Pressable>
-    </View>
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
