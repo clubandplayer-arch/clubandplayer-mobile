@@ -127,6 +127,7 @@ export default function LoginScreen() {
 
       <TextInput
         placeholder="Email"
+        placeholderTextColor={theme.colors.muted}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="email-address"
@@ -137,6 +138,7 @@ export default function LoginScreen() {
 
       <TextInput
         placeholder="Password"
+        placeholderTextColor={theme.colors.muted}
         secureTextEntry
         autoCapitalize="none"
         autoCorrect={false}
@@ -163,6 +165,12 @@ export default function LoginScreen() {
           <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Accedi</Text>
         )}
       </Pressable>
+
+      <Text
+        style={{ textAlign: "center", color: theme.colors.muted, fontWeight: "600" }}
+      >
+        ----- oppure -----
+      </Text>
 
       <Pressable
         onPress={onGoogle}
