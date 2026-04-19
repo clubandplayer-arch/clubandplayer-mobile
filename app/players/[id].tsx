@@ -2,7 +2,7 @@ import { useMemo, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
-import { isUuid, useWebSession, useWhoami } from "../../src/lib/api";
+import { apiFetch, isUuid, useWebSession, useWhoami } from "../../src/lib/api";
 import { getFeedPosts, type FeedPost } from "../../src/lib/feed/getFeedPosts";
 import FeedCard from "../../src/components/feed/FeedCard";
 import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
@@ -35,8 +35,29 @@ type ProfileRow = {
   province?: string | null;
   city?: string | null;
   links?: PublicProfileLinks | unknown;
+  skills?: unknown;
   bio?: string | null;
   [key: string]: unknown;
+};
+
+type ProfileSkill = {
+  name: string;
+  endorsementsCount: number;
+  endorsedByMe: boolean;
+};
+
+type PublicProfilesResponse = {
+  data?: ProfileRow[];
+};
+
+type EndorsementRow = {
+  skill_name?: string | null;
+};
+
+type SkillEndorseResponse = {
+  ok?: boolean;
+  endorsementsCount?: number;
+  message?: string;
 };
 
 const getTextValue = (value: unknown): string | null => {
@@ -73,6 +94,33 @@ function getLinks(value: unknown): PublicProfileLinks {
   return Object.values(links).some(Boolean) ? links : null;
 }
 
+function normalizeSkillName(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const cleaned = value.trim().replace(/\s+/g, " ");
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+function normalizeProfileSkills(value: unknown): ProfileSkill[] {
+  if (!Array.isArray(value)) return [];
+  const deduped = new Map<string, ProfileSkill>();
+
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const row = entry as Record<string, unknown>;
+    const name = normalizeSkillName(row.name);
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (deduped.has(key)) continue;
+    deduped.set(key, {
+      name,
+      endorsementsCount: 0,
+      endorsedByMe: false,
+    });
+  }
+
+  return Array.from(deduped.values());
+}
+
 export default function PlayerProfileScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
@@ -89,6 +137,10 @@ export default function PlayerProfileScreen() {
   const whoami = useWhoami(web.ready);
 
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [meId, setMeId] = useState<string | null>(null);
+  const [skills, setSkills] = useState<ProfileSkill[]>([]);
+  const [endorsingSkill, setEndorsingSkill] = useState<string | null>(null);
+  const [skillsError, setSkillsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
@@ -101,23 +153,83 @@ export default function PlayerProfileScreen() {
     const load = async () => {
       if (!id) {
         setProfile(null);
+        setMeId(null);
+        setSkills([]);
         setResolvedLocation(null);
         setLoading(false);
         return;
       }
 
       setLoading(true);
-      const res = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
+      setSkillsError(null);
+      const auth = await supabase.auth.getUser();
+      const viewerId = auth?.data?.user?.id ?? null;
+      setMeId(viewerId);
+      const publicProfileRes = await apiFetch<PublicProfilesResponse>(`/api/profiles/public?ids=${encodeURIComponent(id)}`, { method: "GET" });
+      const items = Array.isArray(publicProfileRes.data?.data) ? publicProfileRes.data?.data : [];
 
       if (!mounted) return;
 
-      const nextProfile = res.data ? (res.data as ProfileRow) : null;
+      const nextProfile = items.length > 0 ? (items[0] as ProfileRow) : null;
       setProfile(nextProfile);
+      const normalizedSkills = normalizeProfileSkills(nextProfile?.skills);
+      setSkills(normalizedSkills);
 
       if (!nextProfile) {
+        setSkills([]);
         setResolvedLocation(null);
         setLoading(false);
         return;
+      }
+
+      try {
+        const { data: endorsementRows, error: endorsementError } = await supabase
+          .from("profile_skill_endorsements")
+          .select("skill_name")
+          .eq("profile_id", id);
+
+        if (!mounted) return;
+
+        if (endorsementError) {
+          setSkillsError(`Errore endorsement: ${endorsementError.message}`);
+        } else {
+          const countsMap = new Map<string, number>();
+          for (const row of (endorsementRows ?? []) as EndorsementRow[]) {
+            const normalizedName = normalizeSkillName(row.skill_name);
+            if (!normalizedName) continue;
+            const key = normalizedName.toLowerCase();
+            countsMap.set(key, (countsMap.get(key) ?? 0) + 1);
+          }
+
+          let endorsedByMeSet = new Set<string>();
+          if (viewerId) {
+            const { data: mineRows } = await supabase
+              .from("profile_skill_endorsements")
+              .select("skill_name")
+              .eq("endorser_profile_id", viewerId)
+              .eq("profile_id", id);
+
+            if (!mounted) return;
+
+            endorsedByMeSet = new Set<string>();
+            for (const row of (mineRows ?? []) as EndorsementRow[]) {
+              const normalizedName = normalizeSkillName(row.skill_name);
+              if (!normalizedName) continue;
+              endorsedByMeSet.add(normalizedName.toLowerCase());
+            }
+          }
+
+          setSkills(
+            normalizedSkills.map((skill) => ({
+              ...skill,
+              endorsementsCount: countsMap.get(skill.name.toLowerCase()) ?? 0,
+              endorsedByMe: endorsedByMeSet.has(skill.name.toLowerCase()),
+            })),
+          );
+        }
+      } catch (error) {
+        if (!mounted) return;
+        setSkillsError(`Errore endorsement: ${error instanceof Error ? error.message : "sconosciuto"}`);
       }
 
       try {
@@ -158,6 +270,54 @@ export default function PlayerProfileScreen() {
       mounted = false;
     };
   }, [id]);
+
+  const isOwner = useMemo(() => {
+    if (!profile || !meId) return false;
+    return meId === profile.id || meId === profile.user_id;
+  }, [meId, profile]);
+
+  const toggleEndorse = async (skill: ProfileSkill) => {
+    if (!profile || !id) return;
+    if (!meId) {
+      setSkillsError("Devi accedere per endorsare una competenza.");
+      return;
+    }
+    if (isOwner) {
+      setSkillsError("Non puoi endorsare il tuo profilo.");
+      return;
+    }
+
+    const action = skill.endorsedByMe ? "remove" : "endorse";
+    setEndorsingSkill(skill.name);
+    setSkillsError(null);
+    try {
+      const res = await apiFetch<SkillEndorseResponse>(`/api/profiles/${encodeURIComponent(id)}/skills/endorse`, {
+        method: "POST",
+        body: JSON.stringify({ skillName: skill.name, action }),
+      });
+
+      if (!res.ok || !res.data?.ok) {
+        setSkillsError(res.data?.message ?? res.errorText ?? "Errore durante l'endorsement");
+        return;
+      }
+
+      const newCount = typeof res.data?.endorsementsCount === "number" ? res.data.endorsementsCount : undefined;
+      setSkills((prev) =>
+        prev.map((item) => {
+          if (item.name !== skill.name) return item;
+          const delta = action === "endorse" ? 1 : -1;
+          const fallback = Math.max(0, (item.endorsementsCount ?? 0) + delta);
+          return {
+            ...item,
+            endorsedByMe: action === "endorse",
+            endorsementsCount: newCount ?? fallback,
+          };
+        }),
+      );
+    } finally {
+      setEndorsingSkill(null);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -339,6 +499,87 @@ export default function PlayerProfileScreen() {
       >
         <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Biografia</Text>
         <Text style={{ color: theme.colors.text, lineHeight: 22 }}>{biography}</Text>
+      </View>
+
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          backgroundColor: theme.colors.neutral50,
+          padding: 16,
+          gap: 12,
+        }}
+      >
+        <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Competenze</Text>
+        {skillsError ? <Text style={{ color: "#b91c1c", fontSize: 13 }}>{skillsError}</Text> : null}
+
+        {skills.length > 0 ? (
+          <View style={{ gap: 10 }}>
+            {skills.map((skill) => (
+              <View
+                key={skill.name}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: "#f1f5f9",
+                  backgroundColor: "#f8fafc",
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                }}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: theme.colors.text, flexShrink: 1 }}>{skill.name}</Text>
+                  <View style={{ borderRadius: 999, backgroundColor: "#eff6ff", paddingHorizontal: 10, paddingVertical: 4 }}>
+                    <Text style={{ color: "#1e40af", fontSize: 12, fontWeight: "700" }}>{skill.endorsementsCount}</Text>
+                  </View>
+                </View>
+                {!isOwner ? (
+                  <Pressable
+                    onPress={() => void toggleEndorse(skill)}
+                    disabled={endorsingSkill === skill.name || !meId}
+                    style={({ pressed }) => ({
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor: skill.endorsedByMe ? "#2563eb" : "#cbd5e1",
+                      backgroundColor: skill.endorsedByMe ? "#2563eb" : theme.colors.background,
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      opacity: endorsingSkill === skill.name || !meId ? 0.7 : pressed ? 0.8 : 1,
+                    })}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: skill.endorsedByMe ? theme.colors.background : theme.colors.text }}>
+                      {skill.endorsedByMe ? "Rimuovi endorsement" : meId ? "Endorsa" : "Accedi per endorsare"}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View
+            style={{
+              borderWidth: 1,
+              borderStyle: "dashed",
+              borderColor: theme.colors.neutral200,
+              borderRadius: 12,
+              backgroundColor: "#f8fafc",
+              padding: 14,
+              gap: 6,
+            }}
+          >
+            <Text style={{ fontWeight: "700", color: theme.colors.text }}>Ancora nessuna competenza</Text>
+            <Text style={{ color: theme.colors.muted, fontSize: 13 }}>
+              {isOwner
+                ? "Aggiungi le competenze dal pannello modifica profilo per aiutare i club a trovarti più facilmente."
+                : "Questo player non ha ancora inserito competenze."}
+            </Text>
+          </View>
+        )}
       </View>
 
       <View
