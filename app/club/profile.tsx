@@ -175,6 +175,7 @@ function PickerModal({
 
 export default function ClubProfileScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const web = useWebSession();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -342,11 +343,12 @@ export default function ClubProfileScreen() {
               ),
         }}
       />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 24, gap: 12, paddingBottom: 48, paddingTop: 12 }} style={{ backgroundColor: theme.colors.background }}>
-        {web.error ? <Text style={{ color: theme.colors.danger }}>{web.error}</Text> : null}
-        {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
+      <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 24, gap: 12, paddingBottom: 20, paddingTop: 12 }}>
+          {web.error ? <Text style={{ color: theme.colors.danger }}>{web.error}</Text> : null}
+          {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
 
-        <AvatarUploader value={avatarUrl} onChange={setAvatarUrl} />
+          <AvatarUploader value={avatarUrl} onChange={setAvatarUrl} />
 
         <View style={{ borderWidth: 1, borderColor: theme.colors.primarySoft, borderRadius: 12, padding: 16, gap: 8 }}>
           <TextInput placeholder="Nome del club" value={fullName} onChangeText={setFullName} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }} />
@@ -412,10 +414,32 @@ export default function ClubProfileScreen() {
           </View>
         </View>
 
-        <Pressable disabled={disabled} onPress={() => void onSave()} style={{ backgroundColor: disabled ? theme.colors.muted : "#2563eb", borderRadius: 10, paddingVertical: 12, alignItems: "center", alignSelf: "flex-start", paddingHorizontal: 16 }}>
-          <Text style={{ color: theme.colors.background, fontWeight: "700" }}>{saving ? "Salvo..." : "Salva profilo"}</Text>
-        </Pressable>
-      </ScrollView>
+        </ScrollView>
+
+        <View
+          style={{
+            borderTopWidth: 1,
+            borderTopColor: theme.colors.neutral200,
+            backgroundColor: theme.colors.background,
+            paddingHorizontal: 24,
+            paddingTop: 10,
+            paddingBottom: Math.max(insets.bottom, 12),
+          }}
+        >
+          <Pressable
+            disabled={disabled}
+            onPress={() => void onSave()}
+            style={{
+              backgroundColor: disabled ? theme.colors.muted : "#2563eb",
+              borderRadius: 10,
+              paddingVertical: 12,
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: theme.colors.background, fontWeight: "700" }}>{saving ? "Salvo..." : "Salva profilo"}</Text>
+          </Pressable>
+        </View>
+      </View>
 
       <PickerModal visible={openPicker === "country"} title="Nazione del club" options={countryOptions} selectedValue={country} onClose={() => setOpenPicker(null)} onSelect={setCountry} />
       <PickerModal visible={openPicker === "sport"} title="Sport del club" options={sportOptions} selectedValue={sport} onClose={() => setOpenPicker(null)} onSelect={setSport} />
