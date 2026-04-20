@@ -8,6 +8,7 @@ import FeedCard from "../../src/components/feed/FeedCard";
 import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
 import PublicProfileHeader, { type PublicProfileLinks } from "../../src/components/profiles/PublicProfileHeader";
 import { resolveItalianLocationLabels } from "../../src/lib/geo/location";
+import { parseSeason, type PastExperience } from "../../src/lib/profiles/pastExperiences";
 import { theme } from "../../src/theme";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -38,6 +39,18 @@ type ProfileRow = {
   bio?: string | null;
   [key: string]: unknown;
 };
+
+type AthleteExperienceRow = {
+  profile_id?: string | null;
+  club_name?: string | null;
+  sport?: string | null;
+  category?: string | null;
+  start_year?: number | null;
+  end_year?: number | null;
+  current?: boolean | null;
+};
+
+type PublicPastExperience = PastExperience & { current: boolean };
 
 const getTextValue = (value: unknown): string | null => {
   if (typeof value !== "string") return null;
@@ -92,6 +105,7 @@ export default function PlayerProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
+  const [experiences, setExperiences] = useState<PublicPastExperience[]>([]);
   const [resolvedLocation, setResolvedLocation] = useState<{ country: string | null; region: string | null; province: string | null; city: string | null } | null>(null);
   const isLoading = loading || web.loading || whoami.loading;
 
@@ -154,6 +168,52 @@ export default function PlayerProfileScreen() {
 
     void load();
 
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadExperiences = async () => {
+      if (!id) {
+        setExperiences([]);
+        return;
+      }
+
+      const res = await supabase
+        .from("athlete_experiences")
+        .select("profile_id, club_name, sport, category, start_year, end_year, current")
+        .eq("profile_id", id);
+
+      if (!mounted) return;
+
+      const rows = Array.isArray(res.data) ? (res.data as AthleteExperienceRow[]) : [];
+      const mapped: PublicPastExperience[] = rows.map((row) => {
+        const start = typeof row.start_year === "number" ? row.start_year : null;
+        const end = typeof row.end_year === "number" ? row.end_year : null;
+        const defaultSeason = start && end ? `${start}/${String(end % 100).padStart(2, "0")}` : "";
+        return {
+          season: defaultSeason,
+          club: getTextValue(row.club_name) ?? "—",
+          sport: getTextValue(row.sport) ?? "—",
+          category: getTextValue(row.category) ?? "—",
+          current: Boolean(row.current),
+        };
+      });
+
+      setExperiences(
+        [...mapped].sort((a, b) => {
+          if (a.current !== b.current) return a.current ? -1 : 1;
+          const aYear = parseSeason(a.season)?.startYear ?? -1;
+          const bYear = parseSeason(b.season)?.startYear ?? -1;
+          return bYear - aYear;
+        }),
+      );
+    };
+
+    void loadExperiences();
     return () => {
       mounted = false;
     };
@@ -339,6 +399,33 @@ export default function PlayerProfileScreen() {
       >
         <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Biografia</Text>
         <Text style={{ color: theme.colors.text, lineHeight: 22 }}>{biography}</Text>
+      </View>
+
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          borderRadius: 12,
+          backgroundColor: theme.colors.neutral50,
+          padding: 16,
+          gap: 10,
+        }}
+      >
+        <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Esperienze passate</Text>
+        {experiences.length === 0 ? (
+          <Text style={{ color: theme.colors.muted }}>Nessuna esperienza inserita.</Text>
+        ) : (
+          experiences.map((item, index) => (
+            <View
+              key={`${item.season}-${item.club}-${index}`}
+              style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, padding: 10, gap: 2 }}
+            >
+              <Text style={{ fontWeight: "700", color: theme.colors.text }}>{item.season || "—"}</Text>
+              <Text style={{ color: theme.colors.text }}>{item.club}</Text>
+              <Text style={{ color: theme.colors.muted }}>{item.sport} • {item.category}</Text>
+            </View>
+          ))
+        )}
       </View>
 
       <View

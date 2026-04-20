@@ -34,6 +34,6 @@ export function profileCanonicalHref(profileId: string, accountType: AccountType
 }
 
 export function profileAliasHref(profileId: string, accountType: AccountType): string {
-  if (accountType === "club") return `/c/${profileId}`;
-  return `/u/${profileId}`;
+  if (accountType === "club") return `/clubs/${profileId}`;
+  return `/players/${profileId}`;
 }

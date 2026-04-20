@@ -82,6 +82,13 @@ export type ProfileMe = {
   club_motto?: string | null;
 };
 
+export type PastExperience = {
+  season: string;
+  club: string;
+  sport: string;
+  category: string;
+};
+
 export type FeedPostsResponse = {
   items?: unknown[];
   nextPage?: number | string | null;
@@ -657,6 +664,10 @@ export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
     json && typeof json === "object" && "data" in (json as any) ? (json as any).data : json;
 
   return { ok: true, status, data: payload as ProfileMe };
+}
+
+export async function fetchProfileMeExperiences(): Promise<ApiResponse<{ experiences: PastExperience[] }>> {
+  return apiFetch<{ experiences: PastExperience[] }>("/api/profiles/me/experiences", { method: "GET" });
 }
 
 export async function fetchFeedPosts(params?: {
@@ -1272,6 +1283,13 @@ export async function patchProfileMe(input: Partial<Record<ProfilePatchField, un
   return apiFetch<ProfileMe>("/api/profiles/me", {
     method: "PATCH",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function patchProfileMeExperiences(experiences: PastExperience[]): Promise<ApiResponse<{ experiences: PastExperience[] }>> {
+  return apiFetch<{ experiences: PastExperience[] }>("/api/profiles/me/experiences", {
+    method: "PATCH",
+    body: JSON.stringify({ experiences }),
   });
 }
 
