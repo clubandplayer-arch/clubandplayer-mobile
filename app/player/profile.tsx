@@ -13,6 +13,7 @@ import {
 import { Stack, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { COUNTRY_OPTIONS as GEO_COUNTRY_OPTIONS } from "../../src/lib/geo/countries";
 import { AvatarUploader } from "../../components/profiles/AvatarUploader";
 import { LocationFields } from "../../components/profiles/LocationFields";
 import {
@@ -48,9 +49,7 @@ type SocialValues = {
   x: string;
 };
 
-const COUNTRY_OPTIONS: Option[] = [
-  { label: "Italia (IT)", value: "IT" },
-];
+const COUNTRY_OPTIONS: Option[] = GEO_COUNTRY_OPTIONS.filter((option) => option.value !== "");
 
 const FOOT_OPTIONS: Option[] = [
   { label: "Destro", value: "Destro" },
@@ -128,13 +127,42 @@ function extractSocialValues(value: unknown): SocialValues {
   return next;
 }
 
-function buildSocialLinks(values: SocialValues) {
-  return {
-    instagram: values.instagram.trim(),
-    facebook: values.facebook.trim(),
-    tiktok: values.tiktok.trim(),
-    x: values.x.trim(),
+function normalizeSocial(kind: keyof SocialValues, value: string): string | null {
+  const v = (value || "").trim();
+  if (!v) return null;
+
+  const isUrl = /^https?:\/\//i.test(v);
+
+  const map: Record<keyof SocialValues, (h: string) => string> = {
+    instagram: (h) => `https://instagram.com/${h.replace(/^@/, "")}`,
+    facebook: (h) => (isUrl ? h : `https://facebook.com/${h.replace(/^@/, "")}`),
+    tiktok: (h) => `https://tiktok.com/@${h.replace(/^@/, "")}`,
+    x: (h) => `https://twitter.com/${h.replace(/^@/, "")}`,
   };
+
+  if (isUrl) return v;
+  return map[kind](v);
+}
+
+function buildSocialLinks(values: SocialValues) {
+  const links: {
+    instagram?: string;
+    facebook?: string;
+    tiktok?: string;
+    x?: string;
+  } = {
+    instagram: normalizeSocial("instagram", values.instagram) ?? undefined,
+    facebook: normalizeSocial("facebook", values.facebook) ?? undefined,
+    tiktok: normalizeSocial("tiktok", values.tiktok) ?? undefined,
+    x: normalizeSocial("x", values.x) ?? undefined,
+  };
+
+  Object.keys(links).forEach((k) => {
+    const key = k as keyof typeof links;
+    if (!links[key]) delete links[key];
+  });
+
+  return links;
 }
 
 function SelectField({
@@ -356,7 +384,7 @@ export default function PlayerProfileScreen() {
       foot,
       height_cm: heightCm,
       weight_kg: weightKg,
-      links: JSON.stringify(buildSocialLinks(socials)),
+      links: buildSocialLinks(socials),
       notify_email_new_message: notifyEmail,
       interest_country: interestCountry,
       interest_region_id: interest.region_id,
