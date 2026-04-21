@@ -172,6 +172,14 @@ async function syncWebSessionAndAudit(session: { access_token: string; refresh_t
   }
 }
 
+function syncWebSessionAndAuditInBackground(session: { access_token: string; refresh_token: string }) {
+  void syncWebSessionAndAudit(session).catch((error) => {
+    if (__DEV__) {
+      console.log("[auth][post-login-sync][warn]", String(error));
+    }
+  });
+}
+
 
 export async function signInWithApple() {
   const redirectTo = Linking.createURL("callback", { scheme: "clubandplayer" });
@@ -218,7 +226,7 @@ export async function signInWithApple() {
   const session = sessionData.session;
   if (!session) throw new Error("Sessione Supabase mancante dopo exchange");
 
-  await syncWebSessionAndAudit({
+  syncWebSessionAndAuditInBackground({
     access_token: session.access_token,
     refresh_token: session.refresh_token,
   });
@@ -269,7 +277,7 @@ export async function signInWithGoogle() {
   const session = sessionData.session;
   if (!session) throw new Error("Sessione Supabase mancante dopo exchange");
 
-  await syncWebSessionAndAudit({
+  syncWebSessionAndAuditInBackground({
     access_token: session.access_token,
     refresh_token: session.refresh_token,
   });

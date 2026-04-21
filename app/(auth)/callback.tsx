@@ -39,6 +39,14 @@ async function syncWebSessionAndAudit(session: { access_token: string; refresh_t
   }
 }
 
+function syncWebSessionAndAuditInBackground(session: { access_token: string; refresh_token: string }) {
+  void syncWebSessionAndAudit(session).catch((error) => {
+    if (__DEV__) {
+      console.log("[auth/callback][post-login-sync][warn]", String(error));
+    }
+  });
+}
+
 export default function AuthCallback() {
   const [error, setError] = useState<string | null>(null);
   const [lastUrl, setLastUrl] = useState<string | null>(null);
@@ -55,7 +63,7 @@ export default function AuthCallback() {
       if (!data.session || handledRef.current) return;
 
       handledRef.current = true;
-      await syncWebSessionAndAudit({
+      syncWebSessionAndAuditInBackground({
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
       });
@@ -66,7 +74,7 @@ export default function AuthCallback() {
       if (!isMounted || !session || handledRef.current) return;
 
       handledRef.current = true;
-      await syncWebSessionAndAudit({
+      syncWebSessionAndAuditInBackground({
         access_token: session.access_token,
         refresh_token: session.refresh_token,
       });
@@ -117,7 +125,7 @@ export default function AuthCallback() {
         return;
       }
 
-      await syncWebSessionAndAudit({
+      syncWebSessionAndAuditInBackground({
         access_token: session.access_token,
         refresh_token: session.refresh_token,
       });
