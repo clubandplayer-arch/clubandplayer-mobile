@@ -124,6 +124,8 @@ export type ClubRosterItem = {
   avatar_url?: string | null;
   role?: string | null;
   sport?: string | null;
+  country?: string | null;
+  countryText?: string | null;
 };
 
 export type ClubRosterGetResponse = {
@@ -1186,6 +1188,8 @@ function normalizeClubRosterItem(raw: unknown): ClubRosterItem | null {
   const avatarUrlRaw = player.avatarUrl ?? player.avatar_url ?? item.avatar_url ?? item.avatarUrl;
   const roleRaw = player.role ?? item.role;
   const sportRaw = player.sport ?? item.sport;
+  const countryRaw = player.country ?? item.country ?? null;
+  const countryTextRaw = player.countryText ?? player.country_text ?? item.countryText ?? item.country_text ?? null;
 
   return {
     playerProfileId,
@@ -1194,6 +1198,8 @@ function normalizeClubRosterItem(raw: unknown): ClubRosterItem | null {
     avatar_url: typeof avatarUrlRaw === "string" ? avatarUrlRaw : null,
     role: typeof roleRaw === "string" ? roleRaw : null,
     sport: typeof sportRaw === "string" ? sportRaw : null,
+    country: typeof countryRaw === "string" ? countryRaw : null,
+    countryText: typeof countryTextRaw === "string" ? countryTextRaw : null,
   };
 }
 

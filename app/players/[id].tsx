@@ -8,7 +8,9 @@ import FeedCard from "../../src/components/feed/FeedCard";
 import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
 import PublicProfileHeader, { type PublicProfileLinks } from "../../src/components/profiles/PublicProfileHeader";
 import AthleteExperiencesSection from "../../src/components/profiles/AthleteExperiencesSection";
+import CountryFlag from "../../src/components/ui/CountryFlag";
 import { resolveItalianLocationLabels } from "../../src/lib/geo/location";
+import { getCountryDisplay } from "../../src/lib/geo/countryDisplay";
 import { theme } from "../../src/theme";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -236,8 +238,13 @@ export default function PlayerProfileScreen() {
   const role = getTextValue(profile?.role);
   const sportRole = [sport, role].filter(Boolean).join(" • ") || "—";
 
-  const countryCode = getTextValue(resolvedLocation?.country) ?? getTextValue(profile?.interest_country) ?? getTextValue(profile?.country);
-  const nationality = countryCode || "—";
+  const countryRaw =
+    getTextValue(resolvedLocation?.country) ??
+    getTextValue(profile?.interest_country) ??
+    getTextValue(profile?.country) ??
+    "";
+  const countryInfo = getCountryDisplay(countryRaw);
+  const nationality = countryInfo.label || "—";
   const birthYear = getNumberValue(profile?.birth_year);
   const currentYear = new Date().getFullYear();
   const age = birthYear ? String(currentYear - birthYear) : "—";
@@ -318,6 +325,12 @@ export default function PlayerProfileScreen() {
         showMessageButton={!isMe}
         showFollowButton={!isMe}
       />
+      {countryInfo.label ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: -6 }}>
+          <CountryFlag iso2={countryInfo.iso2} />
+          <Text style={{ color: theme.colors.text, fontWeight: "700" }}>{countryInfo.label}</Text>
+        </View>
+      ) : null}
 
       <View
         style={{
@@ -339,12 +352,19 @@ export default function PlayerProfileScreen() {
             { label: "Piede", value: foot },
             { label: "Sport", value: sport || "—" },
             { label: "Ruolo", value: role || "—" },
-            { label: "Nazionalità", value: nationality },
+            { label: "Nazionalità", value: nationality, countryIso2: countryInfo.iso2 },
             { label: "Zona di interesse", value: interestLocation },
           ].map((item) => (
             <View key={item.label} style={{ width: "48%", gap: 4 }}>
               <Text style={{ fontSize: 12, color: theme.colors.muted }}>{item.label}</Text>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: theme.colors.text }}>{item.value}</Text>
+              {item.label === "Nazionalità" ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <CountryFlag iso2={(item as { countryIso2?: string | null }).countryIso2} />
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: theme.colors.text }}>{item.value}</Text>
+                </View>
+              ) : (
+                <Text style={{ fontSize: 15, fontWeight: "700", color: theme.colors.text }}>{item.value}</Text>
+              )}
             </View>
           ))}
         </View>
