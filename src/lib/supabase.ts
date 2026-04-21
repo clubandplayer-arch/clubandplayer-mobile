@@ -52,6 +52,11 @@ if (__DEV__) {
       console.log("[Supabase][DEV] anonKeyLoaded", Boolean(supabaseAnonKey));
       console.log("[Supabase][DEV] sessionPresent", Boolean(sessionData.session));
       console.log("[Supabase][DEV] userId", userData.user?.id ?? null);
+      console.log("[Supabase][DEV] bootstrapSessionMeta", {
+        hasAccessToken: Boolean(sessionData.session?.access_token),
+        hasRefreshToken: Boolean(sessionData.session?.refresh_token),
+        expiresAt: sessionData.session?.expires_at ?? null,
+      });
     } catch (error) {
       if (isInvalidRefreshTokenError(error)) {
         await supabase.auth.signOut({ scope: "local" });
@@ -61,4 +66,18 @@ if (__DEV__) {
       console.log("[Supabase][DEV] bootstrap auth check failed", error);
     }
   })();
+
+  const { data: bootstrapAuthSub } = supabase.auth.onAuthStateChange((event, session) => {
+    console.log("[Supabase][DEV] onAuthStateChange", {
+      event,
+      sessionPresent: Boolean(session),
+      userId: session?.user?.id ?? null,
+      hasAccessToken: Boolean(session?.access_token),
+      hasRefreshToken: Boolean(session?.refresh_token),
+      expiresAt: session?.expires_at ?? null,
+    });
+  });
+
+  // Keep subscription alive for runtime diagnostics in DEV.
+  void bootstrapAuthSub;
 }

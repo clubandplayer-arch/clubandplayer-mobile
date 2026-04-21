@@ -43,6 +43,13 @@ export default function Index() {
       supabase.auth.getSession(),
       getOnboardingSeen(),
     ]);
+    if (__DEV__) {
+      console.log("[auth-gate][index:load:getSession]", {
+        sessionPresent: Boolean(sessionData.session),
+        userId: sessionData.session?.user?.id ?? null,
+        onboardingSeen,
+      });
+    }
 
     const session = sessionData.session ?? null;
     if (!session) {
@@ -103,7 +110,14 @@ export default function Index() {
 
     void load();
 
-    const { data: subscription } = supabase.auth.onAuthStateChange(() => {
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
+      if (__DEV__) {
+        console.log("[auth-gate][index:onAuthStateChange]", {
+          event,
+          sessionPresent: Boolean(session),
+          userId: session?.user?.id ?? null,
+        });
+      }
       if (pathname !== "/") return;
       void load();
     });
@@ -142,6 +156,16 @@ export default function Index() {
     lastTargetRef.current = redirectTarget;
     router.replace(redirectTarget as any);
   }, [redirectTarget, router]);
+
+  useEffect(() => {
+    if (!__DEV__) return;
+    console.log("[auth-gate][index:state]", {
+      pathname,
+      stateKind: state.kind,
+      redirectTarget,
+      showingLoading: state.kind === "auth-loading" || state.kind === "profile-loading",
+    });
+  }, [pathname, redirectTarget, state.kind]);
 
   if (state.kind === "auth-loading" || state.kind === "profile-loading") {
     return <LoadingScreen />;

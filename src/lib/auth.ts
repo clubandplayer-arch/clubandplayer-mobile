@@ -243,9 +243,18 @@ export async function signInWithGoogle() {
     throw new Error("OAuth code mancante nel ritorno dal browser");
   }
 
+  if (__DEV__) {
+    console.log("[auth][google] exchange:start", { hasCode: true, codeLength: code.length });
+  }
   const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(
     code
   );
+  if (__DEV__) {
+    console.log("[auth][google] exchange:end", {
+      ok: !exchangeError,
+      error: exchangeError ? String(exchangeError) : null,
+    });
+  }
 
   if (exchangeError) {
     throw new Error(`Scambio sessione fallito: ${String(exchangeError)}`);
@@ -253,6 +262,14 @@ export async function signInWithGoogle() {
 
   const { data: sessionData } = await supabase.auth.getSession();
   const session = sessionData.session;
+  if (__DEV__) {
+    console.log("[auth][google] getSession:after-exchange", {
+      sessionPresent: Boolean(session),
+      userId: session?.user?.id ?? null,
+      hasAccessToken: Boolean(session?.access_token),
+      hasRefreshToken: Boolean(session?.refresh_token),
+    });
+  }
   if (!session) throw new Error("Sessione Supabase mancante dopo exchange");
 
   await syncWebSessionAndAudit({
