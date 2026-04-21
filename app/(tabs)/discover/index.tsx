@@ -12,6 +12,8 @@ import { useRouter } from "expo-router";
 import { theme } from "../../../src/theme";
 import { useWebSession } from "../../../src/lib/api";
 import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
+import CountryFlag from "../../../src/components/ui/CountryFlag";
+import { getCountryDisplay } from "../../../src/lib/geo/countryDisplay";
 
 const WEB_BASE_URL =
   process.env.EXPO_PUBLIC_WEB_BASE_URL ?? "https://www.clubandplayer.com";
@@ -59,7 +61,7 @@ function compactParts(parts: Array<string | null | undefined>) {
 }
 
 function formatMetaLine(p: SuggestionItem) {
-  const location = compactParts([p.city, p.province, p.region, p.country]).join(" • ");
+  const location = compactParts([p.city, p.province, p.region]).join(" • ");
   const sportRole = compactParts([p.sport, p.role]).join(" • ");
 
   if (sportRole && location) return `${sportRole}  —  ${location}`;
@@ -367,6 +369,7 @@ export default function DiscoverScreen() {
         renderItem={({ item }) => {
           const name = humanizeName(item);
           const meta = formatMetaLine(item);
+          const country = getCountryDisplay(item.country ?? null);
           const disabled = Boolean(pendingIds[item.id]);
 
           return (
@@ -397,6 +400,12 @@ export default function DiscoverScreen() {
                   </Text>
                 </Pressable>
                 <Text style={{ color: theme.colors.muted }}>{meta}</Text>
+                {country.label ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <CountryFlag iso2={country.iso2} />
+                    <Text style={{ color: theme.colors.muted, fontSize: 12 }}>{country.label}</Text>
+                  </View>
+                ) : null}
               </View>
 
               <Pressable

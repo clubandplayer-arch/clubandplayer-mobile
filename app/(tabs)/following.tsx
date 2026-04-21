@@ -13,6 +13,8 @@ import {
 import { useRouter } from "expo-router";
 
 import { fetchClubRoster, fetchFollowingList, updateClubRoster, useWebSession } from "../../src/lib/api";
+import CountryFlag from "../../src/components/ui/CountryFlag";
+import { getCountryDisplay } from "../../src/lib/geo/countryDisplay";
 import { supabase } from "../../src/lib/supabase";
 import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
 import { useIsClub } from "../../src/lib/useIsClub";
@@ -23,6 +25,12 @@ type FollowingItem = {
   name: string;
   avatarUrl: string | null;
   accountType: "club" | "athlete" | "unknown";
+  sport: string | null;
+  role: string | null;
+  city: string | null;
+  province: string | null;
+  region: string | null;
+  country: string | null;
 };
 
 type DecoratedFollowingItem = FollowingItem & {
@@ -78,7 +86,19 @@ function normalizeFollowingItem(raw: unknown): FollowingItem | null {
     name,
     avatarUrl,
     accountType,
+    sport: pickString(item, ["sport"]),
+    role: pickString(item, ["role"]),
+    city: pickString(item, ["city"]),
+    province: pickString(item, ["province"]),
+    region: pickString(item, ["region"]),
+    country: pickString(item, ["country", "countryText", "interest_country"]),
   };
+}
+
+function compactParts(parts: Array<string | null | undefined>) {
+  return parts
+    .map((x) => (x ?? "").toString().trim())
+    .filter((x) => x.length > 0);
 }
 
 function resolveItemsPayload(responseData: unknown, responseRoot: unknown): unknown[] | null {
@@ -459,6 +479,22 @@ export default function FollowingScreen() {
                 <Avatar uri={item.avatarUrl} />
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.primary }}>{item.name}</Text>
+                  {(() => {
+                    const country = getCountryDisplay(item.country);
+                    const meta = compactParts([item.sport, item.role, item.city, item.province, item.region]).join(" • ");
+                    if (!meta && !country.label) return null;
+                    return (
+                      <View style={{ gap: 2 }}>
+                        {meta ? <Text style={{ color: theme.colors.muted }}>{meta}</Text> : null}
+                        {country.label ? (
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                            <CountryFlag iso2={country.iso2} />
+                            <Text style={{ color: theme.colors.muted, fontSize: 12 }}>{country.label}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    );
+                  })()}
                 </View>
                 {isClub && item.accountType === "athlete" ? (
                   <View
