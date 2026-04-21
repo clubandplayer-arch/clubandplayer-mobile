@@ -39,10 +39,28 @@ export default function Index() {
   const load = useCallback(async () => {
     setState({ kind: "auth-loading" });
 
-    const [{ data: sessionData }, onboardingSeen] = await Promise.all([
+    const [sessionResult, onboardingResult] = await Promise.allSettled([
       supabase.auth.getSession(),
       getOnboardingSeen(),
     ]);
+
+    if (sessionResult.status === "rejected" || onboardingResult.status === "rejected") {
+      if (__DEV__) {
+        console.log("[auth-gate][index:load:error]", {
+          sessionError:
+            sessionResult.status === "rejected" ? String(sessionResult.reason) : null,
+          onboardingError:
+            onboardingResult.status === "rejected" ? String(onboardingResult.reason) : null,
+        });
+      }
+      const fallbackOnboardingSeen =
+        onboardingResult.status === "fulfilled" ? onboardingResult.value : true;
+      setState({ kind: "no-session", onboardingSeen: fallbackOnboardingSeen });
+      return;
+    }
+
+    const sessionData = sessionResult.value.data;
+    const onboardingSeen = onboardingResult.value;
     if (__DEV__) {
       console.log("[auth-gate][index:load:getSession]", {
         sessionPresent: Boolean(sessionData.session),
