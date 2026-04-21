@@ -7,6 +7,7 @@ import { getFeedPosts, type FeedPost } from "../../src/lib/feed/getFeedPosts";
 import FeedCard from "../../src/components/feed/FeedCard";
 import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
 import PublicProfileHeader, { type PublicProfileLinks } from "../../src/components/profiles/PublicProfileHeader";
+import AthleteExperiencesSection, { type AthleteExperience } from "../../src/components/profiles/AthleteExperiencesSection";
 import { resolveItalianLocationLabels } from "../../src/lib/geo/location";
 import { theme } from "../../src/theme";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -90,6 +91,7 @@ export default function PlayerProfileScreen() {
 
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
+  const [experiences, setExperiences] = useState<AthleteExperience[]>([]);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
   const [resolvedLocation, setResolvedLocation] = useState<{ country: string | null; region: string | null; province: string | null; city: string | null } | null>(null);
@@ -118,6 +120,16 @@ export default function PlayerProfileScreen() {
         setResolvedLocation(null);
         setLoading(false);
         return;
+      }
+
+      if (nextProfile?.id) {
+        const experiencesResponse = await supabase
+          .from("athlete_experiences")
+          .select("id, club_name, sport, role, category, start_year, end_year, is_current, description")
+          .eq("profile_id", nextProfile.id);
+        setExperiences((experiencesResponse.data ?? []) as AthleteExperience[]);
+      } else {
+        setExperiences([]);
       }
 
       try {
@@ -340,6 +352,8 @@ export default function PlayerProfileScreen() {
         <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Biografia</Text>
         <Text style={{ color: theme.colors.text, lineHeight: 22 }}>{biography}</Text>
       </View>
+
+      <AthleteExperiencesSection experiences={experiences} />
 
       <View
         style={{

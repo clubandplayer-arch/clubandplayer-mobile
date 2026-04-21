@@ -15,8 +15,24 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AvatarUploader } from "../../components/profiles/AvatarUploader";
 import { LocationFields } from "../../components/profiles/LocationFields";
-import { fetchProfileMe, patchProfileMe, type ProfileMe, useWebSession } from "../../src/lib/api";
+import {
+  fetchProfileExperiencesMe,
+  fetchProfileMe,
+  patchProfileExperiencesMe,
+  patchProfileMe,
+  type ProfileMe,
+  useWebSession,
+} from "../../src/lib/api";
 import { SPORTS, SPORTS_ROLES } from "../../src/lib/opportunities/formOptions";
+import {
+  ensurePastExperienceCategory,
+  getPastExperienceCategoriesBySport,
+  getSeasonOptions,
+  isPastExperienceComplete,
+  isPastExperienceEmpty,
+  sanitizePastExperience,
+  type PastExperience,
+} from "../../src/lib/profiles/pastExperiences";
 import { theme } from "../../src/theme";
 
 type Option = {
@@ -29,6 +45,13 @@ type SocialValues = {
   facebook: string;
   tiktok: string;
   x: string;
+};
+
+const EMPTY_PAST_EXPERIENCE: PastExperience = {
+  season: "",
+  club: "",
+  sport: "",
+  category: "",
 };
 
 const COUNTRY_OPTIONS: Option[] = [
@@ -221,6 +244,7 @@ export default function PlayerProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openPicker, setOpenPicker] = useState<null | "country" | "interest_country" | "sport" | "role" | "foot">(null);
+  const [experiencePicker, setExperiencePicker] = useState<null | { index: number; type: "season" | "sport" | "category" }>(null);
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [fullName, setFullName] = useState("");
@@ -234,6 +258,7 @@ export default function PlayerProfileScreen() {
   const [weightKg, setWeightKg] = useState("");
   const [socials, setSocials] = useState<SocialValues>({ instagram: "", facebook: "", tiktok: "", x: "" });
   const [notifyEmail, setNotifyEmail] = useState(false);
+  const [pastExperiences, setPastExperiences] = useState<PastExperience[]>([{ ...EMPTY_PAST_EXPERIENCE }]);
   const [interestCountry, setInterestCountry] = useState("IT");
   const [interest, setInterest] = useState({
     region_id: null as number | null,
@@ -248,6 +273,7 @@ export default function PlayerProfileScreen() {
   const sportOptions = useMemo(() => ensureOption(SPORTS.map((value) => ({ label: value, value })), sport), [sport]);
   const roleOptions = useMemo(() => ensureOption((SPORTS_ROLES[sport] ?? []).map((value) => ({ label: value, value })), role), [role, sport]);
   const footOptions = useMemo(() => ensureOption(FOOT_OPTIONS, foot), [foot]);
+  const seasonOptions = useMemo(() => getSeasonOptions().map((value) => ({ label: value, value })), []);
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -288,6 +314,16 @@ export default function PlayerProfileScreen() {
       province_label: data.interest_province ?? null,
       city_label: data.interest_city ?? null,
     });
+
+    const experiencesResponse = await fetchProfileExperiencesMe();
+    if (experiencesResponse.ok) {
+      const normalized = (experiencesResponse.data ?? [])
+        .map((item) => ensurePastExperienceCategory(sanitizePastExperience(item)))
+        .filter((item) => !isPastExperienceEmpty(item));
+      setPastExperiences(normalized.length > 0 ? normalized : [{ ...EMPTY_PAST_EXPERIENCE }]);
+    } else {
+      setPastExperiences([{ ...EMPTY_PAST_EXPERIENCE }]);
+    }
     setLoading(false);
   }, [router]);
 
@@ -297,8 +333,18 @@ export default function PlayerProfileScreen() {
   }, [loadProfile, web.ready]);
 
   const onSave = useCallback(async () => {
+    const normalizedExperiences = pastExperiences
+      .map((item) => ensurePastExperienceCategory(sanitizePastExperience(item)))
+      .filter((item) => !isPastExperienceEmpty(item));
+
+    const firstPartialIndex = normalizedExperiences.findIndex((item) => !isPastExperienceComplete(item));
+    if (firstPartialIndex >= 0) {
+      Alert.alert("Errore", `Compila tutti i campi dell'esperienza #${firstPartialIndex + 1}.`);
+      return;
+    }
+
     setSaving(true);
-    const response = await patchProfileMe({
+    const profileResponse = await patchProfileMe({
       avatar_url: avatarUrl,
       full_name: fullName,
       display_name: fullName,
@@ -320,12 +366,20 @@ export default function PlayerProfileScreen() {
       interest_province: interest.province_label,
       interest_city: interest.city_label,
     });
-    setSaving(false);
 
-    if (!response.ok) {
-      Alert.alert("Errore", response.errorText ?? "Salvataggio fallito");
+    if (!profileResponse.ok) {
+      setSaving(false);
+      Alert.alert("Errore", profileResponse.errorText ?? "Salvataggio fallito");
       return;
     }
+
+    const experiencesResponse = await patchProfileExperiencesMe(normalizedExperiences);
+    setSaving(false);
+    if (!experiencesResponse.ok) {
+      Alert.alert("Errore", experiencesResponse.errorText ?? "Salvataggio esperienze fallito");
+      return;
+    }
+
     Alert.alert("Salvato", "Profilo aggiornato");
     await loadProfile();
   }, [
@@ -345,6 +399,7 @@ export default function PlayerProfileScreen() {
     interestCountry,
     loadProfile,
     notifyEmail,
+    pastExperiences,
     role,
     socials,
     sport,
@@ -421,6 +476,61 @@ export default function PlayerProfileScreen() {
         </View>
 
         <View style={{ borderWidth: 1, borderColor: theme.colors.primarySoft, borderRadius: 12, padding: 16, gap: 12 }}>
+          <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.primary }}>Esperienze passate</Text>
+          {pastExperiences.map((experience, index) => {
+            return (
+              <View key={`experience-${index}`} style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, padding: 12, gap: 8 }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <Text style={{ fontWeight: "700", color: theme.colors.text }}>Esperienza #{index + 1}</Text>
+                  {pastExperiences.length > 1 ? (
+                    <Pressable onPress={() => setPastExperiences((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
+                      <Text style={{ color: theme.colors.danger, fontWeight: "600" }}>Rimuovi</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+                <SelectField
+                  label="Stagione"
+                  value={experience.season}
+                  placeholder="Seleziona stagione"
+                  onPress={() => setExperiencePicker({ index, type: "season" })}
+                />
+                <Text style={{ fontWeight: "600", color: theme.colors.primary }}>Club</Text>
+                <TextInput
+                  placeholder="Nome club"
+                  value={experience.club}
+                  onChangeText={(value) =>
+                    setPastExperiences((current) =>
+                      current.map((item, itemIndex) => (itemIndex === index ? { ...item, club: value } : item)),
+                    )
+                  }
+                  style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }}
+                />
+                <View style={{ flexDirection: "row", gap: 12 }}>
+                  <SelectField
+                    label="Sport"
+                    value={experience.sport}
+                    placeholder="Seleziona sport"
+                    onPress={() => setExperiencePicker({ index, type: "sport" })}
+                  />
+                  <SelectField
+                    label="Categoria"
+                    value={experience.category}
+                    placeholder="Seleziona categoria"
+                    onPress={() => setExperiencePicker({ index, type: "category" })}
+                  />
+                </View>
+              </View>
+            );
+          })}
+          <Pressable
+            onPress={() => setPastExperiences((current) => [...current, { ...EMPTY_PAST_EXPERIENCE }])}
+            style={{ alignSelf: "flex-start", paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.primarySoft }}
+          >
+            <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>+ Aggiungi esperienza</Text>
+          </Pressable>
+        </View>
+
+        <View style={{ borderWidth: 1, borderColor: theme.colors.primarySoft, borderRadius: 12, padding: 16, gap: 12 }}>
           <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.primary }}>Zona di interesse</Text>
           <SelectField label="Paese" value={getCountryLabel(interestCountry)} placeholder="Seleziona paese" onPress={() => setOpenPicker("interest_country")} helperText={`${interestCountry} ${getCountryLabel(interestCountry)}`} />
           <LocationFields mode="player" title="Località" values={interest} onChange={setInterest} />
@@ -472,6 +582,50 @@ export default function PlayerProfileScreen() {
       }} />
       <PickerModal visible={openPicker === "role"} title="Ruolo" options={roleOptions} selectedValue={role} onClose={() => setOpenPicker(null)} onSelect={setRole} />
       <PickerModal visible={openPicker === "foot"} title="Piede preferito" options={footOptions} selectedValue={foot} onClose={() => setOpenPicker(null)} onSelect={setFoot} />
+      <PickerModal
+        visible={experiencePicker?.type === "season"}
+        title="Stagione"
+        options={seasonOptions}
+        selectedValue={experiencePicker && experiencePicker.type === "season" ? pastExperiences[experiencePicker.index]?.season ?? "" : ""}
+        onClose={() => setExperiencePicker(null)}
+        onSelect={(value) => {
+          if (!experiencePicker || experiencePicker.type !== "season") return;
+          setPastExperiences((current) => current.map((item, index) => (index === experiencePicker.index ? { ...item, season: value } : item)));
+        }}
+      />
+      <PickerModal
+        visible={experiencePicker?.type === "sport"}
+        title="Sport esperienza"
+        options={SPORTS.map((value) => ({ label: value, value }))}
+        selectedValue={experiencePicker && experiencePicker.type === "sport" ? pastExperiences[experiencePicker.index]?.sport ?? "" : ""}
+        onClose={() => setExperiencePicker(null)}
+        onSelect={(value) => {
+          if (!experiencePicker || experiencePicker.type !== "sport") return;
+          setPastExperiences((current) =>
+            current.map((item, index) =>
+              index === experiencePicker.index ? ensurePastExperienceCategory({ ...item, sport: value }) : item,
+            ),
+          );
+        }}
+      />
+      <PickerModal
+        visible={experiencePicker?.type === "category"}
+        title="Categoria esperienza"
+        options={
+          experiencePicker && experiencePicker.type === "category"
+            ? getPastExperienceCategoriesBySport(pastExperiences[experiencePicker.index]?.sport ?? "").map((value) => ({
+                label: value,
+                value,
+              }))
+            : []
+        }
+        selectedValue={experiencePicker && experiencePicker.type === "category" ? pastExperiences[experiencePicker.index]?.category ?? "" : ""}
+        onClose={() => setExperiencePicker(null)}
+        onSelect={(value) => {
+          if (!experiencePicker || experiencePicker.type !== "category") return;
+          setPastExperiences((current) => current.map((item, index) => (index === experiencePicker.index ? { ...item, category: value } : item)));
+        }}
+      />
     </>
   );
 }
