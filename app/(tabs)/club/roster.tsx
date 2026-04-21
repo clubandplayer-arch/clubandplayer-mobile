@@ -12,6 +12,8 @@ import {
 import { useRouter } from "expo-router";
 
 import { fetchClubRoster, updateClubRoster, type ClubRosterItem } from "../../../src/lib/api";
+import CountryFlag from "../../../src/components/ui/CountryFlag";
+import { getCountryDisplay } from "../../../src/lib/geo/countryDisplay";
 import { theme } from "../../../src/theme";
 import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
 
@@ -148,6 +150,7 @@ export default function ClubRosterScreen() {
 
             const member = item.member;
             const subtitle = [member.role, member.sport].filter(Boolean).join(" • ");
+            const country = getCountryDisplay(((member as unknown as Record<string, unknown>).country as string | null | undefined) ?? null);
             const busy = removingId === member.playerProfileId;
             const name = getProfileDisplayName({ ...member, account_type: "athlete" });
 
@@ -176,6 +179,12 @@ export default function ClubRosterScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: theme.colors.text, fontWeight: "700", fontSize: 16 }}>{name}</Text>
                     {subtitle ? <Text style={{ marginTop: 4, color: theme.colors.muted }}>{subtitle}</Text> : null}
+                    {country.label ? (
+                      <View style={{ marginTop: 4, flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <CountryFlag iso2={country.iso2} />
+                        <Text style={{ color: theme.colors.muted, fontSize: 12 }}>{country.label}</Text>
+                      </View>
+                    ) : null}
                   </View>
                 </View>
 
