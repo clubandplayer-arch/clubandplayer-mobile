@@ -83,10 +83,15 @@ export default function AuthCallback() {
       if (!url || handledRef.current) return;
 
       if (url.includes("expo-development-client")) return;
-      if (!url.includes("/auth/callback")) return;
+      const parsedForRoute = Linking.parse(url);
+      const isHandledCallbackRoute =
+        parsedForRoute.hostname === "callback" ||
+        parsedForRoute.path === "callback" ||
+        parsedForRoute.path === "/callback" ||
+        url.includes("/auth/callback");
+      if (!isHandledCallbackRoute) return;
 
-      const parsed = Linking.parse(url);
-      const code = parsed.queryParams?.code;
+      const code = parsedForRoute.queryParams?.code;
 
       if (typeof code !== "string") {
         if (isMounted) setError("OAuth code mancante");
