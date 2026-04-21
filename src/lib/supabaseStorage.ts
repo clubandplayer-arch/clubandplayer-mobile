@@ -1,4 +1,5 @@
 import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type SecureStoreAdapter = {
   getItem: (key: string) => Promise<string | null>;
@@ -16,6 +17,10 @@ const TOKEN_FIELDS = [
   "provider_token",
   "provider_refresh_token",
 ];
+
+function isSupabaseAuthStorageKey(key: string): boolean {
+  return key.startsWith("sb-") && (key.includes("-auth-token") || key.includes("-code-verifier"));
+}
 
 function logSecureStoreWriteAudit(
   key: string,
@@ -64,7 +69,28 @@ function logSecureStoreWriteAudit(
 }
 
 export const secureStoreAdapter: SecureStoreAdapter = {
-  getItem: (key) => SecureStore.getItemAsync(key, OPTIONS),
+  getItem: async (key) => {
+    if (!isSupabaseAuthStorageKey(key)) {
+      return SecureStore.getItemAsync(key, OPTIONS);
+    }
+
+    const asyncValue = await AsyncStorage.getItem(key);
+    if (asyncValue != null) {
+      return asyncValue;
+    }
+
+    // One-way migration fallback from previous SecureStore auth persistence.
+    const legacySecureValue = await SecureStore.getItemAsync(key, OPTIONS);
+    if (legacySecureValue != null) {
+      await AsyncStorage.setItem(key, legacySecureValue);
+      await SecureStore.deleteItemAsync(key, OPTIONS);
+      if (__DEV__) {
+        console.log("[PR-M2][supabaseStorage:migrated-to-async]", { key });
+      }
+    }
+
+    return legacySecureValue;
+  },
   setItem: (key, value) => {
     logSecureStoreWriteAudit(key, value, "supabaseStorage:secureStoreAdapter.setItem");
 
@@ -76,7 +102,18 @@ export const secureStoreAdapter: SecureStoreAdapter = {
       });
     }
 
+    if (isSupabaseAuthStorageKey(key)) {
+      return AsyncStorage.setItem(key, value);
+    }
+
     return SecureStore.setItemAsync(key, value, OPTIONS);
   },
-  removeItem: (key) => SecureStore.deleteItemAsync(key, OPTIONS),
+  removeItem: async (key) => {
+    if (isSupabaseAuthStorageKey(key)) {
+      await AsyncStorage.removeItem(key);
+      await SecureStore.deleteItemAsync(key, OPTIONS);
+      return;
+    }
+    await SecureStore.deleteItemAsync(key, OPTIONS);
+  },
 };
