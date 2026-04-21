@@ -18,6 +18,7 @@ import type {
   DirectMessagesUnreadCountResponse,
   DirectThreadResponse,
 } from "../types/directMessages";
+import type { PastExperience } from "./profiles/pastExperiences";
 
 const DEFAULT_WEB_BASE_URL = "https://www.clubandplayer.com";
 
@@ -659,6 +660,34 @@ export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
   return { ok: true, status, data: payload as ProfileMe };
 }
 
+export async function fetchProfileExperiencesMe(): Promise<ApiResponse<PastExperience[]>> {
+  const url = buildUrl("/api/profiles/me/experiences");
+  const authorizationHeader = await getSessionAuthorizationHeader();
+  const response = await fetch(url, {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...(authorizationHeader ? { Authorization: authorizationHeader } : {}),
+    },
+  });
+
+  const status = response.status;
+  const json = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return {
+      ok: false,
+      status,
+      errorText: typeof json === "string" && json ? json : `HTTP ${status}`,
+    };
+  }
+
+  const data = Array.isArray((json as any)?.data) ? ((json as any).data as PastExperience[]) : [];
+  return { ok: true, status, data };
+}
+
 export async function fetchFeedPosts(params?: {
   scope?: "all" | "following";
   nextPage?: string;
@@ -1273,6 +1302,35 @@ export async function patchProfileMe(input: Partial<Record<ProfilePatchField, un
     method: "PATCH",
     body: JSON.stringify(payload),
   });
+}
+
+export async function patchProfileExperiencesMe(experiences: PastExperience[]): Promise<ApiResponse<PastExperience[]>> {
+  const url = buildUrl("/api/profiles/me/experiences");
+  const authorizationHeader = await getSessionAuthorizationHeader();
+  const response = await fetch(url, {
+    method: "PATCH",
+    credentials: "include",
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...(authorizationHeader ? { Authorization: authorizationHeader } : {}),
+    },
+    body: JSON.stringify({ experiences }),
+  });
+
+  const status = response.status;
+  const json = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return {
+      ok: false,
+      status,
+      errorText: typeof json === "string" && json ? json : `HTTP ${status}`,
+    };
+  }
+
+  const data = Array.isArray((json as any)?.data) ? ((json as any).data as PastExperience[]) : [];
+  return { ok: true, status, data };
 }
 
 function normalizeOptionalString(value: unknown): string | null {
