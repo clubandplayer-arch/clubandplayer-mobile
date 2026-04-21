@@ -30,6 +30,20 @@ function getRouteForNoSession(onboardingSeen: boolean) {
   return onboardingSeen ? "/(auth)/login" : "/(onboarding)";
 }
 
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(`${label} timeout after ${timeoutMs}ms`)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
 export default function Index() {
   const router = useRouter();
   const pathname = usePathname();
@@ -52,10 +66,14 @@ export default function Index() {
 
     setState({ kind: "profile-loading", session });
 
-    const syncResponse = await syncSession({
-      access_token: session.access_token,
-      refresh_token: session.refresh_token,
-    });
+    const syncResponse = await withTimeout(
+      syncSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      }),
+      15000,
+      "syncSession",
+    );
 
     if (!syncResponse.ok) {
       setState({
@@ -66,7 +84,7 @@ export default function Index() {
       return;
     }
 
-    const response = await fetchProfileMe();
+    const response = await withTimeout(fetchProfileMe(), 15000, "fetchProfileMe");
     if (!response.ok) {
       setState({
         kind: "profile-fetch-failed",

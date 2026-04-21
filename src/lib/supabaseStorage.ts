@@ -85,55 +85,38 @@ function minimizeOversizedAuthTokenValue(key: string, value: string): string | n
     return null;
   }
 
-  if (typeof parsed.access_token !== "string") {
-    return null;
+  const candidate = { ...parsed } as Record<string, unknown>;
+
+  // Keep auth/session shape intact as much as possible; drop only clearly optional large fields.
+  delete candidate.provider_token;
+  delete candidate.provider_refresh_token;
+
+  const session = candidate.session;
+  if (session && typeof session === "object" && !Array.isArray(session)) {
+    const sessionObj = { ...(session as Record<string, unknown>) };
+    delete sessionObj.provider_token;
+    delete sessionObj.provider_refresh_token;
+    candidate.session = sessionObj;
   }
 
-  const newObj: Record<string, unknown> = {
-    access_token: parsed.access_token,
-  };
-
-  if (typeof parsed.refresh_token === "string") {
-    newObj.refresh_token = parsed.refresh_token;
-  }
-  if (typeof parsed.token_type === "string") {
-    newObj.token_type = parsed.token_type;
-  }
-  if (typeof parsed.expires_in === "number") {
-    newObj.expires_in = parsed.expires_in;
-  }
-  if (typeof parsed.expires_at === "number") {
-    newObj.expires_at = parsed.expires_at;
+  const firstPass = JSON.stringify(candidate);
+  if (new TextEncoder().encode(firstPass).length < 2048) {
+    return firstPass;
   }
 
-  const user = parsed.user;
+  // Last resort: reduce oversized user metadata, but preserve id/email for bootstrap logic.
+  const user = candidate.user;
   if (user && typeof user === "object" && !Array.isArray(user)) {
     const userObj = user as Record<string, unknown>;
-    if (typeof userObj.id === "string") {
-      const userMin: Record<string, unknown> = { id: userObj.id };
-      if (typeof userObj.email === "string") {
-        userMin.email = userObj.email;
-      }
-      newObj.user = userMin;
-    }
+    const reducedUser: Record<string, unknown> = {};
+    if (typeof userObj.id === "string") reducedUser.id = userObj.id;
+    if (typeof userObj.email === "string") reducedUser.email = userObj.email;
+    candidate.user = reducedUser;
   }
 
-  const minValue = JSON.stringify(newObj);
-  const bytesMin = new TextEncoder().encode(minValue).length;
-  if (bytesMin < 2048) {
-    return minValue;
-  }
-
-  if (newObj.user && typeof newObj.user === "object" && !Array.isArray(newObj.user)) {
-    const userMin = newObj.user as Record<string, unknown>;
-    if (typeof userMin.id === "string") {
-      newObj.user = { id: userMin.id };
-      const minValueUserIdOnly = JSON.stringify(newObj);
-      const bytesUserIdOnly = new TextEncoder().encode(minValueUserIdOnly).length;
-      if (bytesUserIdOnly < 2048) {
-        return minValueUserIdOnly;
-      }
-    }
+  const secondPass = JSON.stringify(candidate);
+  if (new TextEncoder().encode(secondPass).length < 2048) {
+    return secondPass;
   }
 
   return null;
