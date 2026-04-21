@@ -137,7 +137,9 @@ export default function Index() {
         });
       }
       if (pathname !== "/") return;
-      void load();
+      setTimeout(() => {
+        void load();
+      }, 0);
     });
 
     return () => {
