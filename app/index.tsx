@@ -147,6 +147,20 @@ export default function Index() {
     };
   }, [load, pathname]);
 
+  useEffect(() => {
+    if (pathname !== "/") return;
+    if (state.kind !== "auth-loading") return;
+
+    const retryTimer = setTimeout(() => {
+      if (__DEV__) {
+        console.log("[auth-gate][index:auth-loading-retry]");
+      }
+      void load();
+    }, 800);
+
+    return () => clearTimeout(retryTimer);
+  }, [load, pathname, state.kind]);
+
   const redirectTarget = useMemo(() => {
     if (pathname !== "/") return null;
 
