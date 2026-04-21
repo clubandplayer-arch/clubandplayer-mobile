@@ -1,4 +1,5 @@
 import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type SecureStoreAdapter = {
   getItem: (key: string) => Promise<string | null>;
@@ -16,6 +17,10 @@ const TOKEN_FIELDS = [
   "provider_token",
   "provider_refresh_token",
 ];
+
+function isSupabaseAuthStorageKey(key: string): boolean {
+  return key.startsWith("sb-") && (key.includes("-auth-token") || key.includes("-code-verifier"));
+}
 
 function logSecureStoreWriteAudit(
   key: string,
@@ -63,113 +68,52 @@ function logSecureStoreWriteAudit(
   });
 }
 
-function minimizeOversizedAuthTokenValue(key: string, value: string): string | null {
-  const isAuthTokenKey = key.includes("-auth-token") || key.endsWith("-auth-token");
-  if (!isAuthTokenKey) {
-    return null;
-  }
-
-  const bytesOriginal = new TextEncoder().encode(value).length;
-  if (bytesOriginal <= 2048) {
-    return null;
-  }
-
-  let parsed: Record<string, unknown>;
-  try {
-    const candidate = JSON.parse(value);
-    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
-      return null;
-    }
-    parsed = candidate as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-
-  if (typeof parsed.access_token !== "string") {
-    return null;
-  }
-
-  const newObj: Record<string, unknown> = {
-    access_token: parsed.access_token,
-  };
-
-  if (typeof parsed.refresh_token === "string") {
-    newObj.refresh_token = parsed.refresh_token;
-  }
-  if (typeof parsed.token_type === "string") {
-    newObj.token_type = parsed.token_type;
-  }
-  if (typeof parsed.expires_in === "number") {
-    newObj.expires_in = parsed.expires_in;
-  }
-  if (typeof parsed.expires_at === "number") {
-    newObj.expires_at = parsed.expires_at;
-  }
-
-  const user = parsed.user;
-  if (user && typeof user === "object" && !Array.isArray(user)) {
-    const userObj = user as Record<string, unknown>;
-    if (typeof userObj.id === "string") {
-      const userMin: Record<string, unknown> = { id: userObj.id };
-      if (typeof userObj.email === "string") {
-        userMin.email = userObj.email;
-      }
-      newObj.user = userMin;
-    }
-  }
-
-  const minValue = JSON.stringify(newObj);
-  const bytesMin = new TextEncoder().encode(minValue).length;
-  if (bytesMin < 2048) {
-    return minValue;
-  }
-
-  if (newObj.user && typeof newObj.user === "object" && !Array.isArray(newObj.user)) {
-    const userMin = newObj.user as Record<string, unknown>;
-    if (typeof userMin.id === "string") {
-      newObj.user = { id: userMin.id };
-      const minValueUserIdOnly = JSON.stringify(newObj);
-      const bytesUserIdOnly = new TextEncoder().encode(minValueUserIdOnly).length;
-      if (bytesUserIdOnly < 2048) {
-        return minValueUserIdOnly;
-      }
-    }
-  }
-
-  return null;
-}
-
 export const secureStoreAdapter: SecureStoreAdapter = {
-  getItem: (key) => SecureStore.getItemAsync(key, OPTIONS),
+  getItem: async (key) => {
+    if (!isSupabaseAuthStorageKey(key)) {
+      return SecureStore.getItemAsync(key, OPTIONS);
+    }
+
+    const asyncValue = await AsyncStorage.getItem(key);
+    if (asyncValue != null) {
+      return asyncValue;
+    }
+
+    // One-way migration fallback from previous SecureStore auth persistence.
+    const legacySecureValue = await SecureStore.getItemAsync(key, OPTIONS);
+    if (legacySecureValue != null) {
+      await AsyncStorage.setItem(key, legacySecureValue);
+      await SecureStore.deleteItemAsync(key, OPTIONS);
+      if (__DEV__) {
+        console.log("[PR-M2][supabaseStorage:migrated-to-async]", { key });
+      }
+    }
+
+    return legacySecureValue;
+  },
   setItem: (key, value) => {
     logSecureStoreWriteAudit(key, value, "supabaseStorage:secureStoreAdapter.setItem");
 
     const bytesOriginal = new TextEncoder().encode(value).length;
-    if (!__DEV__ || bytesOriginal <= 2048) {
-      return SecureStore.setItemAsync(key, value, OPTIONS);
-    }
-
-    const minimizedValue = minimizeOversizedAuthTokenValue(key, value);
-    if (minimizedValue !== null) {
-      if (__DEV__) {
-        const bytesTrimmed = new TextEncoder().encode(minimizedValue).length;
-        console.log("[PR-M2][SecureStore:trim]", {
-          key,
-          bytesOriginal,
-          bytesTrimmed,
-        });
-      }
-      return SecureStore.setItemAsync(key, minimizedValue, OPTIONS);
-    }
-
-    if (__DEV__ && (key.includes("-auth-token") || key.endsWith("-auth-token"))) {
-      console.log("[PR-M2][SecureStore:trim-failed]", {
+    if (__DEV__ && bytesOriginal > 2048 && (key.includes("-auth-token") || key.endsWith("-auth-token"))) {
+      console.log("[PR-M2][SecureStore:oversized-auth-token]", {
         key,
         bytesOriginal,
       });
     }
 
+    if (isSupabaseAuthStorageKey(key)) {
+      return AsyncStorage.setItem(key, value);
+    }
+
     return SecureStore.setItemAsync(key, value, OPTIONS);
   },
-  removeItem: (key) => SecureStore.deleteItemAsync(key, OPTIONS),
+  removeItem: async (key) => {
+    if (isSupabaseAuthStorageKey(key)) {
+      await AsyncStorage.removeItem(key);
+      await SecureStore.deleteItemAsync(key, OPTIONS);
+      return;
+    }
+    await SecureStore.deleteItemAsync(key, OPTIONS);
+  },
 };

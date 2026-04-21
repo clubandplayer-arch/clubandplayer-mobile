@@ -39,10 +39,35 @@ export default function Index() {
   const load = useCallback(async () => {
     setState({ kind: "auth-loading" });
 
-    const [{ data: sessionData }, onboardingSeen] = await Promise.all([
+    const [sessionResult, onboardingResult] = await Promise.allSettled([
       supabase.auth.getSession(),
       getOnboardingSeen(),
     ]);
+
+    if (sessionResult.status === "rejected" || onboardingResult.status === "rejected") {
+      if (__DEV__) {
+        console.log("[auth-gate][index:load:error]", {
+          sessionError:
+            sessionResult.status === "rejected" ? String(sessionResult.reason) : null,
+          onboardingError:
+            onboardingResult.status === "rejected" ? String(onboardingResult.reason) : null,
+        });
+      }
+      const fallbackOnboardingSeen =
+        onboardingResult.status === "fulfilled" ? onboardingResult.value : true;
+      setState({ kind: "no-session", onboardingSeen: fallbackOnboardingSeen });
+      return;
+    }
+
+    const sessionData = sessionResult.value.data;
+    const onboardingSeen = onboardingResult.value;
+    if (__DEV__) {
+      console.log("[auth-gate][index:load:getSession]", {
+        sessionPresent: Boolean(sessionData.session),
+        userId: sessionData.session?.user?.id ?? null,
+        onboardingSeen,
+      });
+    }
 
     const session = sessionData.session ?? null;
     if (!session) {
@@ -103,15 +128,38 @@ export default function Index() {
 
     void load();
 
-    const { data: subscription } = supabase.auth.onAuthStateChange(() => {
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
+      if (__DEV__) {
+        console.log("[auth-gate][index:onAuthStateChange]", {
+          event,
+          sessionPresent: Boolean(session),
+          userId: session?.user?.id ?? null,
+        });
+      }
       if (pathname !== "/") return;
-      void load();
+      setTimeout(() => {
+        void load();
+      }, 0);
     });
 
     return () => {
       subscription.subscription.unsubscribe();
     };
   }, [load, pathname]);
+
+  useEffect(() => {
+    if (pathname !== "/") return;
+    if (state.kind !== "auth-loading") return;
+
+    const retryTimer = setTimeout(() => {
+      if (__DEV__) {
+        console.log("[auth-gate][index:auth-loading-retry]");
+      }
+      void load();
+    }, 800);
+
+    return () => clearTimeout(retryTimer);
+  }, [load, pathname, state.kind]);
 
   const redirectTarget = useMemo(() => {
     if (pathname !== "/") return null;
@@ -142,6 +190,16 @@ export default function Index() {
     lastTargetRef.current = redirectTarget;
     router.replace(redirectTarget as any);
   }, [redirectTarget, router]);
+
+  useEffect(() => {
+    if (!__DEV__) return;
+    console.log("[auth-gate][index:state]", {
+      pathname,
+      stateKind: state.kind,
+      redirectTarget,
+      showingLoading: state.kind === "auth-loading" || state.kind === "profile-loading",
+    });
+  }, [pathname, redirectTarget, state.kind]);
 
   if (state.kind === "auth-loading" || state.kind === "profile-loading") {
     return <LoadingScreen />;

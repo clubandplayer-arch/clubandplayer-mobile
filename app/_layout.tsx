@@ -46,6 +46,13 @@ export default function RootLayout() {
       try {
         const [{ data }, seen] = await Promise.all([supabase.auth.getSession(), getOnboardingSeen()]);
         if (!mounted) return;
+        if (__DEV__) {
+          console.log("[auth-gate][root:init]", {
+            sessionPresent: Boolean(data.session),
+            userId: data.session?.user?.id ?? null,
+            onboardingSeen: seen,
+          });
+        }
         setSession(data.session ?? null);
         setOnboardingSeen(seen);
         setBootstrapped(true);
@@ -66,6 +73,13 @@ export default function RootLayout() {
     void init();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_evt, next) => {
+      if (__DEV__) {
+        console.log("[auth-gate][root:onAuthStateChange]", {
+          event: _evt,
+          sessionPresent: Boolean(next),
+          userId: next?.user?.id ?? null,
+        });
+      }
       setSession(next);
       lastTargetRef.current = null;
     });
@@ -125,6 +139,20 @@ export default function RootLayout() {
     lastTargetRef.current = redirectTarget;
     router.replace(redirectTarget as any);
   }, [redirectTarget, router]);
+
+  useEffect(() => {
+    if (!__DEV__) return;
+    console.log("[auth-gate][root:state]", {
+      fontsLoaded,
+      bootstrapped,
+      onboardingSeen,
+      pathname,
+      sessionPresent: Boolean(session),
+      sessionUserId: session?.user?.id ?? null,
+      redirectTarget,
+      showingLoading: !fontsLoaded || !bootstrapped || onboardingSeen === null,
+    });
+  }, [bootstrapped, fontsLoaded, onboardingSeen, pathname, redirectTarget, session]);
 
   // Keep the navigator mounted even while a redirect is pending.
   // Unmounting the Stack here can prevent router.replace() from settling on some devices,
