@@ -7,7 +7,9 @@ import { getFeedPosts, type FeedPost } from "../../src/lib/feed/getFeedPosts";
 import FeedCard from "../../src/components/feed/FeedCard";
 import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
 import PublicProfileHeader, { type PublicProfileLinks } from "../../src/components/profiles/PublicProfileHeader";
+import CountryFlag from "../../src/components/ui/CountryFlag";
 import { isCertifiedClub } from "../../src/lib/profiles/certification";
+import { getCountryDisplay } from "../../src/lib/geo/countryDisplay";
 import { theme } from "../../src/theme";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -597,10 +599,11 @@ export default function ClubProfileScreen() {
               const player = rosterPlayers[member.player_profile_id];
               const playerName = getProfileDisplayName({ ...(player ?? {}), account_type: "athlete" });
               const playerAvatarUrl = getTextValue(player?.avatar_url);
-              const playerMeta = [player?.role, player?.sport, player?.country]
+              const playerMeta = [player?.role, player?.sport]
                 .map((value) => getTextValue(value))
                 .filter(Boolean)
                 .join(" • ");
+              const playerCountry = getCountryDisplay(getTextValue(player?.country));
 
               return (
                 <Pressable
@@ -646,6 +649,12 @@ export default function ClubProfileScreen() {
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text style={{ color: theme.colors.text, fontWeight: "700" }}>{playerName}</Text>
                     <Text style={{ color: theme.colors.muted, fontSize: 12 }}>{playerMeta || "—"}</Text>
+                    {playerCountry.label ? (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <CountryFlag iso2={playerCountry.iso2} />
+                        <Text style={{ color: theme.colors.muted, fontSize: 12 }}>{playerCountry.label}</Text>
+                      </View>
+                    ) : null}
                   </View>
                 </Pressable>
               );

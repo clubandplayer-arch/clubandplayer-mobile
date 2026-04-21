@@ -82,6 +82,13 @@ export type ProfileMe = {
   club_motto?: string | null;
 };
 
+export type PastExperience = {
+  season: string;
+  club: string;
+  sport: string;
+  category: string;
+};
+
 export type FeedPostsResponse = {
   items?: unknown[];
   nextPage?: number | string | null;
@@ -117,6 +124,8 @@ export type ClubRosterItem = {
   avatar_url?: string | null;
   role?: string | null;
   sport?: string | null;
+  country?: string | null;
+  countryText?: string | null;
 };
 
 export type ClubRosterGetResponse = {
@@ -659,6 +668,43 @@ export async function fetchProfileMe(): Promise<ApiResponse<ProfileMe>> {
   return { ok: true, status, data: payload as ProfileMe };
 }
 
+export async function fetchProfileExperiencesMe(): Promise<ApiResponse<PastExperience[]>> {
+  const url = buildUrl("/api/profiles/me/experiences");
+  const authorizationHeader = await getSessionAuthorizationHeader();
+  const response = await fetch(url, {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...(authorizationHeader ? { Authorization: authorizationHeader } : {}),
+    },
+  });
+
+  const status = response.status;
+  let json: unknown;
+
+  try {
+    json = await response.json();
+  } catch (error) {
+    return { ok: false, status, errorText: String(error) };
+  }
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      status,
+      errorText: typeof json === "string" && json ? json : `HTTP ${status}`,
+    };
+  }
+
+  const payload =
+    json && typeof json === "object" && "data" in (json as any) ? (json as any).data : json;
+
+  return { ok: true, status, data: Array.isArray(payload) ? (payload as PastExperience[]) : [] };
+}
+
 export async function fetchFeedPosts(params?: {
   scope?: "all" | "following";
   nextPage?: string;
@@ -1142,6 +1188,8 @@ function normalizeClubRosterItem(raw: unknown): ClubRosterItem | null {
   const avatarUrlRaw = player.avatarUrl ?? player.avatar_url ?? item.avatar_url ?? item.avatarUrl;
   const roleRaw = player.role ?? item.role;
   const sportRaw = player.sport ?? item.sport;
+  const countryRaw = player.country ?? item.country ?? null;
+  const countryTextRaw = player.countryText ?? player.country_text ?? item.countryText ?? item.country_text ?? null;
 
   return {
     playerProfileId,
@@ -1150,6 +1198,8 @@ function normalizeClubRosterItem(raw: unknown): ClubRosterItem | null {
     avatar_url: typeof avatarUrlRaw === "string" ? avatarUrlRaw : null,
     role: typeof roleRaw === "string" ? roleRaw : null,
     sport: typeof sportRaw === "string" ? sportRaw : null,
+    country: typeof countryRaw === "string" ? countryRaw : null,
+    countryText: typeof countryTextRaw === "string" ? countryTextRaw : null,
   };
 }
 
@@ -1272,6 +1322,13 @@ export async function patchProfileMe(input: Partial<Record<ProfilePatchField, un
   return apiFetch<ProfileMe>("/api/profiles/me", {
     method: "PATCH",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function patchProfileExperiencesMe(experiences: PastExperience[]): Promise<ApiResponse<PastExperience[]>> {
+  return apiFetch<PastExperience[]>("/api/profiles/me/experiences", {
+    method: "PATCH",
+    body: JSON.stringify({ experiences }),
   });
 }
 

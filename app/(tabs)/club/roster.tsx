@@ -14,6 +14,8 @@ import { useRouter } from "expo-router";
 import { fetchClubRoster, updateClubRoster, type ClubRosterItem } from "../../../src/lib/api";
 import { theme } from "../../../src/theme";
 import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
+import CountryFlag from "../../../src/components/ui/CountryFlag";
+import { getCountryDisplay } from "../../../src/lib/geo/countryDisplay";
 
 function getApiErrorMessage(errorText: string | undefined, status: number): string {
   if (!errorText) return `Errore (${status})`;
@@ -150,6 +152,8 @@ export default function ClubRosterScreen() {
             const subtitle = [member.role, member.sport].filter(Boolean).join(" • ");
             const busy = removingId === member.playerProfileId;
             const name = getProfileDisplayName({ ...member, account_type: "athlete" });
+            const memberCountry = member as ClubRosterItem & { country?: string | null; countryText?: string | null };
+            const country = getCountryDisplay(memberCountry.country ?? memberCountry.countryText ?? null);
 
             return (
               <Pressable
@@ -176,6 +180,12 @@ export default function ClubRosterScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: theme.colors.text, fontWeight: "700", fontSize: 16 }}>{name}</Text>
                     {subtitle ? <Text style={{ marginTop: 4, color: theme.colors.muted }}>{subtitle}</Text> : null}
+                    {country.label ? (
+                      <View style={{ marginTop: 4, flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <CountryFlag iso2={country.iso2} />
+                        <Text style={{ color: theme.colors.muted, fontSize: 12 }}>{country.label}</Text>
+                      </View>
+                    ) : null}
                   </View>
                 </View>
 

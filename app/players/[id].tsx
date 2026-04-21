@@ -7,7 +7,10 @@ import { getFeedPosts, type FeedPost } from "../../src/lib/feed/getFeedPosts";
 import FeedCard from "../../src/components/feed/FeedCard";
 import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
 import PublicProfileHeader, { type PublicProfileLinks } from "../../src/components/profiles/PublicProfileHeader";
+import AthleteExperiencesSection from "../../src/components/profiles/AthleteExperiencesSection";
+import CountryFlag from "../../src/components/ui/CountryFlag";
 import { resolveItalianLocationLabels } from "../../src/lib/geo/location";
+import { getCountryDisplay } from "../../src/lib/geo/countryDisplay";
 import { theme } from "../../src/theme";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -37,6 +40,18 @@ type ProfileRow = {
   links?: PublicProfileLinks | unknown;
   bio?: string | null;
   [key: string]: unknown;
+};
+
+type AthleteExperience = {
+  id: string;
+  club_name: string | null;
+  sport: string | null;
+  role: string | null;
+  category: string | null;
+  start_year: number | null;
+  end_year: number | null;
+  is_current: boolean | null;
+  description: string | null;
 };
 
 const getTextValue = (value: unknown): string | null => {
@@ -92,6 +107,7 @@ export default function PlayerProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
+  const [experiences, setExperiences] = useState<AthleteExperience[]>([]);
   const [resolvedLocation, setResolvedLocation] = useState<{ country: string | null; region: string | null; province: string | null; city: string | null } | null>(null);
   const isLoading = loading || web.loading || whoami.loading;
 
@@ -115,12 +131,20 @@ export default function PlayerProfileScreen() {
       setProfile(nextProfile);
 
       if (!nextProfile) {
+        setExperiences([]);
         setResolvedLocation(null);
         setLoading(false);
         return;
       }
 
       try {
+        const experiencesRes = await supabase
+          .from("athlete_experiences")
+          .select("id, club_name, sport, role, category, start_year, end_year, is_current, description")
+          .eq("profile_id", nextProfile.id);
+        if (experiencesRes.error) setExperiences([]);
+        else setExperiences((experiencesRes.data ?? []) as AthleteExperience[]);
+
         const labels = await resolveItalianLocationLabels({
           country: getTextValue(nextProfile.interest_country) ?? getTextValue(nextProfile.country),
           regionId: getNumberValue(nextProfile.interest_region_id),
@@ -141,6 +165,7 @@ export default function PlayerProfileScreen() {
         });
       } catch {
         if (!mounted) return;
+        setExperiences([]);
         setResolvedLocation({
           country: getTextValue(nextProfile.interest_country) ?? getTextValue(nextProfile.country),
           region: getTextValue(nextProfile.interest_region) ?? getTextValue(nextProfile.region),
@@ -213,8 +238,13 @@ export default function PlayerProfileScreen() {
   const role = getTextValue(profile?.role);
   const sportRole = [sport, role].filter(Boolean).join(" • ") || "—";
 
-  const countryCode = getTextValue(resolvedLocation?.country) ?? getTextValue(profile?.interest_country) ?? getTextValue(profile?.country);
-  const nationality = countryCode || "—";
+  const countryRaw =
+    getTextValue(resolvedLocation?.country) ??
+    getTextValue(profile?.interest_country) ??
+    getTextValue(profile?.country) ??
+    "";
+  const countryInfo = getCountryDisplay(countryRaw);
+  const nationality = countryInfo.label || "—";
   const birthYear = getNumberValue(profile?.birth_year);
   const currentYear = new Date().getFullYear();
   const age = birthYear ? String(currentYear - birthYear) : "—";
@@ -295,6 +325,12 @@ export default function PlayerProfileScreen() {
         showMessageButton={!isMe}
         showFollowButton={!isMe}
       />
+      {countryInfo.label ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: -6 }}>
+          <CountryFlag iso2={countryInfo.iso2} />
+          <Text style={{ color: theme.colors.text, fontWeight: "700" }}>{countryInfo.label}</Text>
+        </View>
+      ) : null}
 
       <View
         style={{
@@ -316,12 +352,19 @@ export default function PlayerProfileScreen() {
             { label: "Piede", value: foot },
             { label: "Sport", value: sport || "—" },
             { label: "Ruolo", value: role || "—" },
-            { label: "Nazionalità", value: nationality },
+            { label: "Nazionalità", value: nationality, countryIso2: countryInfo.iso2 },
             { label: "Zona di interesse", value: interestLocation },
           ].map((item) => (
             <View key={item.label} style={{ width: "48%", gap: 4 }}>
               <Text style={{ fontSize: 12, color: theme.colors.muted }}>{item.label}</Text>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: theme.colors.text }}>{item.value}</Text>
+              {item.label === "Nazionalità" ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <CountryFlag iso2={(item as { countryIso2?: string | null }).countryIso2} />
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: theme.colors.text }}>{item.value}</Text>
+                </View>
+              ) : (
+                <Text style={{ fontSize: 15, fontWeight: "700", color: theme.colors.text }}>{item.value}</Text>
+              )}
             </View>
           ))}
         </View>
@@ -340,6 +383,8 @@ export default function PlayerProfileScreen() {
         <Text style={{ fontSize: 18, fontWeight: "800", color: theme.colors.text }}>Biografia</Text>
         <Text style={{ color: theme.colors.text, lineHeight: 22 }}>{biography}</Text>
       </View>
+
+      <AthleteExperiencesSection experiences={experiences} />
 
       <View
         style={{
