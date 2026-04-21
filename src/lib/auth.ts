@@ -246,6 +246,13 @@ export async function signInWithGoogle() {
     throw new Error("OAuth code mancante nel ritorno dal browser");
   }
 
+  if (Platform.OS === "android") {
+    if (__DEV__) {
+      console.log("[auth][google] android: delegate exchange to /callback screen");
+    }
+    return;
+  }
+
   if (__DEV__) {
     console.log("[auth][google] exchange:start", { hasCode: true, codeLength: code.length });
   }
