@@ -125,6 +125,66 @@ export default function LoginScreen() {
         Accedi
       </Text>
 
+      <Pressable
+        onPress={onGoogle}
+        disabled={loading}
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.neutral200,
+          padding: 14,
+          borderRadius: 12,
+          alignItems: "center",
+          justifyContent: "center",
+          flexDirection: "row",
+          gap: 10,
+          opacity: loading ? 0.8 : 1,
+        }}
+      >
+        <Ionicons name="logo-google" size={18} color={theme.colors.primary} />
+        <Text style={{ fontWeight: "700", color: theme.colors.primary }}>Continua con Google</Text>
+      </Pressable>
+
+      {Platform.OS === "ios" ? (
+        <Pressable
+          onPress={onApple}
+          disabled={loading}
+          style={{
+            borderWidth: 1,
+            borderColor: theme.colors.neutral200,
+            padding: 14,
+            borderRadius: 12,
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "row",
+            gap: 10,
+            opacity: loading ? 0.8 : 1,
+          }}
+        >
+          <Ionicons name="logo-apple" size={22} color={theme.colors.primary} />
+          <Text style={{ fontWeight: "700", color: theme.colors.primary }}>Continua con Apple</Text>
+        </Pressable>
+      ) : null}
+
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          marginVertical: 12,
+        }}
+      >
+        <View style={{ flex: 1, height: 1, backgroundColor: "#E5E7EB" }} />
+        <Text
+          style={{
+            marginHorizontal: 10,
+            fontSize: 12,
+            color: "#6B7280",
+          }}
+        >
+          oppure
+        </Text>
+        <View style={{ flex: 1, height: 1, backgroundColor: "#E5E7EB" }} />
+      </View>
+
       <TextInput
         placeholder="Email"
         placeholderTextColor={theme.colors.muted}
@@ -165,66 +225,6 @@ export default function LoginScreen() {
           <Text style={{ color: theme.colors.background, fontWeight: "700" }}>Accedi</Text>
         )}
       </Pressable>
-
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          marginVertical: 12,
-        }}
-      >
-        <View style={{ flex: 1, height: 1, backgroundColor: "#E5E7EB" }} />
-        <Text
-          style={{
-            marginHorizontal: 10,
-            fontSize: 12,
-            color: "#6B7280",
-          }}
-        >
-          oppure
-        </Text>
-        <View style={{ flex: 1, height: 1, backgroundColor: "#E5E7EB" }} />
-      </View>
-
-      <Pressable
-        onPress={onGoogle}
-        disabled={loading}
-        style={{
-          borderWidth: 1,
-          borderColor: theme.colors.neutral200,
-          padding: 14,
-          borderRadius: 12,
-          alignItems: "center",
-          justifyContent: "center",
-          flexDirection: "row",
-          gap: 10,
-          opacity: loading ? 0.8 : 1,
-        }}
-      >
-        <Ionicons name="logo-google" size={18} color={theme.colors.primary} />
-        <Text style={{ fontWeight: "700", color: theme.colors.primary }}>Continua con Google</Text>
-      </Pressable>
-
-      {Platform.OS === "ios" ? (
-        <Pressable
-          onPress={onApple}
-          disabled={loading}
-          style={{
-            borderWidth: 1,
-            borderColor: theme.colors.neutral200,
-            padding: 14,
-            borderRadius: 12,
-            alignItems: "center",
-            justifyContent: "center",
-            flexDirection: "row",
-            gap: 10,
-            opacity: loading ? 0.8 : 1,
-          }}
-        >
-          <Ionicons name="logo-apple" size={22} color={theme.colors.primary} />
-          <Text style={{ fontWeight: "700", color: theme.colors.primary }}>Continua con Apple</Text>
-        </Pressable>
-      ) : null}
 
 
       <Pressable

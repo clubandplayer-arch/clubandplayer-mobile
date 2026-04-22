@@ -84,6 +84,61 @@ function waitForRedirectUrl({
   });
 }
 
+type AuthSessionOutcome =
+  | { kind: "success-url"; url: string }
+  | { kind: "non-success" }
+  | { kind: "timeout" };
+
+async function resolveOAuthRedirectUrl(oauthUrl: string, redirectTo: string): Promise<string | null> {
+  const redirectPromise = waitForRedirectUrl({
+    timeoutMs: 45_000,
+    expectedScheme: "clubandplayer",
+    expectedHost: "callback",
+  });
+
+  const authPromise = WebBrowser.openAuthSessionAsync(oauthUrl, redirectTo).then((result) => {
+    if (result.type === "success" && "url" in result && result.url) {
+      return { kind: "success-url", url: result.url } as const;
+    }
+    return { kind: "non-success" } as const;
+  });
+
+  // Android (dev-client) can occasionally deliver the deep link event while
+  // openAuthSessionAsync is still pending. We race both channels so login can
+  // complete as soon as one provides the callback URL.
+  const firstSettled = await Promise.race([
+    redirectPromise.then((url) => ({ source: "event" as const, url })),
+    authPromise.then((outcome) => ({ source: "auth" as const, outcome })),
+  ]);
+
+  if (firstSettled.source === "event") {
+    if (firstSettled.url) {
+      if (__DEV__) console.log("[auth] event.url:", sanitizeAuthUrl(firstSettled.url));
+      return firstSettled.url;
+    }
+    const authOutcome: AuthSessionOutcome = await Promise.race([
+      authPromise,
+      new Promise<AuthSessionOutcome>((resolve) => {
+        setTimeout(() => resolve({ kind: "timeout" }), 3_000);
+      }),
+    ]);
+    if (authOutcome.kind === "success-url") {
+      if (__DEV__) console.log("[auth] result.url:", sanitizeAuthUrl(authOutcome.url));
+      return authOutcome.url;
+    }
+    return null;
+  }
+
+  if (firstSettled.outcome.kind === "success-url") {
+    if (__DEV__) console.log("[auth] result.url:", sanitizeAuthUrl(firstSettled.outcome.url));
+    return firstSettled.outcome.url;
+  }
+
+  const eventUrl = await redirectPromise;
+  if (eventUrl && __DEV__) console.log("[auth] event.url:", sanitizeAuthUrl(eventUrl));
+  return eventUrl;
+}
+
 async function syncWebSessionAndAudit(session: { access_token: string; refresh_token: string }) {
   const syncRes = await syncSession({
     access_token: session.access_token,
@@ -117,6 +172,14 @@ async function syncWebSessionAndAudit(session: { access_token: string; refresh_t
   }
 }
 
+function syncWebSessionAndAuditInBackground(session: { access_token: string; refresh_token: string }) {
+  void syncWebSessionAndAudit(session).catch((error) => {
+    if (__DEV__) {
+      console.log("[auth][post-login-sync][warn]", String(error));
+    }
+  });
+}
+
 
 export async function signInWithApple() {
   const redirectTo = Linking.createURL("callback", { scheme: "clubandplayer" });
@@ -140,26 +203,7 @@ export async function signInWithApple() {
     console.log("[auth] oauth url:", sanitizeAuthUrl(data.url));
   }
 
-  const redirectPromise = waitForRedirectUrl({
-    timeoutMs: 45_000,
-    expectedScheme: "clubandplayer",
-    expectedHost: "callback",
-  });
-
-  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-
-  let finalUrl: string | null = null;
-
-  if (result.type === "success" && "url" in result && result.url) {
-    finalUrl = result.url;
-    if (__DEV__) console.log("[auth] result.url:", sanitizeAuthUrl(finalUrl));
-  } else {
-    const eventUrl = await redirectPromise;
-    if (eventUrl) {
-      finalUrl = eventUrl;
-      if (__DEV__) console.log("[auth] event.url:", sanitizeAuthUrl(finalUrl));
-    }
-  }
+  const finalUrl = await resolveOAuthRedirectUrl(data.url, redirectTo);
 
   if (!finalUrl) {
     throw new Error("Apple login non completato (URL di ritorno mancante)");
@@ -182,7 +226,7 @@ export async function signInWithApple() {
   const session = sessionData.session;
   if (!session) throw new Error("Sessione Supabase mancante dopo exchange");
 
-  await syncWebSessionAndAudit({
+  syncWebSessionAndAuditInBackground({
     access_token: session.access_token,
     refresh_token: session.refresh_token,
   });
@@ -210,29 +254,7 @@ export async function signInWithGoogle() {
     console.log("[auth] oauth url:", sanitizeAuthUrl(data.url));
   }
 
-  // Listener BEFORE opening the browser (prevents missing event on Android warm resume).
-  const redirectPromise = waitForRedirectUrl({
-    timeoutMs: 45_000,
-    expectedScheme: "clubandplayer",
-    expectedHost: "callback",
-  });
-
-  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-
-  let finalUrl: string | null = null;
-
-  // 1) Prefer result.url if provided
-  if (result.type === "success" && "url" in result && result.url) {
-    finalUrl = result.url;
-    if (__DEV__) console.log("[auth] result.url:", sanitizeAuthUrl(finalUrl));
-  } else {
-    // 2) Otherwise rely on Linking event (Android warm resume)
-    const eventUrl = await redirectPromise;
-    if (eventUrl) {
-      finalUrl = eventUrl;
-      if (__DEV__) console.log("[auth] event.url:", sanitizeAuthUrl(finalUrl));
-    }
-  }
+  const finalUrl = await resolveOAuthRedirectUrl(data.url, redirectTo);
 
   if (!finalUrl) {
     throw new Error("Google login non completato (URL di ritorno mancante)");
@@ -255,7 +277,7 @@ export async function signInWithGoogle() {
   const session = sessionData.session;
   if (!session) throw new Error("Sessione Supabase mancante dopo exchange");
 
-  await syncWebSessionAndAudit({
+  syncWebSessionAndAuditInBackground({
     access_token: session.access_token,
     refresh_token: session.refresh_token,
   });
