@@ -21,7 +21,7 @@ import {
   type ProfileMe,
   useWebSession,
 } from "../../src/lib/api";
-import { COUNTRY_OPTIONS as WORLD_COUNTRY_OPTIONS } from "../../src/lib/geo/countries";
+import { WORLD_COUNTRY_OPTIONS } from "../../src/lib/geo/countries";
 import { SPORTS, SPORTS_ROLES } from "../../src/lib/opportunities/formOptions";
 import {
   ensurePastExperienceCategory,
@@ -56,8 +56,7 @@ const EMPTY_PAST_EXPERIENCE: PastExperience = {
 };
 
 const COUNTRY_OPTIONS: Option[] = WORLD_COUNTRY_OPTIONS
-  .filter((option) => option.value)
-  .map((option) => ({ label: `${option.label} (${option.value})`, value: option.value }));
+  .map((option) => ({ label: `${option.name} (${option.code})`, value: option.code }));
 
 const FOOT_OPTIONS: Option[] = [
   { label: "Destro", value: "Destro" },
@@ -83,10 +82,13 @@ function normalizeProfileRole(value: unknown) {
 }
 
 function normalizeCountryCode(value: unknown, fallback = "IT") {
-  const raw = asText(value).trim();
+  const raw = asText(value).trim().toUpperCase();
   if (!raw) return fallback;
+  if (raw === "OTHER") return "OTHER";
+  if (COUNTRY_OPTIONS.some((option) => option.value === raw)) return raw;
   const match = raw.match(/([A-Za-z]{2})\s*$/);
-  return (match ? match[1] : raw).trim().toUpperCase();
+  const normalized = (match ? match[1] : raw).trim().toUpperCase();
+  return COUNTRY_OPTIONS.some((option) => option.value === normalized) ? normalized : fallback;
 }
 
 function ensureOption(options: Option[], value: string, fallbackLabel?: string) {
