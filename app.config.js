@@ -14,7 +14,7 @@ const config = {
 
   android: {
     package: "com.clubandplayer.app",
-    versionCode: 34,
+    versionCode: 35,
     intentFilters: [
       {
         action: "VIEW",
