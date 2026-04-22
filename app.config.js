@@ -3,7 +3,7 @@ const config = {
   name: "Club & Player",
   slug: "clubandplayer",
   scheme: "clubandplayer",
-  version: "2.0.6",
+  version: "2.0.7",
   orientation: "portrait",
   userInterfaceStyle: "automatic",
 
@@ -16,7 +16,7 @@ const config = {
 
   android: {
     package: "com.clubandplayer.app",
-    versionCode: 35,
+    versionCode: 36,
     intentFilters: [
       {
         action: "VIEW",
