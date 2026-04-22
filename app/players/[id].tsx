@@ -140,7 +140,7 @@ export default function PlayerProfileScreen() {
 
       try {
         const labels = await resolveItalianLocationLabels({
-          country: getTextValue(nextProfile.interest_country) ?? getTextValue(nextProfile.country),
+          country: getTextValue(nextProfile.interest_country),
           regionId: getNumberValue(nextProfile.interest_region_id),
           provinceId: getNumberValue(nextProfile.interest_province_id),
           municipalityId: getNumberValue(nextProfile.interest_municipality_id),
@@ -152,7 +152,7 @@ export default function PlayerProfileScreen() {
         if (!mounted) return;
 
         setResolvedLocation({
-          country: getTextValue(nextProfile.interest_country) ?? getTextValue(nextProfile.country),
+          country: getTextValue(nextProfile.interest_country),
           region: labels.region ?? getTextValue(nextProfile.interest_region) ?? getTextValue(nextProfile.region),
           province: labels.province ?? getTextValue(nextProfile.interest_province) ?? getTextValue(nextProfile.province),
           city: labels.city ?? getTextValue(nextProfile.interest_city) ?? getTextValue(nextProfile.city),
@@ -160,7 +160,7 @@ export default function PlayerProfileScreen() {
       } catch {
         if (!mounted) return;
         setResolvedLocation({
-          country: getTextValue(nextProfile.interest_country) ?? getTextValue(nextProfile.country),
+          country: getTextValue(nextProfile.interest_country),
           region: getTextValue(nextProfile.interest_region) ?? getTextValue(nextProfile.region),
           province: getTextValue(nextProfile.interest_province) ?? getTextValue(nextProfile.province),
           city: getTextValue(nextProfile.interest_city) ?? getTextValue(nextProfile.city),
@@ -231,11 +231,7 @@ export default function PlayerProfileScreen() {
   const role = getTextValue(profile?.role);
   const sportRole = [sport, role].filter(Boolean).join(" • ") || "—";
 
-  const countryRaw =
-    getTextValue(resolvedLocation?.country) ??
-    getTextValue(profile?.interest_country) ??
-    getTextValue(profile?.country) ??
-    "";
+  const countryRaw = getTextValue(profile?.country) ?? "";
   const countryInfo = getCountryDisplay(countryRaw);
   const nationality = countryInfo.label || "—";
   const birthYear = getNumberValue(profile?.birth_year);
@@ -252,7 +248,7 @@ export default function PlayerProfileScreen() {
     getTextValue(resolvedLocation?.city) ?? getTextValue(profile?.interest_city) ?? getTextValue(profile?.city),
     getTextValue(resolvedLocation?.province) ?? getTextValue(profile?.interest_province) ?? getTextValue(profile?.province),
     getTextValue(resolvedLocation?.region) ?? getTextValue(profile?.interest_region) ?? getTextValue(profile?.region),
-    getTextValue(resolvedLocation?.country) ?? getTextValue(profile?.interest_country) ?? getTextValue(profile?.country),
+    getTextValue(resolvedLocation?.country) ?? getTextValue(profile?.interest_country),
   ].filter(Boolean) as string[];
   const interestLocation = interestParts.join(" • ") || "—";
 

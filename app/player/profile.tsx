@@ -21,6 +21,7 @@ import {
   type ProfileMe,
   useWebSession,
 } from "../../src/lib/api";
+import { COUNTRY_OPTIONS as WORLD_COUNTRY_OPTIONS } from "../../src/lib/geo/countries";
 import { SPORTS, SPORTS_ROLES } from "../../src/lib/opportunities/formOptions";
 import {
   ensurePastExperienceCategory,
@@ -54,9 +55,9 @@ const EMPTY_PAST_EXPERIENCE: PastExperience = {
   category: "",
 };
 
-const COUNTRY_OPTIONS: Option[] = [
-  { label: "Italia (IT)", value: "IT" },
-];
+const COUNTRY_OPTIONS: Option[] = WORLD_COUNTRY_OPTIONS
+  .filter((option) => option.value)
+  .map((option) => ({ label: `${option.label} (${option.value})`, value: option.value }));
 
 const FOOT_OPTIONS: Option[] = [
   { label: "Destro", value: "Destro" },
@@ -81,6 +82,13 @@ function normalizeProfileRole(value: unknown) {
   return nextRole;
 }
 
+function normalizeCountryCode(value: unknown, fallback = "IT") {
+  const raw = asText(value).trim();
+  if (!raw) return fallback;
+  const match = raw.match(/([A-Za-z]{2})\s*$/);
+  return (match ? match[1] : raw).trim().toUpperCase();
+}
+
 function ensureOption(options: Option[], value: string, fallbackLabel?: string) {
   const normalized = value.trim();
   if (!normalized) return options;
@@ -89,7 +97,9 @@ function ensureOption(options: Option[], value: string, fallbackLabel?: string) 
 }
 
 function getCountryLabel(value: string) {
-  return COUNTRY_OPTIONS.find((option) => option.value === value)?.label ?? (value || "Seleziona");
+  const normalized = value.trim().toUpperCase();
+  if (!normalized) return "Seleziona";
+  return COUNTRY_OPTIONS.find((option) => option.value === normalized)?.label ?? normalized;
 }
 
 function extractSocialValues(value: unknown): SocialValues {
@@ -350,7 +360,7 @@ export default function PlayerProfileScreen() {
     setAvatarUrl(data.avatar_url ?? null);
     setFullName(asText(data.full_name || data.display_name));
     setBirthYear(asNumText(data.birth_year));
-    setCountry(asText(data.country) || "IT");
+    setCountry(normalizeCountryCode(data.country, "IT"));
     setSport(asText(data.sport) || "Calcio");
     setRole(normalizeProfileRole(data.role));
     setBio(asText(data.bio));
@@ -359,7 +369,7 @@ export default function PlayerProfileScreen() {
     setWeightKg(asNumText(data.weight_kg));
     setSocials(extractSocialValues(data.links));
     setNotifyEmail(Boolean(data.notify_email_new_message));
-    setInterestCountry(asText(data.interest_country || "IT") || "IT");
+    setInterestCountry(normalizeCountryCode(data.interest_country, "IT"));
     setInterest({
       region_id: data.interest_region_id ?? null,
       province_id: data.interest_province_id ?? null,
