@@ -3,16 +3,25 @@ export type CountryDisplay = {
   label: string;
 };
 
-export function getCountryDisplay(rawValue?: string | null): CountryDisplay {
-  const raw = (rawValue || "").trim();
-  if (!raw) return { iso2: null, label: "" };
+function extractIso2(text?: string | null) {
+  const raw = (text ?? "").trim();
+  if (!raw) return null;
+  const match = raw.match(/([A-Za-z]{2})\s*$/);
+  return match ? match[1].toUpperCase() : null;
+}
 
+function getCountryLabel(text?: string | null, iso2?: string | null) {
+  const raw = (text ?? "").trim();
+  if (!raw) return iso2 ?? "";
   const match = raw.match(/^([A-Za-z]{2})(?:\s+(.+))?$/);
   if (match) {
-    const iso2 = match[1].trim().toUpperCase();
-    const label = (match[2]?.trim() || iso2 || "").trim();
-    return { iso2, label };
+    return match[2]?.trim() || match[1].toUpperCase();
   }
+  return raw;
+}
 
-  return { iso2: null, label: raw };
+export function getCountryDisplay(rawValue?: string | null): CountryDisplay {
+  const iso2 = extractIso2(rawValue);
+  const label = getCountryLabel(rawValue, iso2);
+  return { iso2, label };
 }

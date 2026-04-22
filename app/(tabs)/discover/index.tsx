@@ -400,7 +400,7 @@ export default function DiscoverScreen() {
                   </Text>
                 </Pressable>
                 <Text style={{ color: theme.colors.muted }}>{meta}</Text>
-                {country.label ? (
+                {tab === "player" && (country.iso2 || country.label) ? (
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                     <CountryFlag iso2={country.iso2} />
                     <Text style={{ color: theme.colors.muted, fontSize: 12 }}>{country.label}</Text>

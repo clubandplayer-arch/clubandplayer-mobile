@@ -91,7 +91,7 @@ function normalizeFollowingItem(raw: unknown): FollowingItem | null {
     city: pickString(item, ["city"]),
     province: pickString(item, ["province"]),
     region: pickString(item, ["region"]),
-    country: pickString(item, ["country", "countryText", "interest_country"]),
+    country: pickString(item, ["country", "countryText"]),
   };
 }
 
@@ -486,7 +486,7 @@ export default function FollowingScreen() {
                     return (
                       <View style={{ gap: 2 }}>
                         {meta ? <Text style={{ color: theme.colors.muted }}>{meta}</Text> : null}
-                        {country.label ? (
+                        {item.accountType === "athlete" && (country.iso2 || country.label) ? (
                           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                             <CountryFlag iso2={country.iso2} />
                             <Text style={{ color: theme.colors.muted, fontSize: 12 }}>{country.label}</Text>
