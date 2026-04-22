@@ -1,10 +1,9 @@
-cat > app.config.js <<'EOF'
 /** @type {import('expo/config').ExpoConfig} */
 const config = {
   name: "Club & Player",
   slug: "clubandplayer",
   scheme: "clubandplayer",
-  version: "2.0.7",
+  version: "2.0.6",
   orientation: "portrait",
   userInterfaceStyle: "automatic",
 
@@ -17,7 +16,7 @@ const config = {
 
   android: {
     package: "com.clubandplayer.app",
-    versionCode: 36,
+    versionCode: 35,
     intentFilters: [
       {
         action: "VIEW",
@@ -59,4 +58,3 @@ const config = {
 };
 
 module.exports = config;
-EOF
