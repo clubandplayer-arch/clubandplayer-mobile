@@ -19,6 +19,7 @@ import { clearSession, useWebSession, useWhoami } from "../../../src/lib/api";
 import FeedComposer from "../../../components/feed/FeedComposer";
 import AdSlot from "../../../components/ads/AdSlot";
 import FeedCard from "../../../src/components/feed/FeedCard";
+import SponsorCtaBanner from "../../../src/components/feed/SponsorCtaBanner";
 import { theme } from "../../../src/theme";
 
 type FeedRow =
@@ -236,6 +237,8 @@ export default function FeedScreen() {
             </Text>
           </Pressable>
         </View>
+
+        <SponsorCtaBanner onRequestInfo={() => router.push("/sponsor")} />
 
         {!isFan ? <FeedComposer onPosted={refetchFeed} /> : null}
 
