@@ -5,7 +5,6 @@ import {
   Pressable,
   ActivityIndicator,
   FlatList,
-  Image,
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -14,6 +13,7 @@ import { useWebSession } from "../../../src/lib/api";
 import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
 import CountryFlag from "../../../src/components/ui/CountryFlag";
 import { getCountryDisplay } from "../../../src/lib/geo/countryDisplay";
+import ProfileAvatar from "../../../src/components/profiles/ProfileAvatar";
 
 const WEB_BASE_URL =
   process.env.EXPO_PUBLIC_WEB_BASE_URL ?? "https://www.clubandplayer.com";
@@ -34,6 +34,8 @@ type SuggestionItem = {
 
   sport?: string | null;
   role?: string | null;
+  is_verified?: boolean | null;
+  isVerified?: boolean | null;
 };
 
 type SuggestionsResponse = {
@@ -68,32 +70,6 @@ function formatMetaLine(p: SuggestionItem) {
   if (sportRole) return sportRole;
   if (location) return location;
   return "—";
-}
-
-function Avatar({ url, size = 44 }: { url?: string | null; size?: number }) {
-  if (!url) {
-    return (
-      <View
-        style={{
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: theme.colors.neutral200,
-        }}
-      />
-    );
-  }
-  return (
-    <Image
-      source={{ uri: url }}
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: theme.colors.neutral200,
-      }}
-    />
-  );
 }
 
 export default function DiscoverScreen() {
@@ -385,7 +361,16 @@ export default function DiscoverScreen() {
                 gap: 12,
               }}
             >
-              <Avatar url={item.avatar_url ?? null} size={44} />
+              <ProfileAvatar
+                uri={item.avatar_url ?? null}
+                size={44}
+                name={name}
+                profile={{
+                  accountType: item.account_type ?? item.type ?? null,
+                  isVerified: item.isVerified ?? null,
+                  is_verified: item.is_verified ?? null,
+                }}
+              />
               <View style={{ flex: 1, gap: 2 }}>
                 <Pressable
                   onPress={() => {

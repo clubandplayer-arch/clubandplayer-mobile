@@ -11,7 +11,6 @@ import {
   type FeedPost,
   type FeedReactionType,
 } from "../../lib/feed/getFeedPosts";
-import { isCertifiedClub } from "../../lib/profiles/certification";
 import { isUuid } from "../../lib/api";
 import FeedVideoPreview from "../../../components/feed/FeedVideoPreview";
 import LightboxModal from "../../../components/media/LightboxModal";
@@ -20,6 +19,7 @@ import { devWarn } from "../../lib/debug/devLog";
 import { theme } from "../../theme";
 import { setPostReaction } from "../../lib/api";
 import { iso2ToFlagEmoji } from "../../lib/geo/countryFlag";
+import ProfileAvatar from "../profiles/ProfileAvatar";
 
 const REACTION_META: Record<FeedReactionType, { emoji: string; label: string }> = {
   like: { emoji: "👍", label: "Mi piace" },
@@ -71,32 +71,6 @@ function resolveAuthorRoute(args: {
   if (role === "athlete" || role === "player" || role === "players") return `/players/${args.authorUuid}`;
 
   return `/profile/${args.authorUuid}`;
-}
-
-function Avatar({ url, size = 40 }: { url?: string | null; size?: number }) {
-  if (!url) {
-    return (
-      <View
-        style={{
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: theme.colors.neutral200,
-        }}
-      />
-    );
-  }
-  return (
-    <Image
-      source={{ uri: url }}
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: theme.colors.neutral200,
-      }}
-    />
-  );
 }
 
 export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: string) => void }) {
@@ -236,23 +210,15 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
           opacity: authorUuid && isUuid(authorUuid) ? 1 : 0.6,
         }}
       >
-        <View style={{ position: "relative" }}>
-          <Avatar url={item.author?.avatar_url ?? null} size={40} />
-          {item.author && isCertifiedClub(item.author) ? (
-            <Text
-              style={{
-                position: "absolute",
-                top: -8,
-                right: -7,
-                fontSize: 14,
-                color: theme.colors.primary,
-                fontFamily: "Righteous_400Regular",
-              }}
-            >
-              C
-            </Text>
-          ) : null}
-        </View>
+        <ProfileAvatar
+          uri={item.author?.avatar_url ?? null}
+          size={40}
+          name={authorName}
+          profile={{
+            accountType: item.author?.account_type ?? item.author?.type ?? item.author?.role ?? null,
+            is_verified: item.author?.is_verified ?? null,
+          }}
+        />
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Text style={{ fontSize: 15, fontWeight: "800", color: theme.colors.text }}>{authorName}</Text>
@@ -415,5 +381,3 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
     </View>
   );
 }
-
-export { Avatar };

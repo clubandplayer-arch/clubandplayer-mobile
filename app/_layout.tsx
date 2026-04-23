@@ -32,6 +32,7 @@ export default function RootLayout() {
 
   const [fontsLoaded] = useFonts({
     Righteous: require("../assets/fonts/Righteous-Regular.ttf"),
+    Righteous_400Regular: require("../assets/fonts/Righteous-Regular.ttf"),
   });
 
   const [session, setSession] = useState<Session | null>(null);

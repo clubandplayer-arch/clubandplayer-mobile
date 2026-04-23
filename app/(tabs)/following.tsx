@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image,
   Pressable,
   RefreshControl,
   Switch,
@@ -19,6 +18,7 @@ import { supabase } from "../../src/lib/supabase";
 import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
 import { useIsClub } from "../../src/lib/useIsClub";
 import { theme } from "../../src/theme";
+import ProfileAvatar from "../../src/components/profiles/ProfileAvatar";
 
 type FollowingItem = {
   id: string;
@@ -31,6 +31,7 @@ type FollowingItem = {
   province: string | null;
   region: string | null;
   country: string | null;
+  isVerified: boolean | null;
 };
 
 type DecoratedFollowingItem = FollowingItem & {
@@ -80,6 +81,11 @@ function normalizeFollowingItem(raw: unknown): FollowingItem | null {
   });
 
   const avatarUrl = pickString(item, ["avatar_url", "avatarUrl"]);
+  const isVerified = typeof item.is_verified === "boolean"
+    ? item.is_verified
+    : typeof item.isVerified === "boolean"
+      ? item.isVerified
+      : null;
 
   return {
     id,
@@ -92,6 +98,7 @@ function normalizeFollowingItem(raw: unknown): FollowingItem | null {
     province: pickString(item, ["province"]),
     region: pickString(item, ["region"]),
     country: pickString(item, ["country", "countryText"]),
+    isVerified,
   };
 }
 
@@ -113,33 +120,6 @@ function resolveItemsPayload(responseData: unknown, responseRoot: unknown): unkn
   }
 
   return null;
-}
-
-function Avatar({ uri }: { uri: string | null }) {
-  if (!uri) {
-    return (
-      <View
-        style={{
-          width: 44,
-          height: 44,
-          borderRadius: 22,
-          backgroundColor: theme.colors.neutral200,
-        }}
-      />
-    );
-  }
-
-  return (
-    <Image
-      source={{ uri }}
-      style={{
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: theme.colors.neutral200,
-      }}
-    />
-  );
 }
 
 function parseErrorCode(errorText?: string): string | null {
@@ -476,7 +456,12 @@ export default function FollowingScreen() {
                   backgroundColor: theme.colors.background,
                 }}
               >
-                <Avatar uri={item.avatarUrl} />
+                <ProfileAvatar
+                  uri={item.avatarUrl}
+                  size={44}
+                  name={item.name}
+                  profile={{ accountType: item.accountType, isVerified: item.isVerified }}
+                />
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.primary }}>{item.name}</Text>
                   {(() => {

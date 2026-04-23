@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Image, Pressable, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
 import { createComment, deleteComment, editComment, fetchComments, type FeedComment } from "../lib/api";
 import { getProfileDisplayName } from "../lib/profiles/getProfileDisplayName";
-import { isCertifiedClub } from "../lib/profiles/certification";
+import ProfileAvatar from "./profiles/ProfileAvatar";
 import { theme } from "../theme";
 
 type CommentsSectionProps = {
@@ -24,54 +24,6 @@ function getDisplayName(comment: FeedComment): string {
 function getAvatarUrl(comment: FeedComment): string | null {
   const url = typeof comment.author?.avatar_url === "string" ? comment.author.avatar_url.trim() : "";
   return url ? url : null;
-}
-
-function Avatar({ url, size = 34, name, isCertified = false }: { url?: string | null; size?: number; name?: string; isCertified?: boolean }) {
-  if (!url) {
-    const initial = name?.trim().charAt(0).toUpperCase() || "U";
-    return (
-      <View style={{ position: "relative" }}>
-        <View
-          style={{
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            backgroundColor: theme.colors.neutral200,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Text style={{ fontSize: Math.max(12, Math.floor(size * 0.38)), fontWeight: "800", color: theme.colors.text }}>
-            {initial}
-          </Text>
-        </View>
-        {isCertified ? (
-          <Text style={{ position: "absolute", top: -7, right: -6, fontSize: 13, color: theme.colors.primary, fontFamily: "Righteous_400Regular" }}>
-            C
-          </Text>
-        ) : null}
-      </View>
-    );
-  }
-
-  return (
-    <View style={{ position: "relative" }}>
-      <Image
-        source={{ uri: url }}
-        style={{
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: theme.colors.neutral200,
-        }}
-      />
-      {isCertified ? (
-        <Text style={{ position: "absolute", top: -7, right: -6, fontSize: 13, color: theme.colors.primary, fontFamily: "Righteous_400Regular" }}>
-          C
-        </Text>
-      ) : null}
-    </View>
-  );
 }
 
 function canEditComment(comment: FeedComment, currentUserId: string | null): boolean {
@@ -250,10 +202,17 @@ export function CommentsSection({
           {previewComments.map((comment) => {
             const name = getDisplayName(comment);
             const avatarUrl = getAvatarUrl(comment);
-            const certifiedClub = isCertifiedClub(comment.author ?? null);
             return (
               <View key={comment.id} style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
-                <Avatar url={avatarUrl} size={30} name={name} isCertified={certifiedClub} />
+                <ProfileAvatar
+                  uri={avatarUrl}
+                  size={30}
+                  name={name}
+                  profile={{
+                    accountType: comment.author?.account_type ?? comment.author?.type ?? null,
+                    is_verified: comment.author?.is_verified ?? null,
+                  }}
+                />
                 <View style={{ flex: 1, gap: 4 }}>
                   <Text style={{ fontSize: 13, fontWeight: "800", color: theme.colors.text }}>{name}</Text>
                   <Text style={{ color: theme.colors.text }}>{comment.body}</Text>
@@ -283,8 +242,6 @@ export function CommentsSection({
 
                 const name = getDisplayName(comment);
                 const avatarUrl = getAvatarUrl(comment);
-                const certifiedClub = isCertifiedClub(comment.author ?? null);
-
                 return (
                   <View
                     key={comment.id}
@@ -296,7 +253,15 @@ export function CommentsSection({
                     }}
                   >
                     <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
-                      <Avatar url={avatarUrl} size={32} name={name} isCertified={certifiedClub} />
+                      <ProfileAvatar
+                        uri={avatarUrl}
+                        size={32}
+                        name={name}
+                        profile={{
+                          accountType: comment.author?.account_type ?? comment.author?.type ?? null,
+                          is_verified: comment.author?.is_verified ?? null,
+                        }}
+                      />
                       <View style={{ flex: 1, gap: 6 }}>
                         <Text style={{ fontSize: 13, fontWeight: "800", color: theme.colors.text }}>{name}</Text>
 

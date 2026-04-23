@@ -19,6 +19,7 @@ export type Profile = {
   verified_until: string | null;
   certified: boolean | null;
   certification_status: string | null;
+  is_verified: boolean | null;
 };
 
 const PROFILE_SELECT = "*";
@@ -65,6 +66,7 @@ function normalizeProfile(row: any): Profile | null {
     verified_until: asString(row?.verified_until),
     certified: asBoolean(row?.certified),
     certification_status: asString(row?.certification_status),
+    is_verified: asBoolean(row?.is_verified),
   };
 }
 

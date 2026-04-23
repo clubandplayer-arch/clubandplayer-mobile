@@ -16,6 +16,8 @@ import { clearAllLocallyReadNotifications } from "../../src/lib/notificationsLoc
 import { supabase } from "../../src/lib/supabase";
 import { useIsClub } from "../../src/lib/useIsClub";
 import MobileSearchOverlay from "../../src/components/search/MobileSearchOverlay";
+import { isCertifiedClub } from "../../src/lib/profiles/isCertifiedClub";
+import CertifiedClubCMark from "../../src/components/profiles/CertifiedClubCMark";
 
 const BRAND_DARK = "#00527a"; // blu scuro logo
 const BRAND_LIGHT = "#2a7aa0"; // blu chiaro logo (lo rifiniamo dopo)
@@ -37,6 +39,7 @@ export default function TabsLayout() {
   const [messagesUnreadCount, setMessagesUnreadCount] = useState<number>(0);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [showCertifiedClubBadge, setShowCertifiedClubBadge] = useState(false);
   const [isFan, setIsFan] = useState(false);
   const [isSearchOverlayOpen, setIsSearchOverlayOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -89,6 +92,7 @@ export default function TabsLayout() {
     if (sessionPresent !== true) {
       setAvatarUrl(null);
       setIsFan(false);
+      setShowCertifiedClubBadge(false);
       return;
     }
 
@@ -99,6 +103,13 @@ export default function TabsLayout() {
       const accountType = String(profile?.account_type ?? profile?.type ?? "").trim().toLowerCase();
       setAvatarUrl(typeof nextAvatarUrl === "string" && nextAvatarUrl.length > 0 ? nextAvatarUrl : null);
       setIsFan(accountType === "fan");
+      setShowCertifiedClubBadge(
+        isCertifiedClub({
+          accountType: profile?.account_type ?? profile?.type ?? null,
+          isVerified: profile?.isVerified ?? null,
+          is_verified: profile?.is_verified ?? null,
+        }),
+      );
     });
 
     return () => {
@@ -242,6 +253,7 @@ export default function TabsLayout() {
               ) : (
                 <Ionicons name="person-outline" size={22} color={BRAND_DARK} />
               )}
+              {showCertifiedClubBadge ? <CertifiedClubCMark size="sm" offsetX={-4} offsetY={-5} /> : null}
             </Pressable>
 
             {avatarMenuOpen ? (
@@ -404,6 +416,7 @@ const styles = StyleSheet.create({
   },
 
   avatarCircle: {
+    position: "relative",
     width: 50,
     height: 50,
     borderRadius: 25,
@@ -412,7 +425,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#fff",
-    overflow: "hidden",
+    overflow: "visible",
   },
 
   avatarImage: {
