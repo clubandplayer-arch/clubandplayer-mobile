@@ -37,7 +37,7 @@ export default function ProfileAvatar({
   const computedBadgeSize = badgeSize ?? resolveBadgeSize(size);
 
   return (
-    <View style={{ position: "relative" }}>
+    <View style={{ position: "relative", overflow: "visible", zIndex: 2 }}>
       {safeUri ? (
         <Image
           source={{ uri: safeUri }}
