@@ -1,4 +1,4 @@
-import { Text } from "react-native";
+import { Platform, Text } from "react-native";
 
 import { theme } from "../../theme";
 
@@ -30,9 +30,9 @@ export default function CertifiedClubCMark({
         top: offsetY,
         right: offsetX,
         color,
-        fontWeight: "700",
+        fontWeight: Platform.OS === "android" ? "normal" : "700",
         fontSize: FONT_SIZE_BY_SIZE[size],
-        fontFamily: theme.fonts.brand,
+        fontFamily: Platform.OS === "android" ? "Righteous_400Regular" : theme.fonts.brand,
       }}
     >
       C
