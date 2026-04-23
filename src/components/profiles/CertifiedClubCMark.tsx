@@ -32,7 +32,7 @@ export default function CertifiedClubCMark({
         color,
         fontWeight: "700",
         fontSize: FONT_SIZE_BY_SIZE[size],
-        fontFamily: "Righteous_400Regular",
+        fontFamily: theme.fonts.brand,
       }}
     >
       C
