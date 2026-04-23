@@ -6,16 +6,15 @@ import {
   Pressable,
   ScrollView,
   RefreshControl,
-  Image,
   Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 import { resolveProfileByAuthorId, type Profile } from "../../src/lib/profiles/resolveProfile";
 import { getFollowSocialForProfile, type FollowSocial } from "../../src/lib/social/getFollowSocial";
-import { isCertifiedClub } from "../../src/lib/profiles/certification";
 import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
 import { theme } from "../../src/theme";
+import ProfileAvatar from "../../src/components/profiles/ProfileAvatar";
 
 function buildDisplayName(p: Profile | null) {
   return getProfileDisplayName(p);
@@ -106,77 +105,17 @@ export default function ProfileByIdScreen() {
     }
   }, [load]);
 
-  const Avatar = () => {
-    const certifiedClub = isCertifiedClub({
-      account_type: profile?.account_type,
-      type: profile?.type,
-      role: profile?.role,
-      verified_until: profile?.verified_until,
-      certified: profile?.certified,
-      certification_status: profile?.certification_status,
-    });
-
-    if (profile?.avatar_url) {
-      return (
-        <View style={{ position: "relative" }}>
-          <Image
-            source={{ uri: profile.avatar_url }}
-            style={{
-              width: 72,
-              height: 72,
-              borderRadius: 999,
-              backgroundColor: theme.colors.neutral200,
-            }}
-          />
-          {certifiedClub ? (
-            <Text
-              style={{
-                position: "absolute",
-                top: -9,
-                right: -8,
-                fontSize: 19,
-                color: theme.colors.primary,
-                fontFamily: "Righteous_400Regular",
-              }}
-            >
-              C
-            </Text>
-          ) : null}
-        </View>
-      );
-    }
-    const letter = (title.slice(0, 1) || "U").toUpperCase();
-    return (
-      <View style={{ position: "relative" }}>
-        <View
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: 999,
-            backgroundColor: theme.colors.neutral200,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Text style={{ fontSize: 22, fontWeight: "900" }}>{letter}</Text>
-        </View>
-        {certifiedClub ? (
-          <Text
-            style={{
-              position: "absolute",
-              top: -9,
-              right: -8,
-              fontSize: 19,
-              color: theme.colors.primary,
-              fontFamily: "Righteous_400Regular",
-            }}
-          >
-            C
-          </Text>
-        ) : null}
-      </View>
-    );
-  };
+  const Avatar = () => (
+    <ProfileAvatar
+      uri={profile?.avatar_url ?? null}
+      size={72}
+      name={title}
+      profile={{
+        accountType: profile?.account_type ?? profile?.type ?? null,
+        is_verified: profile?.is_verified ?? null,
+      }}
+    />
+  );
 
   if (loading) {
     return (

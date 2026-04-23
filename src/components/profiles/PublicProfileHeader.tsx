@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import { FontAwesome6, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Alert, Image, Linking, Pressable, Text, View, type TextStyle, type ViewStyle } from "react-native";
+import { Alert, Linking, Pressable, Text, View, type TextStyle, type ViewStyle } from "react-native";
 
 import FollowButton from "../follow/FollowButton";
 import { theme } from "../../theme";
+import ProfileAvatar from "./ProfileAvatar";
 
 export type PublicProfileLinks = {
   instagram?: string | null;
@@ -228,41 +229,12 @@ export default function PublicProfileHeader({
       }}
     >
       <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
-        <View>
-          {avatarUrl ? (
-            <Image
-              source={{ uri: avatarUrl }}
-              style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: theme.colors.neutral200 }}
-            />
-          ) : (
-            <View
-              style={{
-                width: 72,
-                height: 72,
-                borderRadius: 36,
-                backgroundColor: theme.colors.neutral100,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Text style={{ fontSize: 22, fontWeight: "700", color: theme.colors.muted }}>{initials}</Text>
-            </View>
-          )}
-          {isClub && isVerified ? (
-            <Text
-              style={{
-                position: "absolute",
-                top: -9,
-                right: -8,
-                fontSize: 20,
-                color: theme.colors.primary,
-                fontFamily: "Righteous_400Regular",
-              }}
-            >
-              C
-            </Text>
-          ) : null}
-        </View>
+        <ProfileAvatar
+          uri={avatarUrl}
+          size={72}
+          name={initials}
+          profile={{ accountType, isVerified }}
+        />
 
         <View style={{ flex: 1, gap: 10 }}>
           <View style={{ gap: 6 }}>

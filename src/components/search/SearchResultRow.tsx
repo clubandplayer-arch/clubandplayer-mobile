@@ -1,7 +1,8 @@
-import { Image, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { theme } from "../../theme";
 import type { SearchItem } from "../../lib/api";
+import ProfileAvatar from "../profiles/ProfileAvatar";
 
 const KIND_LABELS: Record<SearchItem["kind"], string> = {
   opportunities: "Opportunità",
@@ -22,29 +23,18 @@ const KIND_STYLES: Record<SearchItem["kind"], { backgroundColor: string; borderC
 function Avatar({ result }: { result: SearchItem }) {
   const safeUrl = result.image_url && result.image_url.trim() ? result.image_url.trim() : null;
   const initial = result.title?.trim()?.[0]?.toUpperCase() || "S";
-
-  if (safeUrl) {
-    return (
-      <Image
-        source={{ uri: safeUrl }}
-        style={{ width: 44, height: 44, borderRadius: 999, backgroundColor: theme.colors.neutral200 }}
-      />
-    );
-  }
-
+  const row = result as any;
   return (
-    <View
-      style={{
-        width: 44,
-        height: 44,
-        borderRadius: 999,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: theme.colors.neutral200,
+    <ProfileAvatar
+      uri={safeUrl}
+      size={44}
+      name={initial}
+      profile={{
+        accountType: row.account_type ?? row.type ?? row.kind ?? (result.kind === "clubs" ? "club" : null),
+        isVerified: row.isVerified ?? null,
+        is_verified: row.is_verified ?? null,
       }}
-    >
-      <Text style={{ color: theme.colors.muted, fontWeight: "700" }}>{initial}</Text>
-    </View>
+    />
   );
 }
 
