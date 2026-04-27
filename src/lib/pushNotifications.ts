@@ -1,6 +1,16 @@
 import Constants from "expo-constants";
-import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
+
+type PermissionStatus = "granted" | "denied" | "undetermined" | string;
+type NotificationsModule = {
+  getPermissionsAsync: () => Promise<{ status: PermissionStatus }>;
+  requestPermissionsAsync: () => Promise<{ status: PermissionStatus }>;
+  getExpoPushTokenAsync: (input: { projectId: string }) => Promise<{ data?: string }>;
+};
+
+const dynamicImport = new Function("modulePath", "return import(modulePath);") as (
+  modulePath: string,
+) => Promise<NotificationsModule>;
 
 function devLog(message: string, data?: unknown) {
   if (!__DEV__) return;
@@ -11,13 +21,25 @@ function devLog(message: string, data?: unknown) {
   console.log(`[push] ${message}`, data);
 }
 
+async function loadNotificationsModule(): Promise<NotificationsModule | null> {
+  try {
+    return await dynamicImport("expo-notifications");
+  } catch (error) {
+    devLog("expo-notifications module unavailable", String(error));
+    return null;
+  }
+}
+
 export function arePushNotificationsSupported(): boolean {
   return Platform.OS === "ios" || Platform.OS === "android";
 }
 
-export async function getPushPermissionsStatus(): Promise<Notifications.PermissionStatus | null> {
+export async function getPushPermissionsStatus(): Promise<PermissionStatus | null> {
   try {
     if (!arePushNotificationsSupported()) return null;
+
+    const Notifications = await loadNotificationsModule();
+    if (!Notifications) return null;
 
     const settings = await Notifications.getPermissionsAsync();
     return settings.status;
@@ -27,9 +49,12 @@ export async function getPushPermissionsStatus(): Promise<Notifications.Permissi
   }
 }
 
-export async function requestPushPermissions(): Promise<Notifications.PermissionStatus | null> {
+export async function requestPushPermissions(): Promise<PermissionStatus | null> {
   try {
     if (!arePushNotificationsSupported()) return null;
+
+    const Notifications = await loadNotificationsModule();
+    if (!Notifications) return null;
 
     const current = await Notifications.getPermissionsAsync();
     if (current.status === "granted") return current.status;
@@ -61,6 +86,9 @@ export async function getExpoPushTokenSafely(): Promise<string | null> {
       devLog("push not supported on this platform");
       return null;
     }
+
+    const Notifications = await loadNotificationsModule();
+    if (!Notifications) return null;
 
     const status = await requestPushPermissions();
     if (status !== "granted") {
