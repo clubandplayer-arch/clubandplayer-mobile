@@ -85,58 +85,35 @@ function minimizeOversizedAuthTokenValue(key: string, value: string): string | n
     return null;
   }
 
-  if (typeof parsed.access_token !== "string") {
+  const user = parsed.user;
+  if (!user || typeof user !== "object" || Array.isArray(user)) {
     return null;
   }
 
-  const newObj: Record<string, unknown> = {
-    access_token: parsed.access_token,
+  // Keep the original session shape intact and only strip known bulky optional data.
+  // Supabase may invalidate the stored session if required user fields are missing.
+  const normalized: Record<string, unknown> = {
+    ...parsed,
+    user: { ...(user as Record<string, unknown>) },
   };
 
-  if (typeof parsed.refresh_token === "string") {
-    newObj.refresh_token = parsed.refresh_token;
-  }
-  if (typeof parsed.token_type === "string") {
-    newObj.token_type = parsed.token_type;
-  }
-  if (typeof parsed.expires_in === "number") {
-    newObj.expires_in = parsed.expires_in;
-  }
-  if (typeof parsed.expires_at === "number") {
-    newObj.expires_at = parsed.expires_at;
-  }
-
-  const user = parsed.user;
-  if (user && typeof user === "object" && !Array.isArray(user)) {
-    const userObj = user as Record<string, unknown>;
-    if (typeof userObj.id === "string") {
-      const userMin: Record<string, unknown> = { id: userObj.id };
-      if (typeof userObj.email === "string") {
-        userMin.email = userObj.email;
-      }
-      newObj.user = userMin;
+  const normalizedUser = normalized.user as Record<string, unknown>;
+  const maybeKeysToDrop = ["identities", "factors"];
+  let changed = false;
+  for (const keyToDrop of maybeKeysToDrop) {
+    if (keyToDrop in normalizedUser) {
+      delete normalizedUser[keyToDrop];
+      changed = true;
     }
   }
 
-  const minValue = JSON.stringify(newObj);
+  if (!changed) {
+    return null;
+  }
+
+  const minValue = JSON.stringify(normalized);
   const bytesMin = new TextEncoder().encode(minValue).length;
-  if (bytesMin < 2048) {
-    return minValue;
-  }
-
-  if (newObj.user && typeof newObj.user === "object" && !Array.isArray(newObj.user)) {
-    const userMin = newObj.user as Record<string, unknown>;
-    if (typeof userMin.id === "string") {
-      newObj.user = { id: userMin.id };
-      const minValueUserIdOnly = JSON.stringify(newObj);
-      const bytesUserIdOnly = new TextEncoder().encode(minValueUserIdOnly).length;
-      if (bytesUserIdOnly < 2048) {
-        return minValueUserIdOnly;
-      }
-    }
-  }
-
-  return null;
+  return bytesMin < 2048 ? minValue : null;
 }
 
 export const secureStoreAdapter: SecureStoreAdapter = {
