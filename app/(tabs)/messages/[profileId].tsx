@@ -20,7 +20,6 @@ import { useFocusEffect } from "@react-navigation/native";
 
 import {
   deleteDirectMessageConversation,
-  fetchDirectMessageThreads,
   fetchDirectMessageThread,
   postDirectMessage,
   postDirectMessageMarkRead,
@@ -54,11 +53,6 @@ export default function DirectMessageThreadScreen() {
   const [sending, setSending] = useState(false);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [peerFromThreads, setPeerFromThreads] = useState<{
-    profileId: string;
-    title: string;
-    avatarUrl: string | null;
-  } | null>(null);
 
   // Android only: we manually shift the composer above the keyboard.
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -130,8 +124,6 @@ export default function DirectMessageThreadScreen() {
   }, [profileId]);
 
   useEffect(() => {
-    // reset immediato: evita che restino name/avatar del thread precedente
-    setPeerFromThreads(null);
     setThread(null);
   }, [profileId]);
 
@@ -151,45 +143,6 @@ export default function DirectMessageThreadScreen() {
       mounted = false;
     };
   }, [loadThread]);
-
-  useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      if (!profileId) return;
-
-      const response = await fetchDirectMessageThreads();
-      if (!response.ok || !response.data?.threads || !mounted) return;
-
-      const currentProfileId = profileId;
-
-      const matchingThread = response.data.threads.find((raw) => {
-        const otherId = raw.otherProfileId || raw.other_profile_id || raw.other?.id || "";
-        return String(otherId) === currentProfileId;
-      });
-
-      const title = getProfileDisplayName({
-        full_name: matchingThread?.otherFullName ?? matchingThread?.other_full_name ?? matchingThread?.other?.full_name ?? null,
-        display_name:
-          matchingThread?.otherDisplayName ?? matchingThread?.other_display_name ?? matchingThread?.other?.display_name ?? null,
-      });
-      const avatar =
-        matchingThread?.otherAvatarUrl ??
-        matchingThread?.other_avatar_url ??
-        matchingThread?.other?.avatar_url ??
-        null;
-
-      setPeerFromThreads({
-        profileId: currentProfileId,
-        title,
-        avatarUrl: typeof avatar === "string" ? avatar : null,
-      });
-    })();
-
-    return () => {
-      mounted = false;
-    };
-  }, [profileId]);
 
   // ✅ IMPORTANT:
   // - iOS: KeyboardAvoidingView handles layout
@@ -311,29 +264,24 @@ export default function DirectMessageThreadScreen() {
 
           setThread((prev) => (prev ? { ...prev, messages: [] } : prev));
           emit("app:direct-messages-updated");
-          router.replace("/messages");
+          router.replace("/(tabs)/messages");
         },
       },
     ]);
   }, [profileId, router]);
 
-  const peerReady = !!(profileId && peerFromThreads && peerFromThreads.profileId === profileId);
-
   const peerName = useMemo(() => {
-    if (!peerReady) return "";
-    return peerFromThreads!.title;
-  }, [peerReady, peerFromThreads]);
+    return getProfileDisplayName(thread?.peer ?? null);
+  }, [thread?.peer]);
 
-  const peerSubLabel = useMemo(() => {
-    const label = getProfileDisplayName(thread?.peer ?? null);
-    if (!label || label === peerName) return undefined;
-    return label;
-  }, [peerName, thread?.peer]);
+  const peerSubLabel = "Messaggi diretti";
 
   const avatarUri = useMemo(() => {
-    if (!peerReady) return undefined;
-    return peerFromThreads!.avatarUrl?.trim() || undefined;
-  }, [peerReady, peerFromThreads]);
+    const raw = thread?.peer?.avatar_url;
+    if (typeof raw !== "string") return undefined;
+    const trimmed = raw.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }, [thread?.peer?.avatar_url]);
 
   const renderItem = useCallback(
     ({ item }: { item: DirectMessage }) => {
@@ -417,7 +365,7 @@ export default function DirectMessageThreadScreen() {
           gap: 12,
         }}
       >
-        <Pressable onPress={() => router.replace("/messages")} hitSlop={8}>
+        <Pressable onPress={() => router.replace("/(tabs)/messages")} hitSlop={8}>
           <Text style={{ fontSize: 20, color: theme.colors.text }}>←</Text>
         </Pressable>
 
@@ -434,7 +382,7 @@ export default function DirectMessageThreadScreen() {
               backgroundColor: theme.colors.neutral200,
             }}
           >
-            {peerReady && peerName ? (
+            {peerName ? (
               <Text style={{ color: theme.colors.text, fontWeight: "700" }}>
                 {peerName.slice(0, 1).toUpperCase()}
               </Text>

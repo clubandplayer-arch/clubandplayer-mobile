@@ -255,7 +255,7 @@ export default function PublicProfileHeader({
                 <View style={{ alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 8 }}>
                   {showMessageButton ? (
                     <Pressable
-                      onPress={() => router.push(`/messages/${encodeURIComponent(profileId)}` as never)}
+                      onPress={() => router.push(`/(tabs)/messages/${encodeURIComponent(profileId)}` as never)}
                       style={({ pressed }) => ({
                         paddingVertical: 10,
                         paddingHorizontal: 14,

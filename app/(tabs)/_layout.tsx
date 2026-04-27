@@ -225,7 +225,7 @@ export default function TabsLayout() {
         <View style={styles.headerRight}>
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => router.push("/messages")}
+            onPress={() => router.push("/(tabs)/messages")}
             style={styles.iconBtn}
           >
             <Ionicons name="chatbubble-outline" size={22} color={BRAND_DARK} />
