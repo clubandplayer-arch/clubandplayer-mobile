@@ -159,7 +159,7 @@ export default function MessagesInboxScreen() {
               }
             })();
 
-            router.push(`/messages/${encodeURIComponent(item.otherProfileId)}` as never);
+            router.push(`/(tabs)/messages/${encodeURIComponent(item.otherProfileId)}` as never);
           }}
           style={{
             paddingHorizontal: 16,
