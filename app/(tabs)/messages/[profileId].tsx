@@ -311,7 +311,7 @@ export default function DirectMessageThreadScreen() {
 
           setThread((prev) => (prev ? { ...prev, messages: [] } : prev));
           emit("app:direct-messages-updated");
-          router.replace("/messages");
+          router.replace("/(tabs)/messages");
         },
       },
     ]);
@@ -320,9 +320,9 @@ export default function DirectMessageThreadScreen() {
   const peerReady = !!(profileId && peerFromThreads && peerFromThreads.profileId === profileId);
 
   const peerName = useMemo(() => {
-    if (!peerReady) return "";
-    return peerFromThreads!.title;
-  }, [peerReady, peerFromThreads]);
+    if (peerReady) return peerFromThreads!.title;
+    return getProfileDisplayName(thread?.peer ?? null);
+  }, [peerReady, peerFromThreads, thread?.peer]);
 
   const peerSubLabel = useMemo(() => {
     const label = getProfileDisplayName(thread?.peer ?? null);
@@ -331,9 +331,10 @@ export default function DirectMessageThreadScreen() {
   }, [peerName, thread?.peer]);
 
   const avatarUri = useMemo(() => {
-    if (!peerReady) return undefined;
-    return peerFromThreads!.avatarUrl?.trim() || undefined;
-  }, [peerReady, peerFromThreads]);
+    if (peerReady) return peerFromThreads!.avatarUrl?.trim() || undefined;
+    const fallbackAvatar = thread?.peer?.avatar_url;
+    return typeof fallbackAvatar === "string" && fallbackAvatar.trim() ? fallbackAvatar : undefined;
+  }, [peerReady, peerFromThreads, thread?.peer?.avatar_url]);
 
   const renderItem = useCallback(
     ({ item }: { item: DirectMessage }) => {
@@ -417,7 +418,7 @@ export default function DirectMessageThreadScreen() {
           gap: 12,
         }}
       >
-        <Pressable onPress={() => router.replace("/messages")} hitSlop={8}>
+        <Pressable onPress={() => router.replace("/(tabs)/messages")} hitSlop={8}>
           <Text style={{ fontSize: 20, color: theme.colors.text }}>←</Text>
         </Pressable>
 
