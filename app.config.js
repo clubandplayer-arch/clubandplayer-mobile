@@ -47,7 +47,7 @@ const config = {
     ],
   },
 
-  plugins: ["expo-router", "expo-video", "expo-font"],
+  plugins: ["expo-router", "expo-video", "expo-font", "expo-notifications"],
 
   extra: {
     NEXT_PUBLIC_ADS_ENABLED: process.env.NEXT_PUBLIC_ADS_ENABLED ?? "false",
