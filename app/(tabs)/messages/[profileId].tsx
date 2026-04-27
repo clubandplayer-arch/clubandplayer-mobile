@@ -5,7 +5,6 @@ import {
   FlatList,
   Image,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   Text,
@@ -54,7 +53,7 @@ export default function DirectMessageThreadScreen() {
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  // Android only: we manually shift the composer above the keyboard.
+  // Keyboard offset used to keep the composer visible above keyboard (Android + iOS).
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const listRef = useRef<FlatList<DirectMessage>>(null);
@@ -144,22 +143,36 @@ export default function DirectMessageThreadScreen() {
     };
   }, [loadThread]);
 
-  // ✅ IMPORTANT:
-  // - iOS: KeyboardAvoidingView handles layout
-  // - Android: DO NOT use KeyboardAvoidingView (to avoid double offsets/gaps)
+  // Keep composer visible on both Android and iOS.
   useEffect(() => {
-    if (Platform.OS !== "android") return;
+    if (Platform.OS === "android") {
+      const showSub = Keyboard.addListener("keyboardDidShow", (e) => {
+        setKeyboardHeight(e.endCoordinates?.height ?? 0);
+      });
+      const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+        setKeyboardHeight(0);
+      });
 
-    const showSub = Keyboard.addListener("keyboardDidShow", (e) => {
+      return () => {
+        showSub.remove();
+        hideSub.remove();
+      };
+    }
+
+    const showSub = Keyboard.addListener("keyboardWillShow", (e) => {
       setKeyboardHeight(e.endCoordinates?.height ?? 0);
     });
-    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+    const hideSub = Keyboard.addListener("keyboardWillHide", () => {
       setKeyboardHeight(0);
+    });
+    const frameSub = Keyboard.addListener("keyboardWillChangeFrame", (e) => {
+      setKeyboardHeight(e.endCoordinates?.height ?? 0);
     });
 
     return () => {
       showSub.remove();
       hideSub.remove();
+      frameSub.remove();
     };
   }, []);
 
@@ -318,7 +331,15 @@ export default function DirectMessageThreadScreen() {
   );
 
   const composerBottomPadding =
-    Platform.OS === "android" && keyboardHeight > 0 ? 12 : Math.max(insets.bottom, 12);
+    keyboardHeight > 0 ? 12 : Math.max(insets.bottom, 12);
+
+  const composerKeyboardOffset = useMemo(() => {
+    if (keyboardHeight <= 0) return 0;
+    if (Platform.OS === "ios") {
+      return Math.max(0, keyboardHeight - insets.bottom);
+    }
+    return keyboardHeight;
+  }, [insets.bottom, keyboardHeight]);
 
   const listBottomPadding =
     composerMinHeight +
@@ -437,8 +458,8 @@ export default function DirectMessageThreadScreen() {
           paddingHorizontal: 12,
           paddingBottom: composerBottomPadding,
 
-          // ✅ Android: push composer exactly above keyboard (NO KeyboardAvoidingView on Android)
-          marginBottom: Platform.OS === "android" ? keyboardHeight : 0,
+          // Keep composer just above keyboard on both platforms.
+          marginBottom: composerKeyboardOffset,
 
           flexDirection: "row",
           gap: 8,
@@ -484,17 +505,7 @@ export default function DirectMessageThreadScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={["top", "bottom"]}>
-      {Platform.OS === "ios" ? (
-        <KeyboardAvoidingView
-          style={{ flex: 1, backgroundColor: theme.colors.background }}
-          behavior="padding"
-          keyboardVerticalOffset={0}
-        >
-          {Content}
-        </KeyboardAvoidingView>
-      ) : (
-        <View style={{ flex: 1, backgroundColor: theme.colors.background }}>{Content}</View>
-      )}
+      <View style={{ flex: 1, backgroundColor: theme.colors.background }}>{Content}</View>
     </SafeAreaView>
   );
 }
