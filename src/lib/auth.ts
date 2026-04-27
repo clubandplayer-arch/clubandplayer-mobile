@@ -2,7 +2,6 @@ import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import { fetchProfileMe, fetchWhoami, syncSession } from "./api";
 import { supabase } from "./supabase";
-import { registerPushToken } from "./registerPushToken";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -90,21 +89,6 @@ type AuthSessionOutcome =
   | { kind: "non-success" }
   | { kind: "timeout" };
 
-let hasRegisteredPushToken = false;
-
-async function registerPushTokenOnceForSession() {
-  if (hasRegisteredPushToken) return;
-  hasRegisteredPushToken = true;
-
-  try {
-    await registerPushToken();
-  } catch (error) {
-    if (__DEV__) {
-      console.log("[auth][push][warn]", String(error));
-    }
-  }
-}
-
 async function resolveOAuthRedirectUrl(oauthUrl: string, redirectTo: string): Promise<string | null> {
   const redirectPromise = waitForRedirectUrl({
     timeoutMs: 45_000,
@@ -185,10 +169,6 @@ async function syncWebSessionAndAudit(session: { access_token: string; refresh_t
       status: profileRes.status,
       errorText: profileRes.ok ? null : profileRes.errorText ?? null,
     });
-  }
-
-  if (syncRes.ok && whoamiRes.ok) {
-    await registerPushTokenOnceForSession();
   }
 }
 
