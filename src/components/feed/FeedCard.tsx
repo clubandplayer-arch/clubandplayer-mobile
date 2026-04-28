@@ -382,14 +382,6 @@ export default function FeedCard({
             <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>{totalReactions}</Text>
           </Pressable>
 
-          <Pressable
-            onPress={() => setPickerOpen((prev) => !prev)}
-            hitSlop={12}
-            style={{ position: "absolute", right: -8, top: -8, padding: 8 }}
-          >
-            <Text style={{ color: theme.colors.muted, fontSize: 12 }}>▾</Text>
-          </Pressable>
-
           {pickerOpen ? (
             <View
               style={{
