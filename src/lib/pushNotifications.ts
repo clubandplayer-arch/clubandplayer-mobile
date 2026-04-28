@@ -71,8 +71,24 @@ export function usePushNotificationsSync(userId: string | null) {
         return;
       }
 
-      const tokenResult = await Notifications.getExpoPushTokenAsync();
-      const token = String(tokenResult.data ?? "").trim();
+      let token = "";
+      try {
+        const tokenResult = await Notifications.getExpoPushTokenAsync();
+        token = String(tokenResult.data ?? "").trim();
+      } catch (error) {
+        console.log("[push][token-fetch-error]", {
+          userId,
+          deviceId,
+          message: error instanceof Error ? error.message : String(error ?? "unknown_error"),
+        });
+        return;
+      }
+
+      if (!token) {
+        console.log("[push][token-missing]", { userId, deviceId });
+        return;
+      }
+
       if (!isExpoPushToken(token)) {
         console.log("[push][invalid-token]", { userId, deviceId, tokenTail: tokenFingerprint(token) });
         return;

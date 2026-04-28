@@ -16,6 +16,7 @@ const config = {
 
   android: {
     package: "com.clubandplayer.app",
+    googleServicesFile: "./google-services.json",
     versionCode: 36,
     intentFilters: [
       {
