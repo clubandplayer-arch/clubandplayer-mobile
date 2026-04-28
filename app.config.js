@@ -8,6 +8,11 @@ const config = {
   userInterfaceStyle: "automatic",
 
   icon: "./assets/icon.png",
+  
+  notification: {
+  icon: "./assets/notification-icon.png",
+  color: "#036f9a",
+},
 
   ios: {
     supportsTablet: false,
