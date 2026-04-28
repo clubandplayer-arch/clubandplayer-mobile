@@ -69,6 +69,9 @@ export default function RootLayout() {
     void init();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_evt, next) => {
+      console.log("[auth][session-changed]", {
+        userId: next?.user?.id ?? null,
+      });
       setSession(next);
       lastTargetRef.current = null;
     });

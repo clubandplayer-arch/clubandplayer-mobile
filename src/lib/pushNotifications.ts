@@ -55,11 +55,26 @@ export function usePushNotificationsSync(userId: string | null) {
       lastAttemptRef.current = now;
 
       const deviceId = await getStableDeviceId();
+      console.log("[push][runRegisterFlow:start]", {
+        userId,
+        reason,
+        deviceId,
+      });
       const permission = await Notifications.getPermissionsAsync();
       let finalStatus = permission.status;
+      console.log("[push][permission][current]", {
+        userId,
+        reason,
+        status: finalStatus,
+      });
       if (finalStatus !== "granted") {
         const requested = await Notifications.requestPermissionsAsync();
         finalStatus = requested.status;
+        console.log("[push][permission][requested]", {
+          userId,
+          reason,
+          status: finalStatus,
+        });
       }
 
       if (finalStatus !== "granted") {
@@ -75,9 +90,15 @@ export function usePushNotificationsSync(userId: string | null) {
       try {
         const tokenResult = await Notifications.getExpoPushTokenAsync();
         token = String(tokenResult.data ?? "").trim();
+        console.log("[push][token][success]", {
+          userId,
+          reason,
+          tokenTail: tokenFingerprint(token),
+        });
       } catch (error) {
         console.log("[push][token-fetch-error]", {
           userId,
+          reason,
           deviceId,
           message: error instanceof Error ? error.message : String(error ?? "unknown_error"),
         });
@@ -100,10 +121,25 @@ export function usePushNotificationsSync(userId: string | null) {
       const unchanged = previousToken.trim() === token;
 
       const ok = await withRetry(async () => {
+        console.log("[push][register][request]", {
+          userId,
+          reason,
+          deviceId,
+          platform,
+          tokenTail,
+        });
         const response = await registerPushToken({
           token,
           platform,
           device_id: deviceId,
+        });
+        console.log("[push][register][response]", {
+          userId,
+          reason,
+          status: response.status,
+          ok: response.ok,
+          errorText: response.ok ? null : response.errorText ?? null,
+          tokenTail,
         });
         return response.ok;
       });
