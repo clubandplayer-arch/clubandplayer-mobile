@@ -8,6 +8,7 @@ import { supabase } from "../src/lib/supabase";
 import { getOnboardingSeen, subscribeOnboardingSeen } from "../src/lib/onboarding";
 import { usePushNotificationsSync } from "../src/lib/pushNotifications";
 import { theme } from "../src/theme";
+import { usePushNotificationTapRouting } from "../src/lib/usePushNotificationTapRouting";
 
 
 function isInvalidRefreshTokenError(error: unknown) {
@@ -30,6 +31,7 @@ export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
   const pathname = usePathname();
+  usePushNotificationTapRouting(router);
 
   const [fontsLoaded] = useFonts({
     Righteous: require("../assets/fonts/Righteous-Regular.ttf"),
