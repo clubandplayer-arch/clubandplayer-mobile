@@ -759,6 +759,19 @@ export async function createFeedPost(payload: CreateFeedPostPayload): Promise<Cr
   };
 }
 
+export async function updateFeedPost(postId: string, content: string): Promise<ApiResponse<{ item?: unknown; post?: unknown }>> {
+  return apiFetch<{ item?: unknown; post?: unknown }>(`/api/feed/posts/${encodeURIComponent(postId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ content }),
+  });
+}
+
+export async function deleteFeedPost(postId: string): Promise<ApiResponse<{ ok?: boolean }>> {
+  return apiFetch<{ ok?: boolean }>(`/api/feed/posts/${encodeURIComponent(postId)}`, {
+    method: "DELETE",
+  });
+}
+
 export async function fetchSearch(params: {
   q: string;
   type?: SearchKind;

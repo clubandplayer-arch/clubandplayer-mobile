@@ -25,6 +25,14 @@ type FeedRow =
   | { type: "post"; key: string; item: FeedPost }
   | { type: "ad"; key: string };
 
+function getWhoamiUserId(user: unknown): string | null {
+  if (!user || typeof user !== "object") return null;
+  const candidate = (user as any).id ?? (user as any).user_id ?? null;
+  if (typeof candidate !== "string") return null;
+  const normalized = candidate.trim();
+  return normalized || null;
+}
+
 export default function FeedScreen() {
   const router = useRouter();
 
@@ -43,6 +51,7 @@ export default function FeedScreen() {
 
   const web = useWebSession();
   const whoami = useWhoami(web.ready);
+  const currentUserId = getWhoamiUserId(whoami.data?.user);
   const isFan = String((whoami.data as { role?: unknown } | null)?.role ?? "").toLowerCase().trim() === "fan";
 
   const showFlash = useCallback((msg: string) => {
@@ -135,6 +144,20 @@ export default function FeedScreen() {
   const refetchFeed = useCallback(async () => {
     await onRefresh();
   }, [onRefresh]);
+
+  const patchPostInFeed = useCallback((postId: string, patch: Partial<Record<string, unknown>>) => {
+    setItems((prev) =>
+      prev.map((row) => {
+        if (row.id !== postId) return row;
+        const nextRaw = { ...((row.raw as any) ?? {}), ...patch } as any;
+        return { ...row, raw: nextRaw };
+      }),
+    );
+  }, []);
+
+  const removePostFromFeed = useCallback((postId: string) => {
+    setItems((prev) => prev.filter((row) => row.id !== postId));
+  }, []);
 
   const onLogout = async () => {
     try {
@@ -339,7 +362,15 @@ export default function FeedScreen() {
           return <AdSlot slot="feed_infeed" page="feed" />;
         }
 
-        return <FeedCard item={item.item} onToast={showFlash} />;
+        return (
+          <FeedCard
+            item={item.item}
+            onToast={showFlash}
+            currentUserId={currentUserId}
+            onPatchPost={patchPostInFeed}
+            onRemovePost={removePostFromFeed}
+          />
+        );
       }}
       ListHeaderComponent={header}
       ListFooterComponent={footer}

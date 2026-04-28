@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Image, Pressable, Text, View } from "react-native";
+import { Alert, Image, Modal, Pressable, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 
 import {
@@ -17,9 +17,10 @@ import LightboxModal from "../../../components/media/LightboxModal";
 import { sharePostById } from "../../lib/sharePost";
 import { devWarn } from "../../lib/debug/devLog";
 import { theme } from "../../theme";
-import { setPostReaction } from "../../lib/api";
+import { deleteFeedPost, setPostReaction, updateFeedPost } from "../../lib/api";
 import { iso2ToFlagEmoji } from "../../lib/geo/countryFlag";
 import ProfileAvatar from "../profiles/ProfileAvatar";
+import { isPostOwner, normalizePostContent } from "../../lib/feed/postOwnership";
 
 const REACTION_META: Record<FeedReactionType, { emoji: string; label: string }> = {
   like: { emoji: "👍", label: "Mi piace" },
@@ -73,7 +74,19 @@ function resolveAuthorRoute(args: {
   return `/profile/${args.authorUuid}`;
 }
 
-export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: (message: string) => void }) {
+export default function FeedCard({
+  item,
+  onToast,
+  currentUserId,
+  onPatchPost,
+  onRemovePost,
+}: {
+  item: FeedPost;
+  onToast?: (message: string) => void;
+  currentUserId?: string | null;
+  onPatchPost?: (postId: string, patch: Partial<Record<string, unknown>>) => void;
+  onRemovePost?: (postId: string) => void;
+}) {
   const router = useRouter();
   const [lightbox, setLightbox] = useState<{ open: boolean; index: number }>({
     open: false,
@@ -90,6 +103,10 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
   );
   const [viewerReaction, setViewerReaction] = useState<FeedReactionType | null>(item.viewerReaction ?? null);
   const [isLiking, setIsLiking] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [editingOpen, setEditingOpen] = useState(false);
+  const [editDraft, setEditDraft] = useState(text);
   const [pickerOpen, setPickerOpen] = useState(false);
   const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
   const totalReactions = sumReactionCounts(reactionCounts);
@@ -107,6 +124,7 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
   const authorRole = typeof authorRoleRaw === "string" ? authorRoleRaw.toLowerCase().trim() : null;
 
   const postPath = resolvePostPath(item.id);
+  const owner = isPostOwner({ authorId: authorIdRaw }, currentUserId);
 
 
   const applyOptimisticReaction = (
@@ -167,11 +185,66 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
   const handleShare = async () => {
     if (!item.id) return;
     try {
+      setShareLoading(true);
       await sharePostById(item.id, onToast);
     } catch (error) {
       devWarn("sharePostById failed", error);
       onToast?.("Condivisione non disponibile");
+    } finally {
+      setShareLoading(false);
     }
+  };
+
+  const handleStartEdit = () => {
+    if (!owner || saving) return;
+    setEditDraft(text);
+    setEditingOpen(true);
+  };
+
+  const handleSubmitEdit = async () => {
+    if (!item.id || !owner || saving) return;
+    const content = normalizePostContent(editDraft);
+    if (!content) {
+      onToast?.("Il contenuto non può essere vuoto");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const response = await updateFeedPost(item.id, content);
+      if (!response.ok) throw new Error(response.errorText ?? `PATCH HTTP ${response.status}`);
+      onPatchPost?.(item.id, { content });
+      setEditingOpen(false);
+      onToast?.("Post aggiornato");
+    } catch (error: any) {
+      onToast?.(error?.message ? String(error.message) : "Errore aggiornando il post");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = () => {
+    if (!item.id || !owner || saving) return;
+    Alert.alert("Elimina post", "Vuoi eliminare questo post?", [
+      { text: "Annulla", style: "cancel" },
+      {
+        text: "Elimina",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            setSaving(true);
+            const response = await deleteFeedPost(item.id);
+            if (!response.ok) throw new Error(response.errorText ?? `DELETE HTTP ${response.status}`);
+            onRemovePost?.(item.id);
+            onToast?.("Post eliminato");
+          } catch (error: any) {
+            onToast?.(error?.message ? String(error.message) : "Errore eliminando il post");
+          } finally {
+            setSaving(false);
+          }
+        },
+      },
+    ]);
   };
 
   return (
@@ -374,10 +447,72 @@ export default function FeedCard({ item, onToast }: { item: FeedPost; onToast?: 
         <Pressable onPress={handleOpenComments} disabled={!postPath}>
           <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>💬 {commentCount}</Text>
         </Pressable>
-        <Pressable onPress={handleShare}>
-          <Text style={{ ...theme.typography.smallStrong, color: theme.colors.primary }}>Condividi</Text>
-        </Pressable>
+        <View style={{ flexDirection: "row", alignItems: "center", marginLeft: "auto" }}>
+          {owner ? (
+            <>
+              <Pressable
+                onPress={handleStartEdit}
+                disabled={saving || shareLoading}
+                accessibilityRole="button"
+                accessibilityLabel="Modifica questo post"
+                style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center", opacity: saving ? 0.5 : 1 }}
+              >
+                <Text style={{ fontSize: 20 }}>✏️</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleDelete}
+                disabled={saving || shareLoading}
+                accessibilityRole="button"
+                accessibilityLabel="Elimina questo post"
+                style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center", opacity: saving ? 0.5 : 1 }}
+              >
+                <Text style={{ fontSize: 20 }}>🗑️</Text>
+              </Pressable>
+            </>
+          ) : null}
+          <Pressable
+            onPress={handleShare}
+            disabled={saving || shareLoading}
+            accessibilityRole="button"
+            accessibilityLabel="Condividi questo post"
+            style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center", opacity: shareLoading ? 0.5 : 1 }}
+          >
+            <Text style={{ fontSize: 20 }}>🔗</Text>
+          </Pressable>
+        </View>
       </View>
+
+      <Modal visible={editingOpen} animationType="slide" transparent onRequestClose={() => setEditingOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "center", padding: 18 }}>
+          <View style={{ backgroundColor: theme.colors.background, borderRadius: 14, padding: 14, gap: 10 }}>
+            <Text style={{ fontWeight: "800", fontSize: 16, color: theme.colors.text }}>Modifica post</Text>
+            <TextInput
+              value={editDraft}
+              onChangeText={setEditDraft}
+              multiline
+              maxLength={4000}
+              editable={!saving}
+              style={{
+                minHeight: 120,
+                borderWidth: 1,
+                borderColor: theme.colors.neutral200,
+                borderRadius: 10,
+                padding: 10,
+                color: theme.colors.text,
+                textAlignVertical: "top",
+              }}
+            />
+            <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 10 }}>
+              <Pressable onPress={() => setEditingOpen(false)} disabled={saving} style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 12 }}>
+                <Text style={{ color: theme.colors.muted, fontWeight: "700" }}>Annulla</Text>
+              </Pressable>
+              <Pressable onPress={() => void handleSubmitEdit()} disabled={saving} style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 12 }}>
+                <Text style={{ color: theme.colors.primary, fontWeight: "800" }}>{saving ? "Salvataggio…" : "Salva"}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
