@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "997683164055",
+    "project_id": "clubandplayer-e99ea",
+    "storage_bucket": "clubandplayer-e99ea.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:997683164055:android:190e887abe9ea2cd2c8ad2",
+        "android_client_info": {
+          "package_name": "com.clubandplayer.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCbKxaPRNfxmnqrByAFPNkgPBJ63wVGZe4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

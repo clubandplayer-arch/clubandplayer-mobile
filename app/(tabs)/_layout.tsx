@@ -13,6 +13,7 @@ import { fetchDirectMessagesUnreadCount, clearSession, fetchProfileMe } from "..
 import { on } from "../../src/lib/events/appEvents";
 import { useNotificationsBadgeCount } from "../../src/lib/notificationsBadge";
 import { clearAllLocallyReadNotifications } from "../../src/lib/notificationsLocalRead";
+import { disablePushForCurrentDevice } from "../../src/lib/pushNotifications";
 import { supabase } from "../../src/lib/supabase";
 import { useIsClub } from "../../src/lib/useIsClub";
 import MobileSearchOverlay from "../../src/components/search/MobileSearchOverlay";
@@ -168,6 +169,14 @@ export default function TabsLayout() {
   const onLogoutFromAvatarMenu = useCallback(async () => {
     setAvatarMenuOpen(false);
     clearAllLocallyReadNotifications();
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      await disablePushForCurrentDevice({ userId: session?.user?.id ?? null });
+    } catch {
+      // no-op: logout must continue even if push disable fails
+    }
 
     try {
       await clearSession();

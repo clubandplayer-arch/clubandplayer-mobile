@@ -28,6 +28,19 @@ export type ApiResponse<T> = {
   errorText?: string;
 };
 
+export type PushPlatform = "ios" | "android";
+
+export type PushTokenRegisterInput = {
+  token: string;
+  platform: PushPlatform;
+  device_id?: string;
+};
+
+export type PushTokenDisableInput =
+  | { token: string; device_id?: string; disable_all?: never }
+  | { device_id: string; token?: never; disable_all?: never }
+  | { disable_all: true; token?: never; device_id?: never };
+
 export type WhoamiResponse = {
   user: unknown;
   role: string | null;
@@ -615,6 +628,20 @@ export async function clearSession(): Promise<ApiResponse<{ ok: boolean; cleared
   return apiFetch<{ ok: boolean; cleared?: boolean }>("/api/auth/session", {
     method: "POST",
     body: JSON.stringify({ access_token: null, refresh_token: null }),
+  });
+}
+
+export async function registerPushToken(input: PushTokenRegisterInput): Promise<ApiResponse<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>("/api/push-tokens/register", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function disablePushToken(input: PushTokenDisableInput): Promise<ApiResponse<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>("/api/push-tokens/disable", {
+    method: "POST",
+    body: JSON.stringify(input),
   });
 }
 

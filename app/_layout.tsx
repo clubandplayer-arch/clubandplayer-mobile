@@ -6,6 +6,7 @@ import { AuthApiError, type Session } from "@supabase/supabase-js";
 import { CrashBoundary } from "../src/components/CrashBoundary";
 import { supabase } from "../src/lib/supabase";
 import { getOnboardingSeen, subscribeOnboardingSeen } from "../src/lib/onboarding";
+import { usePushNotificationsSync } from "../src/lib/pushNotifications";
 import { theme } from "../src/theme";
 
 
@@ -39,6 +40,7 @@ export default function RootLayout() {
   const [onboardingSeen, setOnboardingSeen] = useState<boolean | null>(null);
   const [bootstrapped, setBootstrapped] = useState(false);
   const lastTargetRef = useRef<string | null>(null);
+  usePushNotificationsSync(session?.user?.id ?? null);
 
   useEffect(() => {
     let mounted = true;
@@ -67,6 +69,9 @@ export default function RootLayout() {
     void init();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_evt, next) => {
+      console.log("[auth][session-changed]", {
+        userId: next?.user?.id ?? null,
+      });
       setSession(next);
       lastTargetRef.current = null;
     });
