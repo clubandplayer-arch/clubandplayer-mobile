@@ -7,6 +7,7 @@ import { CrashBoundary } from "../src/components/CrashBoundary";
 import { supabase } from "../src/lib/supabase";
 import { getOnboardingSeen, subscribeOnboardingSeen } from "../src/lib/onboarding";
 import { usePushNotificationsSync } from "../src/lib/pushNotifications";
+import { usePushNotificationTapRouting } from "../src/lib/usePushNotificationTapRouting";
 import { theme } from "../src/theme";
 
 
@@ -41,6 +42,7 @@ export default function RootLayout() {
   const [bootstrapped, setBootstrapped] = useState(false);
   const lastTargetRef = useRef<string | null>(null);
   usePushNotificationsSync(session?.user?.id ?? null);
+  usePushNotificationTapRouting(router);
 
   useEffect(() => {
     let mounted = true;
