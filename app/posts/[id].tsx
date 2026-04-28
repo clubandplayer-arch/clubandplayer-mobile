@@ -1,25 +1,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Feather } from "@expo/vector-icons";
 
 import FeedVideoPreview from "../../components/feed/FeedVideoPreview";
 import LightboxModal from "../../components/media/LightboxModal";
 import { supabase } from "../../src/lib/supabase";
 import {
   fetchCommentCountsForIds,
+  deleteFeedPost,
   fetchReactionsForIds,
   setPostReaction,
+  updateFeedPost,
   useWebSession,
   useWhoami,
 } from "../../src/lib/api";
@@ -38,6 +44,7 @@ import { theme } from "../../src/theme";
 import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayName";
 import { resolveProfileByAuthorId } from "../../src/lib/profiles/resolveProfile";
 import ProfileAvatar from "../../src/components/profiles/ProfileAvatar";
+import { isPostOwner, normalizePostContent } from "../../src/lib/feed/postOwnership";
 
 const POST_FIELDS =
   "id, content, created_at, author_id, media_url, media_type, media_aspect, kind, event_payload, quoted_post_id";
@@ -288,6 +295,10 @@ export default function PostDetailScreen() {
   });
 
   const [isToggling, setIsToggling] = useState(false);
+  const [savingPost, setSavingPost] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [editingOpen, setEditingOpen] = useState(false);
+  const [editDraft, setEditDraft] = useState("");
   const [flash, setFlash] = useState<string | null>(null);
   const [isComposerFocused, setIsComposerFocused] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -435,11 +446,70 @@ export default function PostDetailScreen() {
   const handleShare = async () => {
     if (!postId) return;
     try {
+      setShareLoading(true);
       await sharePostById(postId, setFlash);
     } catch (error: any) {
       devWarn("sharePostById failed", error);
       setFlash(error?.message ? String(error.message) : "Condivisione non disponibile");
+    } finally {
+      setShareLoading(false);
     }
+  };
+
+  const canManagePost = isPostOwner({ authorId: post?.author_id ?? null }, currentUserId);
+
+  const handleOpenEdit = () => {
+    if (!canManagePost || savingPost || !post) return;
+    setEditDraft(getPostText(post.raw));
+    setEditingOpen(true);
+  };
+
+  const handleSubmitEdit = async () => {
+    if (!postId || !post || !canManagePost || savingPost) return;
+    const content = normalizePostContent(editDraft);
+    if (!content) {
+      setFlash("Il contenuto non può essere vuoto");
+      return;
+    }
+
+    try {
+      setSavingPost(true);
+      const response = await updateFeedPost(postId, content);
+      if (!response.ok) throw new Error(response.errorText ?? `PATCH HTTP ${response.status}`);
+      setPost((prev) => (prev ? { ...prev, raw: { ...prev.raw, content } } : prev));
+      setEditingOpen(false);
+      setFlash("Post aggiornato");
+      emit("feed:refresh");
+    } catch (error: any) {
+      setFlash(error?.message ? String(error.message) : "Errore aggiornando il post");
+    } finally {
+      setSavingPost(false);
+    }
+  };
+
+  const handleDeletePost = () => {
+    if (!postId || !canManagePost || savingPost) return;
+    Alert.alert("Elimina post", "Vuoi eliminare questo post?", [
+      { text: "Annulla", style: "cancel" },
+      {
+        text: "Elimina",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            setSavingPost(true);
+            const response = await deleteFeedPost(postId);
+            if (!response.ok) throw new Error(response.errorText ?? `DELETE HTTP ${response.status}`);
+            emit("feed:refresh");
+            setFlash("Post eliminato");
+            router.replace("/(tabs)/feed");
+          } catch (error: any) {
+            setFlash(error?.message ? String(error.message) : "Errore eliminando il post");
+          } finally {
+            setSavingPost(false);
+          }
+        },
+      },
+    ]);
   };
 
   const handleCommentCountChange = (nextCount: number) => {
@@ -651,8 +721,51 @@ export default function PostDetailScreen() {
                 </Text>
               </Pressable>
 
+              {canManagePost ? (
+                <>
+                  <Pressable
+                    onPress={handleOpenEdit}
+                    disabled={savingPost || shareLoading}
+                    accessibilityRole="button"
+                    accessibilityLabel="Modifica questo post"
+                    style={{
+                      paddingVertical: 10,
+                      paddingHorizontal: 14,
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor: theme.colors.neutral200,
+                      alignSelf: "flex-start",
+                      minHeight: 40,
+                      opacity: savingPost ? 0.6 : 1,
+                    }}
+                  >
+                    <Feather name="edit-2" size={18} color={theme.colors.text} />
+                  </Pressable>
+                  <Pressable
+                    onPress={handleDeletePost}
+                    disabled={savingPost || shareLoading}
+                    accessibilityRole="button"
+                    accessibilityLabel="Elimina questo post"
+                    style={{
+                      paddingVertical: 10,
+                      paddingHorizontal: 14,
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor: theme.colors.neutral200,
+                      alignSelf: "flex-start",
+                      minHeight: 40,
+                      opacity: savingPost ? 0.6 : 1,
+                    }}
+                  >
+                    <Feather name="trash-2" size={18} color={theme.colors.text} />
+                  </Pressable>
+                </>
+              ) : null}
               <Pressable
                 onPress={handleShare}
+                disabled={savingPost || shareLoading}
+                accessibilityRole="button"
+                accessibilityLabel="Condividi questo post"
                 style={{
                   paddingVertical: 10,
                   paddingHorizontal: 14,
@@ -661,9 +774,10 @@ export default function PostDetailScreen() {
                   borderColor: theme.colors.neutral200,
                   alignSelf: "flex-start",
                   minHeight: 40,
+                  opacity: shareLoading ? 0.6 : 1,
                 }}
               >
-                <Text style={{ color: theme.colors.text, fontWeight: "700" }}>Condividi</Text>
+                <Feather name="share-2" size={18} color={theme.colors.text} />
               </Pressable>
             </View>
 
@@ -712,6 +826,38 @@ export default function PostDetailScreen() {
           }}
         />
       </ScrollView>
+
+      <Modal visible={editingOpen} animationType="slide" transparent onRequestClose={() => setEditingOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "center", padding: 24 }}>
+          <View style={{ backgroundColor: theme.colors.background, borderRadius: 14, padding: 14, gap: 10 }}>
+            <Text style={{ fontSize: 16, fontWeight: "800", color: theme.colors.text }}>Modifica post</Text>
+            <TextInput
+              value={editDraft}
+              onChangeText={setEditDraft}
+              editable={!savingPost}
+              multiline
+              maxLength={4000}
+              style={{
+                minHeight: 120,
+                borderWidth: 1,
+                borderColor: theme.colors.neutral200,
+                borderRadius: 10,
+                padding: 10,
+                color: theme.colors.text,
+                textAlignVertical: "top",
+              }}
+            />
+            <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 12 }}>
+              <Pressable onPress={() => setEditingOpen(false)} disabled={savingPost} style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 10 }}>
+                <Text style={{ color: theme.colors.muted, fontWeight: "700" }}>Annulla</Text>
+              </Pressable>
+              <Pressable onPress={() => void handleSubmitEdit()} disabled={savingPost} style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 10 }}>
+                <Text style={{ color: theme.colors.primary, fontWeight: "800" }}>{savingPost ? "Salvataggio…" : "Salva"}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
