@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Feather } from "@expo/vector-icons";
 
 import FeedVideoPreview from "../../components/feed/FeedVideoPreview";
 import LightboxModal from "../../components/media/LightboxModal";
@@ -738,7 +739,7 @@ export default function PostDetailScreen() {
                       opacity: savingPost ? 0.6 : 1,
                     }}
                   >
-                    <Text style={{ color: theme.colors.text, fontWeight: "700" }}>✏️</Text>
+                    <Feather name="edit-2" size={18} color={theme.colors.text} />
                   </Pressable>
                   <Pressable
                     onPress={handleDeletePost}
@@ -756,7 +757,7 @@ export default function PostDetailScreen() {
                       opacity: savingPost ? 0.6 : 1,
                     }}
                   >
-                    <Text style={{ color: theme.colors.text, fontWeight: "700" }}>🗑️</Text>
+                    <Feather name="trash-2" size={18} color={theme.colors.text} />
                   </Pressable>
                 </>
               ) : null}
@@ -776,7 +777,7 @@ export default function PostDetailScreen() {
                   opacity: shareLoading ? 0.6 : 1,
                 }}
               >
-                <Text style={{ color: theme.colors.text, fontWeight: "700" }}>🔗</Text>
+                <Feather name="share-2" size={18} color={theme.colors.text} />
               </Pressable>
             </View>
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Alert, Image, Modal, Pressable, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
+import { Feather } from "@expo/vector-icons";
 
 import {
   FEED_REACTION_TYPES,
@@ -457,7 +458,7 @@ export default function FeedCard({
                 accessibilityLabel="Modifica questo post"
                 style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center", opacity: saving ? 0.5 : 1 }}
               >
-                <Text style={{ fontSize: 20 }}>✏️</Text>
+                <Feather name="edit-2" size={18} color={theme.colors.text} />
               </Pressable>
               <Pressable
                 onPress={handleDelete}
@@ -466,7 +467,7 @@ export default function FeedCard({
                 accessibilityLabel="Elimina questo post"
                 style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center", opacity: saving ? 0.5 : 1 }}
               >
-                <Text style={{ fontSize: 20 }}>🗑️</Text>
+                <Feather name="trash-2" size={18} color={theme.colors.text} />
               </Pressable>
             </>
           ) : null}
@@ -477,7 +478,7 @@ export default function FeedCard({
             accessibilityLabel="Condividi questo post"
             style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center", opacity: shareLoading ? 0.5 : 1 }}
           >
-            <Text style={{ fontSize: 20 }}>🔗</Text>
+            <Feather name="share-2" size={18} color={theme.colors.text} />
           </Pressable>
         </View>
       </View>
