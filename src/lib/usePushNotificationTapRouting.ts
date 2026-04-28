@@ -1,6 +1,28 @@
-import * as Notifications from "expo-notifications";
 import type { Router } from "expo-router";
 import { useEffect, useRef } from "react";
+
+type NotificationResponse = {
+  actionIdentifier?: string;
+  notification: {
+    request: {
+      identifier?: string;
+      content: {
+        data?: Record<string, unknown>;
+      };
+    };
+  };
+};
+
+type NotificationSubscription = {
+  remove: () => void;
+};
+
+type NotificationsModule = {
+  addNotificationResponseReceivedListener: (
+    listener: (response: NotificationResponse) => void,
+  ) => NotificationSubscription;
+  getLastNotificationResponseAsync: () => Promise<NotificationResponse | null>;
+};
 
 function normalizeDataValue(value: unknown): string {
   if (typeof value === "string") return value.trim();
@@ -8,21 +30,21 @@ function normalizeDataValue(value: unknown): string {
   return "";
 }
 
-function extractTapTargetProfileId(response: Notifications.NotificationResponse): string {
+function extractTapTargetProfileId(response: NotificationResponse): string {
   const data = response.notification.request.content.data ?? {};
-  const kind = normalizeDataValue((data as Record<string, unknown>).kind);
+  const kind = normalizeDataValue(data.kind);
   if (kind !== "message") return "";
 
-  const senderProfileId = normalizeDataValue((data as Record<string, unknown>).sender_profile_id);
+  const senderProfileId = normalizeDataValue(data.sender_profile_id);
   if (senderProfileId) return senderProfileId;
 
-  const threadId = normalizeDataValue((data as Record<string, unknown>).thread_id);
+  const threadId = normalizeDataValue(data.thread_id);
   return threadId;
 }
 
-function getResponseKey(response: Notifications.NotificationResponse): string {
-  const notificationIdentifier = response.notification.request.identifier;
-  const actionIdentifier = response.actionIdentifier;
+function getResponseKey(response: NotificationResponse): string {
+  const notificationIdentifier = normalizeDataValue(response.notification.request.identifier);
+  const actionIdentifier = normalizeDataValue(response.actionIdentifier);
   return `${notificationIdentifier}:${actionIdentifier}`;
 }
 
@@ -32,14 +54,15 @@ export function usePushNotificationTapRouting(router: Router) {
 
   useEffect(() => {
     let active = true;
+    let responseListener: NotificationSubscription | null = null;
 
-    const handleTapResponse = (response: Notifications.NotificationResponse) => {
+    const handleTapResponse = (response: NotificationResponse) => {
       const key = getResponseKey(response);
       if (handledResponseKeysRef.current.has(key)) return;
       handledResponseKeysRef.current.add(key);
 
       const data = response.notification.request.content.data ?? {};
-      const kind = normalizeDataValue((data as Record<string, unknown>).kind);
+      const kind = normalizeDataValue(data.kind);
       if (kind !== "message") return;
 
       const profileId = extractTapTargetProfileId(response);
@@ -57,12 +80,30 @@ export function usePushNotificationTapRouting(router: Router) {
       router.push(`/(tabs)/messages/${encodeURIComponent(profileId)}` as never);
     };
 
-    const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
-      if (!active) return;
-      handleTapResponse(response);
-    });
-
     void (async () => {
+      let Notifications: NotificationsModule;
+      try {
+        const dynamicImport = new Function("moduleName", "return import(moduleName);") as (
+          moduleName: string,
+        ) => Promise<unknown>;
+        const module = await dynamicImport("expo-notifications");
+        Notifications = module as NotificationsModule;
+      } catch (error) {
+        if (__DEV__) {
+          console.log("[push][tap][notifications-unavailable]", {
+            message: error instanceof Error ? error.message : String(error ?? "unknown_error"),
+          });
+        }
+        return;
+      }
+
+      if (!active) return;
+
+      responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
+        if (!active) return;
+        handleTapResponse(response);
+      });
+
       if (coldStartHandledRef.current) return;
       coldStartHandledRef.current = true;
 
@@ -73,7 +114,8 @@ export function usePushNotificationTapRouting(router: Router) {
 
     return () => {
       active = false;
-      responseListener.remove();
+      responseListener?.remove();
+      responseListener = null;
     };
   }, [router]);
 }
