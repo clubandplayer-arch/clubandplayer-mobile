@@ -42,6 +42,15 @@ type NotificationItem = {
   actor_profile_id?: string | null;
   actor?: NotificationActor | null;
 };
+type NotificationGroupItem = {
+  id: string;
+  items: NotificationItem[];
+  kind: string;
+  actorName: string;
+  actorAvatarUrl?: string | null;
+  postId: string | null;
+  createdAt: string;
+};
 
 const isChatMessageKind = (kind?: string | null) => kind === "message" || kind === "new_message";
 
@@ -158,6 +167,65 @@ function getNotificationCopy(item: NotificationItem): string {
   });
   const copy = buildPushCopy(normalizedPayload);
   return copy.title ?? copy.body ?? getNotificationMessage(item.kind);
+}
+
+function isGroupableKind(kind: string): boolean {
+  return kind === "reaction" || kind === "new_reaction" || kind === "like" || kind === "comment" || kind === "new_comment";
+}
+
+function groupNotificationsForDisplay(items: NotificationItem[]): NotificationGroupItem[] {
+  const windowMs = 1000 * 60 * 8;
+  const groups: NotificationGroupItem[] = [];
+  for (const item of items) {
+    const normalizedPayload = normalizePushPayload({
+      ...(item.payload ?? {}),
+      kind: item.kind,
+      actor_profile_id: item.actor_profile_id ?? null,
+    });
+    const kind = String(item.kind ?? "").trim().toLowerCase();
+    const isGroupable = isGroupableKind(kind);
+    const postId = normalizedPayload.postId ?? (normalizedPayload.targetType === "post" ? normalizedPayload.targetId : null);
+    const createdAtMs = new Date(item.created_at).getTime();
+    const actorName = getActorName(item);
+    const normalizedId = normalizeNotificationId(item.id);
+
+    if (isGroupable && postId) {
+      const existing = groups.find((group) => {
+        if (!isGroupableKind(group.kind)) return false;
+        if (group.postId !== postId) return false;
+        const headMs = new Date(group.createdAt).getTime();
+        if (!Number.isFinite(headMs) || !Number.isFinite(createdAtMs)) return false;
+        return Math.abs(headMs - createdAtMs) <= windowMs;
+      });
+      if (existing) {
+        existing.items.push(item);
+        continue;
+      }
+    }
+
+    groups.push({
+      id: normalizedId,
+      items: [item],
+      kind,
+      actorName,
+      actorAvatarUrl: item.actor?.avatar_url ?? null,
+      postId,
+      createdAt: item.created_at,
+    });
+  }
+  return groups;
+}
+
+function getGroupedCopy(group: NotificationGroupItem): string {
+  if (group.items.length <= 1) return getNotificationCopy(group.items[0]);
+  const others = group.items.length - 1;
+  if (group.kind === "reaction" || group.kind === "new_reaction" || group.kind === "like") {
+    return `${group.actorName} e altri ${others} hanno reagito al tuo post`;
+  }
+  if (group.kind === "comment" || group.kind === "new_comment") {
+    return `${group.actorName} e altri ${others} hanno commentato il tuo post`;
+  }
+  return getNotificationCopy(group.items[0]);
 }
 
 function getInitial(name: string): string {
@@ -309,8 +377,9 @@ export default function NotificationsScreen() {
   }
 
   const filteredNotifications = notifications.filter((n) => !isChatMessageKind(n.kind));
+  const groupedNotifications = groupNotificationsForDisplay(filteredNotifications);
 
-  if (!filteredNotifications.length) {
+  if (!groupedNotifications.length) {
     return (
       <View style={{ flex: 1, padding: 16 }}>
         <Text style={{ color: theme.colors.text, fontWeight: "700", marginBottom: 8 }}>Notifiche</Text>
@@ -321,34 +390,40 @@ export default function NotificationsScreen() {
 
   return (
     <FlatList
-      data={filteredNotifications}
-      keyExtractor={(item) => normalizeNotificationId(item.id)}
-      renderItem={({ item }) => {
-        const name = getActorName(item);
-        const unread = !isReadNotification(item);
+      data={groupedNotifications}
+      keyExtractor={(group) => group.id}
+      renderItem={({ item: group }) => {
+        const primary = group.items[0];
+        const name = group.actorName;
+        const unread = group.items.some((entry) => !isReadNotification(entry));
+        const groupIds = group.items.map((entry) => normalizeNotificationId(entry.id));
 
         return (
           <Pressable
             onPress={async () => {
               if (__DEV__) {
-                const normalizedId = normalizeNotificationId(item.id);
                 console.log("[TEMP DEBUG][notifications][tap]", {
-                  id: normalizedId,
-                  idType: typeof item.id,
-                  kind: item.kind,
+                  groupId: group.id,
+                  ids: groupIds,
+                  kind: primary.kind,
                 });
               }
 
               if (unread) {
-                markAsReadOptimistic(item.id);
-                const ok = await markAsRead(item.id);
+                for (const id of groupIds) markAsReadOptimistic(id);
+                const ok = await markAsRead(groupIds[0]);
+                if (groupIds.length > 1) {
+                  const res = await patchNotificationsMarkRead({ ids: groupIds });
+                  if (!res.ok) console.log("[notifications][mark-read][group-error]", { ids: groupIds, status: res.status });
+                }
                 if (!ok) await load();
               }
 
               const normalizedPayload = normalizePushPayload({
-                ...(item.payload ?? {}),
-                kind: item.kind,
-                actor_profile_id: item.actor_profile_id ?? null,
+                ...(primary.payload ?? {}),
+                kind: primary.kind,
+                actor_profile_id: primary.actor_profile_id ?? null,
+                postId: group.postId,
               });
               const targetRoute = resolvePushTargetRoute(normalizedPayload, "/(tabs)/notifications");
               router.push(targetRoute as never);
@@ -363,13 +438,13 @@ export default function NotificationsScreen() {
               backgroundColor: unread ? theme.colors.neutral100 : "transparent",
             }}
           >
-            <Avatar name={name} avatarUrl={item.actor?.avatar_url} />
+            <Avatar name={name} avatarUrl={group.actorAvatarUrl} />
 
             <View style={{ flex: 1 }}>
               <Text style={{ color: theme.colors.text, fontWeight: unread ? "600" : "500" }}>{name}</Text>
-              <Text style={{ color: theme.colors.text, marginTop: 2 }}>{getNotificationCopy(item)}</Text>
+              <Text style={{ color: theme.colors.text, marginTop: 2 }}>{getGroupedCopy(group)}</Text>
               <Text style={{ color: theme.colors.muted, marginTop: 6, fontSize: 12 }}>
-                {new Date(item.created_at).toLocaleString()}
+                {new Date(group.createdAt).toLocaleString()}
               </Text>
             </View>
 
