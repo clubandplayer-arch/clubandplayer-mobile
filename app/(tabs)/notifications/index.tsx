@@ -12,7 +12,7 @@ import {
   unmarkNotificationLocallyRead,
 } from "../../../src/lib/notificationsLocalRead";
 import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
-import { normalizePushPayload, resolvePushTargetRoute } from "../../../src/lib/pushPayload";
+import { buildPushCopy, normalizePushPayload, resolvePushTargetRoute } from "../../../src/lib/pushPayload";
 import { theme } from "../../../src/theme";
 import { useRouter } from "expo-router";
 
@@ -147,6 +147,17 @@ function getNotificationMessage(kind: string): string {
     default:
       return "nuova notifica";
   }
+}
+
+function getNotificationCopy(item: NotificationItem): string {
+  const normalizedPayload = normalizePushPayload({
+    ...(item.payload ?? {}),
+    kind: item.kind,
+    actor_profile_id: item.actor_profile_id ?? null,
+    actorName: getActorName(item),
+  });
+  const copy = buildPushCopy(normalizedPayload);
+  return copy.title ?? copy.body ?? getNotificationMessage(item.kind);
 }
 
 function getInitial(name: string): string {
@@ -356,7 +367,7 @@ export default function NotificationsScreen() {
 
             <View style={{ flex: 1 }}>
               <Text style={{ color: theme.colors.text, fontWeight: unread ? "600" : "500" }}>{name}</Text>
-              <Text style={{ color: theme.colors.text, marginTop: 2 }}>{getNotificationMessage(item.kind)}</Text>
+              <Text style={{ color: theme.colors.text, marginTop: 2 }}>{getNotificationCopy(item)}</Text>
               <Text style={{ color: theme.colors.muted, marginTop: 6, fontSize: 12 }}>
                 {new Date(item.created_at).toLocaleString()}
               </Text>
