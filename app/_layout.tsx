@@ -43,26 +43,23 @@ export default function RootLayout() {
   const [bootstrapped, setBootstrapped] = useState(false);
   const lastTargetRef = useRef<string | null>(null);
   const lastPushRouteRef = useRef<string | null>(null);
+  const pendingPushRouteRef = useRef<string | null>(null);
   usePushNotificationsSync(session?.user?.id ?? null);
 
   useEffect(() => {
-    let active = true;
-
     const handlePushResponse = (response: Notifications.NotificationResponse | null) => {
-      if (!active || !response) return;
+      if (!response) return;
       try {
         const raw = response.notification.request.content.data ?? {};
         const normalizedPayload = normalizePushPayload(raw);
         const targetRoute = resolvePushTargetRoute(normalizedPayload, "/(tabs)/notifications");
         if (!targetRoute) return;
         if (lastPushRouteRef.current === targetRoute) return;
-        lastPushRouteRef.current = targetRoute;
-        router.push(targetRoute as any);
+        pendingPushRouteRef.current = targetRoute;
       } catch (error) {
         console.log("[push][tap][safe-fallback]", {
           message: error instanceof Error ? error.message : String(error ?? "unknown_error"),
         });
-        router.push("/(tabs)/notifications" as any);
       }
     };
 
@@ -70,15 +67,41 @@ export default function RootLayout() {
       handlePushResponse(response);
     });
 
-    void Notifications.getLastNotificationResponseAsync().then((response) => {
-      handlePushResponse(response);
-    });
-
     return () => {
-      active = false;
       responseSub.remove();
     };
-  }, [router]);
+  }, []);
+
+  useEffect(() => {
+    if (!bootstrapped || onboardingSeen === null) return;
+    let cancelled = false;
+    const timeout = setTimeout(() => {
+      if (cancelled) return;
+      void Notifications.getLastNotificationResponseAsync()
+        .then((response) => {
+          if (cancelled || !response) return;
+          try {
+            const raw = response.notification.request.content.data ?? {};
+            const normalizedPayload = normalizePushPayload(raw);
+            const targetRoute = resolvePushTargetRoute(normalizedPayload, "/(tabs)/notifications");
+            if (targetRoute) pendingPushRouteRef.current = targetRoute;
+          } catch (error) {
+            console.log("[push][last-response][safe-fallback]", {
+              message: error instanceof Error ? error.message : String(error ?? "unknown_error"),
+            });
+          }
+        })
+        .catch((error) => {
+          console.log("[push][last-response][error]", {
+            message: error instanceof Error ? error.message : String(error ?? "unknown_error"),
+          });
+        });
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [bootstrapped, onboardingSeen]);
 
   useEffect(() => {
     let mounted = true;
@@ -158,6 +181,18 @@ export default function RootLayout() {
     if (!onboardingSeen) return "/(onboarding)";
     return "/(auth)/login";
   }, [bootstrapped, onboardingSeen, pathname, segments, session]);
+
+  useEffect(() => {
+    if (!bootstrapped || onboardingSeen === null) return;
+    if (!session) return;
+    if (redirectTarget) return;
+    const nextRoute = pendingPushRouteRef.current;
+    if (!nextRoute) return;
+    if (lastPushRouteRef.current === nextRoute) return;
+    lastPushRouteRef.current = nextRoute;
+    pendingPushRouteRef.current = null;
+    router.push(nextRoute as any);
+  }, [bootstrapped, onboardingSeen, redirectTarget, router, session]);
 
   useEffect(() => {
     if (!redirectTarget) {
