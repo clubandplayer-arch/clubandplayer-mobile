@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { AppState, type AppStateStatus, Platform } from "react-native";
 import { useEffect, useRef } from "react";
@@ -9,6 +10,15 @@ const STORAGE_LAST_TOKEN_KEY = "push:last-token";
 const STORAGE_LAST_REGISTER_AT_KEY = "push:last-register-at";
 const REGISTER_DEBOUNCE_MS = 4_000;
 const REGISTER_RETRY_DELAYS_MS = [1_000, 2_500, 5_000] as const;
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  }),
+});
 
 function isExpoPushToken(value: string): boolean {
   const v = value.trim();
@@ -36,6 +46,16 @@ async function withRetry(task: () => Promise<boolean>): Promise<boolean> {
     if (await task()) return true;
   }
   return false;
+}
+
+function resolveExpoProjectId(): string | undefined {
+  const fromExpoConfig = Constants.expoConfig?.extra?.eas?.projectId;
+  if (typeof fromExpoConfig === "string" && fromExpoConfig.trim().length > 0) return fromExpoConfig.trim();
+
+  const fromEasConfig = Constants.easConfig?.projectId;
+  if (typeof fromEasConfig === "string" && fromEasConfig.trim().length > 0) return fromEasConfig.trim();
+
+  return undefined;
 }
 
 export function usePushNotificationsSync(userId: string | null) {
@@ -88,7 +108,9 @@ export function usePushNotificationsSync(userId: string | null) {
 
       let token = "";
       try {
-        const tokenResult = await Notifications.getExpoPushTokenAsync();
+        const tokenResult = await Notifications.getExpoPushTokenAsync({
+          projectId: resolveExpoProjectId(),
+        });
         token = String(tokenResult.data ?? "").trim();
         console.log("[push][token][success]", {
           userId,
