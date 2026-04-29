@@ -2,11 +2,13 @@ import { Stack, usePathname, useRouter, useSegments } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useFonts } from "expo-font";
+import * as Notifications from "expo-notifications";
 import { AuthApiError, type Session } from "@supabase/supabase-js";
 import { CrashBoundary } from "../src/components/CrashBoundary";
 import { supabase } from "../src/lib/supabase";
 import { getOnboardingSeen, subscribeOnboardingSeen } from "../src/lib/onboarding";
 import { usePushNotificationsSync } from "../src/lib/pushNotifications";
+import { normalizePushPayload, resolvePushTargetRoute } from "../src/lib/pushPayload";
 import { theme } from "../src/theme";
 
 
@@ -40,7 +42,43 @@ export default function RootLayout() {
   const [onboardingSeen, setOnboardingSeen] = useState<boolean | null>(null);
   const [bootstrapped, setBootstrapped] = useState(false);
   const lastTargetRef = useRef<string | null>(null);
+  const lastPushRouteRef = useRef<string | null>(null);
   usePushNotificationsSync(session?.user?.id ?? null);
+
+  useEffect(() => {
+    let active = true;
+
+    const handlePushResponse = (response: Notifications.NotificationResponse | null) => {
+      if (!active || !response) return;
+      try {
+        const raw = response.notification.request.content.data ?? {};
+        const normalizedPayload = normalizePushPayload(raw);
+        const targetRoute = resolvePushTargetRoute(normalizedPayload, "/(tabs)/notifications");
+        if (!targetRoute) return;
+        if (lastPushRouteRef.current === targetRoute) return;
+        lastPushRouteRef.current = targetRoute;
+        router.push(targetRoute as any);
+      } catch (error) {
+        console.log("[push][tap][safe-fallback]", {
+          message: error instanceof Error ? error.message : String(error ?? "unknown_error"),
+        });
+        router.push("/(tabs)/notifications" as any);
+      }
+    };
+
+    const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
+      handlePushResponse(response);
+    });
+
+    void Notifications.getLastNotificationResponseAsync().then((response) => {
+      handlePushResponse(response);
+    });
+
+    return () => {
+      active = false;
+      responseSub.remove();
+    };
+  }, [router]);
 
   useEffect(() => {
     let mounted = true;

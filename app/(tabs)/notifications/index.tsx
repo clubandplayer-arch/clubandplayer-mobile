@@ -12,6 +12,7 @@ import {
   unmarkNotificationLocallyRead,
 } from "../../../src/lib/notificationsLocalRead";
 import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDisplayName";
+import { normalizePushPayload, resolvePushTargetRoute } from "../../../src/lib/pushPayload";
 import { theme } from "../../../src/theme";
 import { useRouter } from "expo-router";
 
@@ -40,11 +41,6 @@ type NotificationItem = {
   read_at?: string | null;
   actor_profile_id?: string | null;
   actor?: NotificationActor | null;
-};
-
-type NotificationTapResolution = {
-  targetRoute: string | null;
-  blockedReason?: string;
 };
 
 const isChatMessageKind = (kind?: string | null) => kind === "message" || kind === "new_message";
@@ -157,107 +153,6 @@ function getInitial(name: string): string {
   const trimmed = name.trim();
   if (!trimmed) return "U";
   return trimmed.charAt(0).toUpperCase();
-}
-
-function getPayloadId(payload: Record<string, unknown>, keys: string[]): string | null {
-  for (const key of keys) {
-    const raw = payload[key];
-    const value = typeof raw === "string" ? raw.trim() : typeof raw === "number" ? String(raw).trim() : "";
-    if (value) return value;
-  }
-  return null;
-}
-
-function resolveNotificationTarget(item: NotificationItem): NotificationTapResolution {
-  const payload = (item.payload ?? {}) as Record<string, unknown>;
-  const kind = String(item.kind ?? "").trim().toLowerCase();
-
-  if (kind === "message" || kind === "new_message") {
-    const profileId =
-      getPayloadId(payload, [
-        "profile_id",
-        "other_profile_id",
-        "sender_profile_id",
-        "recipient_profile_id",
-        "actor_profile_id",
-      ]) ??
-      (typeof item.actor_profile_id === "string" && item.actor_profile_id.trim().length > 0 ? item.actor_profile_id : null);
-
-    if (profileId) {
-      return { targetRoute: `/(tabs)/messages/${encodeURIComponent(profileId)}` };
-    }
-
-    return {
-      targetRoute: "/(tabs)/messages",
-      blockedReason: "missing_profile_id_in_message_payload",
-    };
-  }
-
-  if (kind === "comment" || kind === "new_comment" || kind === "reaction" || kind === "new_reaction") {
-    const postId = getPayloadId(payload, ["post_id", "postId", "target_post_id"]);
-    if (postId) return { targetRoute: `/posts/${encodeURIComponent(postId)}` };
-
-    return {
-      targetRoute: null,
-      blockedReason: "missing_post_id_in_notification_payload",
-    };
-  }
-
-  if (kind === "follow" || kind === "follower") {
-    const profileId = getPayloadId(payload, ["profile_id", "target_profile_id", "follower_profile_id", "actor_profile_id"]);
-    if (profileId) {
-      return { targetRoute: `/profiles/${profileId}` };
-    }
-
-    if (typeof item.actor_profile_id === "string" && item.actor_profile_id.trim().length > 0) {
-      return { targetRoute: `/profiles/${item.actor_profile_id}` };
-    }
-
-    return {
-      targetRoute: null,
-      blockedReason: "missing_profile_id_in_follow_notification_payload",
-    };
-  }
-
-  if (kind === "new_opportunity") {
-    const opportunityId = getPayloadId(payload, ["opportunity_id", "id", "opportunityId"]);
-    if (opportunityId) {
-      return { targetRoute: `/opportunities/${encodeURIComponent(opportunityId)}` };
-    }
-
-    return {
-      targetRoute: null,
-      blockedReason: "missing_opportunity_id_in_new_opportunity_payload",
-    };
-  }
-
-  if (kind === "application_received" || kind === "new_application_received") {
-    const opportunityId = getPayloadId(payload, ["opportunity_id"]);
-    if (opportunityId) {
-      return { targetRoute: `/club/applications?opportunity_id=${encodeURIComponent(opportunityId)}` };
-    }
-
-    return { targetRoute: "/club/applications" };
-  }
-
-  if (kind === "application_status" || kind === "application_status_changed") {
-    const applicationId = getPayloadId(payload, ["application_id", "id"]);
-    const opportunityId = getPayloadId(payload, ["opportunity_id"]);
-    const status = getPayloadId(payload, ["status", "application_status"]);
-
-    const query = new URLSearchParams();
-    if (applicationId) query.set("application_id", applicationId);
-    if (opportunityId) query.set("opportunity_id", opportunityId);
-    if (status) query.set("status", status);
-
-    const queryString = query.toString();
-    return { targetRoute: queryString ? `/my/applications?${queryString}` : "/my/applications" };
-  }
-
-  return {
-    targetRoute: null,
-    blockedReason: "kind_not_mapped_to_mobile_destination",
-  };
 }
 
 function Avatar({ name, avatarUrl }: { name: string; avatarUrl?: string | null }) {
@@ -439,18 +334,13 @@ export default function NotificationsScreen() {
                 if (!ok) await load();
               }
 
-              const resolution = resolveNotificationTarget(item);
-              if (resolution.targetRoute) {
-                router.push(resolution.targetRoute as never);
-                return;
-              }
-
-              console.log("[notifications][deep-link][blocked]", {
-                id: item.id,
+              const normalizedPayload = normalizePushPayload({
+                ...(item.payload ?? {}),
                 kind: item.kind,
-                reason: resolution.blockedReason,
-                payload: item.payload ?? null,
+                actor_profile_id: item.actor_profile_id ?? null,
               });
+              const targetRoute = resolvePushTargetRoute(normalizedPayload, "/(tabs)/notifications");
+              router.push(targetRoute as never);
             }}
             style={{
               flexDirection: "row",
