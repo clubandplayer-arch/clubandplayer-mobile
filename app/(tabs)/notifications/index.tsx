@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
@@ -266,6 +266,11 @@ export default function NotificationsScreen() {
   const [errorText, setErrorText] = useState<string | null>(null);
   const router = useRouter();
 
+  useEffect(() => {
+    setNotificationsBadgeCount(countUnreadNotifications(notifications));
+    emit("app:notifications-updated");
+  }, [notifications]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setErrorText(null);
@@ -285,8 +290,6 @@ export default function NotificationsScreen() {
 
 
     setNotifications(mergedItems);
-    setNotificationsBadgeCount(countUnreadNotifications(mergedItems));
-    emit("app:notifications-updated");
     setLoading(false);
   }, []);
 
@@ -326,9 +329,6 @@ export default function NotificationsScreen() {
           read_at: nowIso,
         };
       });
-
-      setNotificationsBadgeCount(countUnreadNotifications(next));
-      emit("app:notifications-updated");
       return next;
     });
   }, []);
