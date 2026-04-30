@@ -13,7 +13,7 @@ import * as Linking from "expo-linking";
 import { Link, useRouter } from "expo-router";
 
 import { LocationFields } from "../components/profiles/LocationFields";
-import { clearSession, fetchProfileMe, patchProfileMe, type ProfileMe, useWebSession } from "../src/lib/api";
+import { clearSession, deleteAccount, fetchProfileMe, patchProfileMe, type ProfileMe, useWebSession } from "../src/lib/api";
 import { normalizeAccountType, profileCanonicalHref } from "../src/lib/nav/profileLinks";
 import { supabase } from "../src/lib/supabase";
 import { theme } from "../src/theme";
@@ -58,6 +58,8 @@ export default function SettingsScreen() {
   const [interestCountry, setInterestCountry] = useState("IT");
   const [interest, setInterest] = useState<LocationValue>(emptyLocation());
   const [notifyEmail, setNotifyEmail] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
@@ -132,6 +134,61 @@ export default function SettingsScreen() {
 
     setSuccessMessage("Impostazioni aggiornate");
   }, [interest.city_label, interest.municipality_id, interest.province_id, interest.province_label, interest.region_id, interest.region_label, interestCountry, notifyEmail]);
+
+  const canDeleteAccount = deleteConfirmText.trim().toUpperCase() === "ELIMINA";
+
+  const runDeleteAccount = useCallback(async () => {
+    if (!canDeleteAccount || deletingAccount) return;
+
+    setDeletingAccount(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    const response = await deleteAccount();
+
+    if (!response.ok) {
+      setDeletingAccount(false);
+      const message = response.errorText ?? "Eliminazione account non riuscita. Riprova più tardi.";
+      setError(message);
+      Alert.alert("Errore", message);
+      return;
+    }
+
+    try {
+      await clearSession();
+    } catch {
+      // no-op
+    }
+
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // no-op
+    }
+
+    setDeletingAccount(false);
+    Alert.alert("Account eliminato", "Il tuo account Club & Player è stato eliminato.");
+    router.replace("/(auth)/login");
+  }, [canDeleteAccount, deletingAccount, router]);
+
+  const onDeleteAccountPress = useCallback(() => {
+    if (!canDeleteAccount || deletingAccount) return;
+
+    Alert.alert(
+      "Conferma eliminazione",
+      "Vuoi eliminare definitivamente il tuo account Club & Player?",
+      [
+        { text: "Annulla", style: "cancel" },
+        {
+          text: "Elimina account",
+          style: "destructive",
+          onPress: () => {
+            void runDeleteAccount();
+          },
+        },
+      ],
+    );
+  }, [canDeleteAccount, deletingAccount, runDeleteAccount]);
 
   const onLogout = useCallback(async () => {
     try {
@@ -240,6 +297,37 @@ export default function SettingsScreen() {
           style={{ borderWidth: 1, borderColor: theme.colors.danger, borderRadius: 10, paddingVertical: 12, alignItems: "center" }}
         >
           <Text style={{ color: theme.colors.danger, fontWeight: "700" }}>Logout</Text>
+        </Pressable>
+      </View>
+
+
+      <View style={{ borderWidth: 1, borderColor: theme.colors.danger, borderRadius: 12, padding: 16, gap: 10 }}>
+        <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.danger }}>Zona pericolosa</Text>
+        <Text style={{ color: theme.colors.muted }}>
+          L'eliminazione dell'account è irreversibile: perderai profilo, dati e accesso in modo definitivo.
+        </Text>
+        <Text style={{ fontWeight: "600" }}>Digita ELIMINA per confermare</Text>
+        <TextInput
+          placeholder="ELIMINA"
+          autoCapitalize="characters"
+          value={deleteConfirmText}
+          onChangeText={setDeleteConfirmText}
+          editable={!deletingAccount}
+          style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 8, padding: 10 }}
+        />
+        <Pressable
+          onPress={() => void onDeleteAccountPress()}
+          disabled={!canDeleteAccount || deletingAccount}
+          style={{
+            backgroundColor: !canDeleteAccount || deletingAccount ? theme.colors.muted : theme.colors.danger,
+            borderRadius: 10,
+            paddingVertical: 12,
+            alignItems: "center",
+          }}
+        >
+          <Text style={{ color: theme.colors.background, fontWeight: "700" }}>
+            {deletingAccount ? "Eliminazione..." : "Elimina account"}
+          </Text>
         </Pressable>
       </View>
 

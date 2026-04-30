@@ -631,6 +631,13 @@ export async function clearSession(): Promise<ApiResponse<{ ok: boolean; cleared
   });
 }
 
+
+export async function deleteAccount(): Promise<ApiResponse<{ ok?: boolean }>> {
+  return apiFetch<{ ok?: boolean }>("/api/account/delete", {
+    method: "DELETE",
+  });
+}
+
 export async function registerPushToken(input: PushTokenRegisterInput): Promise<ApiResponse<{ ok: boolean }>> {
   return apiFetch<{ ok: boolean }>("/api/push-tokens/register", {
     method: "POST",
