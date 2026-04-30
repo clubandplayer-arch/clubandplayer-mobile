@@ -358,6 +358,7 @@ export default function TabsLayout() {
 
       {/* TABS CONTENT */}
       <Tabs
+        initialRouteName="feed/index"
         screenOptions={{
           headerShown: false,
           tabBarHideOnKeyboard: true,
