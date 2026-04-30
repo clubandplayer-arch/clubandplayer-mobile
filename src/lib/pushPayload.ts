@@ -100,6 +100,12 @@ export function buildPushCopy(payload: PushPayload): { title: string | null; bod
 
 export function resolvePushTargetRoute(payload: PushPayload, fallbackRoute: string = "/(tabs)/notifications"): string {
   const kind = String(payload.kind ?? payload.type ?? "").trim().toLowerCase();
+  const targetType = String(payload.targetType ?? "").trim().toLowerCase();
+  const directPostId = payload.postId ?? (targetType === "post" ? payload.targetId : null);
+
+  if (targetType === "post" && directPostId) {
+    return `/posts/${encodeURIComponent(directPostId)}`;
+  }
 
   if (kind === "message" || kind === "new_message" || kind === "dm") {
     if (payload.profileId) return `/(tabs)/messages/${encodeURIComponent(payload.profileId)}`;
@@ -107,7 +113,7 @@ export function resolvePushTargetRoute(payload: PushPayload, fallbackRoute: stri
   }
 
   if (kind === "comment" || kind === "new_comment" || kind === "reaction" || kind === "new_reaction" || kind === "like") {
-    const postId = payload.postId ?? (payload.targetType === "post" ? payload.targetId : null);
+    const postId = directPostId;
     if (postId) return `/posts/${encodeURIComponent(postId)}`;
     return fallbackRoute;
   }
