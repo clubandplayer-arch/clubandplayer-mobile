@@ -57,7 +57,7 @@ export function normalizePushPayload(input: unknown): PushPayload {
     applicationId: pickString(raw, ["applicationId", "application_id"]),
     actorName: pickString(raw, ["actorName", "actor_name"]),
     createdAt: pickString(raw, ["createdAt", "created_at"]),
-    profileId: pickString(raw, ["profile_id", "other_profile_id", "sender_profile_id", "recipient_profile_id", "actor_profile_id"]),
+    profileId: pickString(raw, ["profile_id", "other_profile_id", "sender_profile_id", "recipient_profile_id", "actor_profile_id", "followerProfileId", "follower_profile_id", "actorProfileId"]),
     status: pickString(raw, ["status", "application_status"]),
     priority: computedPriority,
     raw,
@@ -83,6 +83,9 @@ export function buildPushCopy(payload: PushPayload): { title: string | null; bod
   }
   if (kind === "reaction" || kind === "new_reaction" || kind === "like") {
     return { title: `${actor} ha reagito al tuo post`, body: null };
+  }
+  if (kind === "follower" || kind === "follow" || kind === "new_follower") {
+    return { title: `${actor} ha iniziato a seguirti`, body: null };
   }
   if (kind === "application_received" || kind === "new_application_received") {
     return { title: "Hai ricevuto una nuova candidatura", body: null };
@@ -118,6 +121,11 @@ export function resolvePushTargetRoute(payload: PushPayload, fallbackRoute: stri
     return fallbackRoute;
   }
 
+
+  if (kind === "follower" || kind === "follow" || kind === "new_follower") {
+    if (payload.profileId) return `/profile/${encodeURIComponent(payload.profileId)}`;
+    return fallbackRoute;
+  }
   if (kind === "new_opportunity") {
     if (payload.opportunityId) return `/opportunities/${encodeURIComponent(payload.opportunityId)}`;
     return fallbackRoute;
