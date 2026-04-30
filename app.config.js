@@ -3,7 +3,7 @@ const config = {
   name: "Club & Player",
   slug: "clubandplayer",
   scheme: "clubandplayer",
-  version: "2.0.7",
+  version: "3.0.0",
   orientation: "portrait",
   userInterfaceStyle: "automatic",
 
@@ -17,12 +17,13 @@ const config = {
   ios: {
     supportsTablet: false,
     bundleIdentifier: "com.clubandplayer.app",
+    buildNumber: "40",
   },
 
   android: {
     package: "com.clubandplayer.app",
     googleServicesFile: "./google-services.json",
-    versionCode: 36,
+    versionCode: 40,
     intentFilters: [
       {
         action: "VIEW",
