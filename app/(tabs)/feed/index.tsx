@@ -159,6 +159,16 @@ export default function FeedScreen() {
     setItems((prev) => prev.filter((row) => row.id !== postId));
   }, []);
 
+  const removeAuthorPostsFromFeed = useCallback((authorProfileId: string) => {
+    setItems((prev) =>
+      prev.filter((row) => {
+        const raw = (row.raw as any) ?? {};
+        const rowAuthorId = raw?.author_profile?.id ?? raw?.author_profile_id ?? raw?.authorId ?? raw?.author_id ?? null;
+        return rowAuthorId !== authorProfileId;
+      }),
+    );
+  }, []);
+
   const onLogout = async () => {
     try {
       await clearSession();
@@ -369,6 +379,7 @@ export default function FeedScreen() {
             currentUserId={currentUserId}
             onPatchPost={patchPostInFeed}
             onRemovePost={removePostFromFeed}
+            onBlockAuthor={removeAuthorPostsFromFeed}
           />
         );
       }}

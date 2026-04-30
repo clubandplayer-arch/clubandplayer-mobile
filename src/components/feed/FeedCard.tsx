@@ -18,7 +18,7 @@ import LightboxModal from "../../../components/media/LightboxModal";
 import { sharePostById } from "../../lib/sharePost";
 import { devWarn } from "../../lib/debug/devLog";
 import { theme } from "../../theme";
-import { deleteFeedPost, setPostReaction, updateFeedPost } from "../../lib/api";
+import { blockProfile, deleteFeedPost, reportContent, setPostReaction, updateFeedPost } from "../../lib/api";
 import { iso2ToFlagEmoji } from "../../lib/geo/countryFlag";
 import ProfileAvatar from "../profiles/ProfileAvatar";
 import { isPostOwner, normalizePostContent } from "../../lib/feed/postOwnership";
@@ -81,12 +81,14 @@ export default function FeedCard({
   currentUserId,
   onPatchPost,
   onRemovePost,
+  onBlockAuthor,
 }: {
   item: FeedPost;
   onToast?: (message: string) => void;
   currentUserId?: string | null;
   onPatchPost?: (postId: string, patch: Partial<Record<string, unknown>>) => void;
   onRemovePost?: (postId: string) => void;
+  onBlockAuthor?: (authorProfileId: string) => void;
 }) {
   const router = useRouter();
   const [lightbox, setLightbox] = useState<{ open: boolean; index: number }>({
@@ -243,6 +245,45 @@ export default function FeedCard({
           } finally {
             setSaving(false);
           }
+        },
+      },
+    ]);
+  };
+
+  const handleReportPost = () => {
+    if (!item.id || owner) return;
+    Alert.alert("Segnala post", "Vuoi segnalare questo contenuto?", [
+      { text: "Annulla", style: "cancel" },
+      {
+        text: "Segnala",
+        style: "destructive",
+        onPress: async () => {
+          const response = await reportContent({ targetType: "post", targetId: item.id });
+          if (!response.ok) {
+            onToast?.(response.errorText || "Impossibile inviare la segnalazione");
+            return;
+          }
+          onToast?.("Segnalazione inviata. Grazie!");
+        },
+      },
+    ]);
+  };
+
+  const handleBlockAuthor = () => {
+    if (owner || !authorIdRaw || typeof authorIdRaw !== "string") return;
+    Alert.alert("Blocca autore", "Vuoi bloccare questo autore? I suoi post spariranno dal feed.", [
+      { text: "Annulla", style: "cancel" },
+      {
+        text: "Blocca",
+        style: "destructive",
+        onPress: async () => {
+          const response = await blockProfile(authorIdRaw);
+          if (!response.ok) {
+            onToast?.(response.errorText || "Blocco non riuscito");
+            return;
+          }
+          onBlockAuthor?.(authorIdRaw);
+          onToast?.("Autore bloccato");
         },
       },
     ]);
@@ -472,6 +513,16 @@ export default function FeedCard({
           >
             <Feather name="share-2" size={18} color={theme.colors.text} />
           </Pressable>
+          {!owner ? (
+            <>
+              <Pressable onPress={handleReportPost} style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 8 }}>
+                <Text style={{ color: theme.colors.muted, fontWeight: "700", fontSize: 12 }}>Segnala</Text>
+              </Pressable>
+              <Pressable onPress={handleBlockAuthor} style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 8 }}>
+                <Text style={{ color: theme.colors.danger, fontWeight: "700", fontSize: 12 }}>Blocca autore</Text>
+              </Pressable>
+            </>
+          ) : null}
         </View>
       </View>
 

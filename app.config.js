@@ -18,6 +18,12 @@ const config = {
     supportsTablet: false,
     bundleIdentifier: "com.clubandplayer.app",
     buildNumber: "41",
+    infoPlist: {
+      NSPhotoLibraryUsageDescription:
+        "Club & Player accede alle tue foto per permetterti di caricare immagini nei post, nel profilo e nelle opportunità sportive.",
+      NSPhotoLibraryAddUsageDescription:
+        "Club & Player accede alle tue foto per permetterti di caricare immagini nei post, nel profilo e nelle opportunità sportive.",
+    },
   },
 
   android: {
