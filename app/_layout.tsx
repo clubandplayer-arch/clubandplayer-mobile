@@ -2,11 +2,13 @@ import { Stack, usePathname, useRouter, useSegments } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useFonts } from "expo-font";
+import * as Notifications from "expo-notifications";
 import { AuthApiError, type Session } from "@supabase/supabase-js";
 import { CrashBoundary } from "../src/components/CrashBoundary";
 import { supabase } from "../src/lib/supabase";
 import { getOnboardingSeen, subscribeOnboardingSeen } from "../src/lib/onboarding";
 import { usePushNotificationsSync } from "../src/lib/pushNotifications";
+import { normalizePushPayload, resolvePushTargetRoute } from "../src/lib/pushPayload";
 import { theme } from "../src/theme";
 
 
@@ -40,7 +42,66 @@ export default function RootLayout() {
   const [onboardingSeen, setOnboardingSeen] = useState<boolean | null>(null);
   const [bootstrapped, setBootstrapped] = useState(false);
   const lastTargetRef = useRef<string | null>(null);
+  const lastPushRouteRef = useRef<string | null>(null);
+  const pendingPushRouteRef = useRef<string | null>(null);
   usePushNotificationsSync(session?.user?.id ?? null);
+
+  useEffect(() => {
+    const handlePushResponse = (response: Notifications.NotificationResponse | null) => {
+      if (!response) return;
+      try {
+        const raw = response.notification.request.content.data ?? {};
+        const normalizedPayload = normalizePushPayload(raw);
+        const targetRoute = resolvePushTargetRoute(normalizedPayload, "/(tabs)/notifications");
+        if (!targetRoute) return;
+        if (lastPushRouteRef.current === targetRoute) return;
+        pendingPushRouteRef.current = targetRoute;
+      } catch (error) {
+        console.log("[push][tap][safe-fallback]", {
+          message: error instanceof Error ? error.message : String(error ?? "unknown_error"),
+        });
+      }
+    };
+
+    const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
+      handlePushResponse(response);
+    });
+
+    return () => {
+      responseSub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!bootstrapped || onboardingSeen === null) return;
+    let cancelled = false;
+    const timeout = setTimeout(() => {
+      if (cancelled) return;
+      void Notifications.getLastNotificationResponseAsync()
+        .then((response) => {
+          if (cancelled || !response) return;
+          try {
+            const raw = response.notification.request.content.data ?? {};
+            const normalizedPayload = normalizePushPayload(raw);
+            const targetRoute = resolvePushTargetRoute(normalizedPayload, "/(tabs)/notifications");
+            if (targetRoute) pendingPushRouteRef.current = targetRoute;
+          } catch (error) {
+            console.log("[push][last-response][safe-fallback]", {
+              message: error instanceof Error ? error.message : String(error ?? "unknown_error"),
+            });
+          }
+        })
+        .catch((error) => {
+          console.log("[push][last-response][error]", {
+            message: error instanceof Error ? error.message : String(error ?? "unknown_error"),
+          });
+        });
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [bootstrapped, onboardingSeen]);
 
   useEffect(() => {
     let mounted = true;
@@ -120,6 +181,18 @@ export default function RootLayout() {
     if (!onboardingSeen) return "/(onboarding)";
     return "/(auth)/login";
   }, [bootstrapped, onboardingSeen, pathname, segments, session]);
+
+  useEffect(() => {
+    if (!bootstrapped || onboardingSeen === null) return;
+    if (!session) return;
+    if (redirectTarget) return;
+    const nextRoute = pendingPushRouteRef.current;
+    if (!nextRoute) return;
+    if (lastPushRouteRef.current === nextRoute) return;
+    lastPushRouteRef.current = nextRoute;
+    pendingPushRouteRef.current = null;
+    router.push(nextRoute as any);
+  }, [bootstrapped, onboardingSeen, redirectTarget, router, session]);
 
   useEffect(() => {
     if (!redirectTarget) {
