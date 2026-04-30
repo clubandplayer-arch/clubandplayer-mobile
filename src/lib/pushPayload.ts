@@ -10,7 +10,6 @@ export type PushPayload = {
   opportunityId: string | null;
   applicationId: string | null;
   actorName: string | null;
-  actorType: string | null;
   createdAt: string | null;
   profileId: string | null;
   status: string | null;
@@ -57,7 +56,6 @@ export function normalizePushPayload(input: unknown): PushPayload {
     opportunityId: pickString(raw, ["opportunityId", "opportunity_id", "id"]),
     applicationId: pickString(raw, ["applicationId", "application_id"]),
     actorName: pickString(raw, ["actorName", "actor_name"]),
-    actorType: pickString(raw, ["actorType", "actor_type", "followerType", "follower_type", "account_type"]),
     createdAt: pickString(raw, ["createdAt", "created_at"]),
     profileId: pickString(raw, ["profile_id", "other_profile_id", "sender_profile_id", "recipient_profile_id", "actor_profile_id", "followerProfileId", "follower_profile_id", "actorProfileId"]),
     status: pickString(raw, ["status", "application_status"]),
@@ -125,11 +123,7 @@ export function resolvePushTargetRoute(payload: PushPayload, fallbackRoute: stri
 
 
   if (kind === "follower" || kind === "follow" || kind === "new_follower") {
-    if (payload.profileId) {
-      const actorType = String(payload.actorType ?? "").trim().toLowerCase();
-      if (actorType === "club") return `/clubs/${encodeURIComponent(payload.profileId)}`;
-      if (actorType === "player" || actorType === "athlete") return `/players/${encodeURIComponent(payload.profileId)}`;
-    }
+    if (payload.profileId) return `/profile/${encodeURIComponent(payload.profileId)}`;
     return fallbackRoute;
   }
   if (kind === "new_opportunity") {

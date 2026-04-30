@@ -165,7 +165,6 @@ function getNotificationCopy(item: NotificationItem): string {
     kind: item.kind,
     actor_profile_id: item.actor_profile_id ?? null,
     actorName: getActorName(item),
-    actorType: item.actor?.account_type ?? null,
   });
   const copy = buildPushCopy(normalizedPayload);
   return copy.title ?? copy.body ?? getNotificationMessage(item.kind);
@@ -183,7 +182,6 @@ function groupNotificationsForDisplay(items: NotificationItem[]): NotificationGr
       ...(item.payload ?? {}),
       kind: item.kind,
       actor_profile_id: item.actor_profile_id ?? null,
-      actorType: item.actor?.account_type ?? null,
     });
     const kind = String(item.kind ?? "").trim().toLowerCase();
     const isGroupable = isGroupableKind(kind);
@@ -426,7 +424,6 @@ export default function NotificationsScreen() {
                 ...(primary.payload ?? {}),
                 kind: primary.kind,
                 actor_profile_id: primary.actor_profile_id ?? null,
-                actorType: primary.actor?.account_type ?? null,
                 postId: group.postId,
               });
               const targetRoute = resolvePushTargetRoute(normalizedPayload, "/(tabs)/notifications");
