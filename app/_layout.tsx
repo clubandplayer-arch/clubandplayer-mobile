@@ -8,7 +8,7 @@ import { CrashBoundary } from "../src/components/CrashBoundary";
 import { supabase } from "../src/lib/supabase";
 import { getOnboardingSeen, subscribeOnboardingSeen } from "../src/lib/onboarding";
 import { usePushNotificationsSync } from "../src/lib/pushNotifications";
-import { normalizePushPayload, resolvePushTargetRoute } from "../src/lib/pushPayload";
+import { buildPushCopy, normalizePushPayload, resolvePushTargetRoute } from "../src/lib/pushPayload";
 import { theme } from "../src/theme";
 
 
@@ -67,8 +67,41 @@ export default function RootLayout() {
       handlePushResponse(response);
     });
 
+    const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
+      try {
+        const content = notification.request.content;
+        const raw = (content.data ?? {}) as Record<string, unknown>;
+        if (raw.__localEcho === true) return;
+        const hasAlertText =
+          (typeof content.title === "string" && content.title.trim().length > 0) ||
+          (typeof content.body === "string" && content.body.trim().length > 0);
+        if (hasAlertText) return;
+        const payload = normalizePushPayload(raw);
+        const copy = buildPushCopy(payload);
+        const title = copy.title?.trim() ?? "";
+        const body = copy.body?.trim() ?? "";
+        if (!title && !body) return;
+        void Notifications.scheduleNotificationAsync({
+          content: {
+            title: title || undefined,
+            body: body || undefined,
+            data: {
+              ...raw,
+              __localEcho: true,
+            },
+          },
+          trigger: null,
+        });
+      } catch (error) {
+        console.log("[push][received][echo-fallback-error]", {
+          message: error instanceof Error ? error.message : String(error ?? "unknown_error"),
+        });
+      }
+    });
+
     return () => {
       responseSub.remove();
+      receivedSub.remove();
     };
   }, []);
 
