@@ -10,6 +10,7 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
 } from "react-native";
+import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { BrandLogo } from "../../components/brand/BrandLogo";
@@ -17,6 +18,7 @@ import { fetchProfileMe, fetchWhoami, syncSession } from "../../src/lib/api";
 import { supabase } from "../../src/lib/supabase";
 import { signInWithApple, signInWithGoogle } from "../../src/lib/auth";
 import { theme } from "../../src/theme";
+const WEB_BASE_URL = "https://www.clubandplayer.com";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -239,6 +241,17 @@ export default function LoginScreen() {
           </Text>
         </Text>
       </Pressable>
+      <Text style={{ textAlign: "center", color: theme.colors.muted, fontSize: 12 }}>
+        Continuando accetti i nostri{" "}
+        <Text style={{ color: theme.colors.primary }} onPress={() => void Linking.openURL(`${WEB_BASE_URL}/legal/terms`)}>
+          Termini di utilizzo
+        </Text>{" "}
+        e la{" "}
+        <Text style={{ color: theme.colors.primary }} onPress={() => void Linking.openURL(`${WEB_BASE_URL}/legal/privacy`)}>
+          Privacy Policy
+        </Text>
+        .
+      </Text>
       </View>
     </TouchableWithoutFeedback>
   );

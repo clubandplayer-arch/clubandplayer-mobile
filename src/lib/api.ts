@@ -418,6 +418,35 @@ export type ApplyToOpportunityResult = {
   club_id?: string | null;
 };
 
+export type ReportTargetType = "post" | "comment" | "profile";
+
+export type ReportPayload = {
+  targetType: ReportTargetType;
+  targetId: string;
+  reason?: string;
+};
+
+export type BlockedUserItem = {
+  id?: string | null;
+  blockedProfileId?: string | null;
+  blocked_profile_id?: string | null;
+  profileId?: string | null;
+  profile_id?: string | null;
+  full_name?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  account_type?: string | null;
+  type?: string | null;
+  role?: string | null;
+  blockedProfile?: {
+    id?: string | null;
+    display_name?: string | null;
+    full_name?: string | null;
+    avatar_url?: string | null;
+    account_type?: string | null;
+  } | null;
+};
+
 export async function fetchDirectMessageThreads(): Promise<ApiResponse<DirectMessageThreadsResponse>> {
   return apiFetch<DirectMessageThreadsResponse>("/api/direct-messages/threads", { method: "GET" });
 }
@@ -776,6 +805,39 @@ export async function updateFeedPost(postId: string, content: string): Promise<A
 export async function deleteFeedPost(postId: string): Promise<ApiResponse<{ ok?: boolean }>> {
   return apiFetch<{ ok?: boolean }>(`/api/feed/posts/${encodeURIComponent(postId)}`, {
     method: "DELETE",
+  });
+}
+
+export async function reportContent(payload: ReportPayload): Promise<ApiResponse<{ ok?: boolean }>> {
+  return apiFetch<{ ok?: boolean }>("/api/reports", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function blockProfile(blockedProfileId: string): Promise<ApiResponse<{ ok?: boolean }>> {
+  return apiFetch<{ ok?: boolean }>("/api/blocks", {
+    method: "POST",
+    body: JSON.stringify({ blockedProfileId }),
+  });
+}
+
+export async function fetchBlockedProfiles(): Promise<ApiResponse<BlockedUserItem[]>> {
+  const response = await apiFetch<unknown>("/api/blocks", { method: "GET" });
+  if (!response.ok) return { ok: false, status: response.status, errorText: response.errorText };
+  const payload = response.data;
+  const list = Array.isArray(payload)
+    ? payload
+    : Array.isArray((payload as any)?.items)
+      ? (payload as any).items
+      : [];
+  return { ok: true, status: response.status, data: list as BlockedUserItem[] };
+}
+
+export async function unblockProfile(blockedProfileId: string): Promise<ApiResponse<{ ok?: boolean }>> {
+  return apiFetch<{ ok?: boolean }>("/api/blocks", {
+    method: "DELETE",
+    body: JSON.stringify({ blockedProfileId }),
   });
 }
 

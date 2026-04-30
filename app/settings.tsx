@@ -13,7 +13,7 @@ import * as Linking from "expo-linking";
 import { Link, useRouter } from "expo-router";
 
 import { LocationFields } from "../components/profiles/LocationFields";
-import { clearSession, deleteAccount, fetchProfileMe, patchProfileMe, type ProfileMe, useWebSession } from "../src/lib/api";
+import { clearSession, deleteAccount, fetchBlockedProfiles, fetchProfileMe, patchProfileMe, type BlockedUserItem, type ProfileMe, unblockProfile, useWebSession } from "../src/lib/api";
 import { normalizeAccountType, profileCanonicalHref } from "../src/lib/nav/profileLinks";
 import { supabase } from "../src/lib/supabase";
 import { theme } from "../src/theme";
@@ -60,6 +60,8 @@ export default function SettingsScreen() {
   const [notifyEmail, setNotifyEmail] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [blockedUsers, setBlockedUsers] = useState<BlockedUserItem[]>([]);
+  const [loadingBlockedUsers, setLoadingBlockedUsers] = useState(false);
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
@@ -92,7 +94,29 @@ export default function SettingsScreen() {
   useEffect(() => {
     if (!web.ready) return;
     void loadSettings();
+    void (async () => {
+      setLoadingBlockedUsers(true);
+      const response = await fetchBlockedProfiles();
+      if (response.ok && response.data) setBlockedUsers(response.data);
+      setLoadingBlockedUsers(false);
+    })();
   }, [loadSettings, web.ready]);
+
+  const getBlockedProfileId = (item: BlockedUserItem): string | null =>
+    item.blockedProfileId ??
+    item.blocked_profile_id ??
+    item.profileId ??
+    item.profile_id ??
+    item.blockedProfile?.id ??
+    item.id ??
+    null;
+
+  const getBlockedName = (item: BlockedUserItem): string =>
+    item.display_name ??
+    item.full_name ??
+    item.blockedProfile?.display_name ??
+    item.blockedProfile?.full_name ??
+    "Utente";
 
   const publicProfilePath = useMemo(() => {
     if (!profileId || !accountType) return null;
@@ -281,6 +305,45 @@ export default function SettingsScreen() {
           </View>
           <Switch value={notifyEmail} onValueChange={setNotifyEmail} />
         </View>
+      </View>
+
+      <View style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, padding: 16, gap: 8 }}>
+        <Text style={{ fontSize: 16, fontWeight: "700" }}>Utenti bloccati</Text>
+        {loadingBlockedUsers ? <ActivityIndicator /> : null}
+        {!loadingBlockedUsers && blockedUsers.length === 0 ? (
+          <Text style={{ color: theme.colors.muted }}>Nessun utente bloccato.</Text>
+        ) : null}
+        {blockedUsers.map((user, index) => {
+          const blockedId = getBlockedProfileId(user);
+          const accountType = user.account_type ?? user.type ?? user.role ?? user.blockedProfile?.account_type ?? "—";
+          return (
+            <View
+              key={`${blockedId ?? "blocked"}-${index}`}
+              style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 10, padding: 10, gap: 8 }}
+            >
+              <Text style={{ fontWeight: "700" }}>{getBlockedName(user)}</Text>
+              <Text style={{ color: theme.colors.muted }}>Tipo account: {accountType}</Text>
+              <Text style={{ color: theme.colors.muted }} numberOfLines={1}>
+                Avatar: {user.avatar_url ?? user.blockedProfile?.avatar_url ?? "—"}
+              </Text>
+              <Pressable
+                disabled={!blockedId}
+                onPress={async () => {
+                  if (!blockedId) return;
+                  const response = await unblockProfile(blockedId);
+                  if (!response.ok) {
+                    Alert.alert("Errore", response.errorText ?? "Sblocco non riuscito");
+                    return;
+                  }
+                  setBlockedUsers((prev) => prev.filter((entry) => getBlockedProfileId(entry) !== blockedId));
+                }}
+                style={{ alignSelf: "flex-start", paddingVertical: 6 }}
+              >
+                <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>Sblocca</Text>
+              </Pressable>
+            </View>
+          );
+        })}
       </View>
 
       <View style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, padding: 16, gap: 8 }}>

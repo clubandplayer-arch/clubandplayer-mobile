@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import * as Linking from "expo-linking";
 import { router } from "expo-router";
 import { BrandLogo } from "../../components/brand/BrandLogo";
 import { setOnboardingSeen } from "../../src/lib/onboarding";
 import { theme } from "../../src/theme";
+const WEB_BASE_URL = "https://www.clubandplayer.com";
 
 export default function OnboardingScreen() {
   const [loading, setLoading] = useState(false);
@@ -93,6 +95,17 @@ export default function OnboardingScreen() {
 
       <Text style={{ fontSize: 12, color: theme.colors.muted, marginTop: 8 }}>
         Nota: la navigazione “ospite” verrà aggiunta più avanti. Per ora è richiesto l’accesso.
+      </Text>
+      <Text style={{ fontSize: 12, color: theme.colors.muted }}>
+        Consulta{" "}
+        <Text style={{ color: theme.colors.primary }} onPress={() => void Linking.openURL(`${WEB_BASE_URL}/legal/terms`)}>
+          Termini di utilizzo
+        </Text>{" "}
+        e{" "}
+        <Text style={{ color: theme.colors.primary }} onPress={() => void Linking.openURL(`${WEB_BASE_URL}/legal/privacy`)}>
+          Privacy Policy
+        </Text>
+        .
       </Text>
     </View>
   );
