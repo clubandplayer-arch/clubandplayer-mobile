@@ -141,6 +141,7 @@ function getNotificationMessage(kind: string): string {
       return "ha reagito a un post";
     case "follower":
     case "follow":
+    case "new_follower":
       return "ha iniziato a seguirti";
     case "new_opportunity":
       return "ha pubblicato una nuova opportunità";
