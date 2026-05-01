@@ -6,11 +6,12 @@ const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
 function isInvalidRefreshTokenError(error: unknown) {
+  const knownMessage = "invalid refresh token: refresh token not found";
   if (error instanceof AuthApiError) {
-    return error.message.toLowerCase().includes("invalid refresh token");
+    return error.message.toLowerCase().includes(knownMessage);
   }
   const message = error instanceof Error ? error.message : String(error ?? "");
-  return message.toLowerCase().includes("invalid refresh token");
+  return message.toLowerCase().includes(knownMessage);
 }
 
 function getMissingEnvMessage() {

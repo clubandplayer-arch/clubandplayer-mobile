@@ -13,11 +13,19 @@ import { theme } from "../src/theme";
 
 
 function isInvalidRefreshTokenError(error: unknown) {
+  const knownMessage = "invalid refresh token: refresh token not found";
   if (error instanceof AuthApiError) {
-    return error.message.toLowerCase().includes("invalid refresh token");
+    return error.message.toLowerCase().includes(knownMessage);
   }
   const message = error instanceof Error ? error.message : String(error ?? "");
-  return message.toLowerCase().includes("invalid refresh token");
+  return message.toLowerCase().includes(knownMessage);
+}
+
+function isFreshNotificationResponse(response: Notifications.NotificationResponse | null, maxAgeMs = 60_000) {
+  if (!response) return false;
+  const createdAt = Number(response.notification.date);
+  if (!Number.isFinite(createdAt) || createdAt <= 0) return false;
+  return Date.now() - createdAt <= maxAgeMs;
 }
 
 function LoadingScreen() {
@@ -80,6 +88,7 @@ export default function RootLayout() {
       void Notifications.getLastNotificationResponseAsync()
         .then((response) => {
           if (cancelled || !response) return;
+          if (!isFreshNotificationResponse(response)) return;
           try {
             const raw = response.notification.request.content.data ?? {};
             const normalizedPayload = normalizePushPayload(raw);

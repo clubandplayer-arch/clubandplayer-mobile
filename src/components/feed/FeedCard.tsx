@@ -508,18 +508,31 @@ export default function FeedCard({
             onPress={handleShare}
             disabled={saving || shareLoading}
             accessibilityRole="button"
-            accessibilityLabel="Condividi questo post"
+            accessibilityLabel="Condividi post"
+            testID="feed-post-share-action"
             style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center", opacity: shareLoading ? 0.5 : 1 }}
           >
             <Feather name="share-2" size={18} color={theme.colors.text} />
           </Pressable>
           {!owner ? (
             <>
-              <Pressable onPress={handleReportPost} style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 8 }}>
-                <Text style={{ color: theme.colors.muted, fontWeight: "700", fontSize: 12 }}>Segnala</Text>
+              <Pressable
+                onPress={handleReportPost}
+                accessibilityRole="button"
+                accessibilityLabel="Segnala post"
+                testID="feed-post-report-action"
+                style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}
+              >
+                <Feather name="message-square" size={18} color={theme.colors.muted} />
               </Pressable>
-              <Pressable onPress={handleBlockAuthor} style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 8 }}>
-                <Text style={{ color: theme.colors.danger, fontWeight: "700", fontSize: 12 }}>Blocca autore</Text>
+              <Pressable
+                onPress={handleBlockAuthor}
+                accessibilityRole="button"
+                accessibilityLabel="Blocca autore"
+                testID="feed-post-block-author-action"
+                style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}
+              >
+                <Feather name="slash" size={18} color={theme.colors.danger} />
               </Pressable>
             </>
           ) : null}
