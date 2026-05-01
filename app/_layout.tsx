@@ -14,7 +14,15 @@ import { theme } from "../src/theme";
 
 function isInvalidRefreshTokenError(error: unknown) {
   const knownMessage = "invalid refresh token: refresh token not found";
-  if (error instanceof AuthApiError) {
+    return error.message.toLowerCase().includes(knownMessage);
+  return message.toLowerCase().includes(knownMessage);
+}
+
+function isFreshNotificationResponse(response: Notifications.NotificationResponse | null, maxAgeMs = 60_000) {
+  if (!response) return false;
+  const createdAt = Number(response.notification.date);
+  if (!Number.isFinite(createdAt) || createdAt <= 0) return false;
+  return Date.now() - createdAt <= maxAgeMs;
     return error.message.toLowerCase().includes(knownMessage);
   }
   const message = error instanceof Error ? error.message : String(error ?? "");
@@ -55,6 +63,7 @@ export default function RootLayout() {
   usePushNotificationsSync(session?.user?.id ?? null);
 
   useEffect(() => {
+          if (!isFreshNotificationResponse(response)) return;
     const handlePushResponse = (response: Notifications.NotificationResponse | null) => {
       if (!response) return;
       try {

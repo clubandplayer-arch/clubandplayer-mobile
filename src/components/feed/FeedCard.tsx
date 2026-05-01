@@ -112,6 +112,7 @@ export default function FeedCard({
   const [editDraft, setEditDraft] = useState(text);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [moderationMenuOpen, setModerationMenuOpen] = useState(false);
+  const [moderationMenuOpen, setModerationMenuOpen] = useState(false);
   const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
   const totalReactions = sumReactionCounts(reactionCounts);
   const primaryReaction = viewerReaction ? REACTION_META[viewerReaction] : REACTION_META.like;
@@ -227,47 +228,104 @@ export default function FeedCard({
     }
   };
 
-  const handleDelete = () => {
-    if (!item.id || !owner || saving) return;
-    Alert.alert("Elimina post", "Vuoi eliminare questo post?", [
-      { text: "Annulla", style: "cancel" },
-      {
-        text: "Elimina",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            setSaving(true);
-            const response = await deleteFeedPost(item.id);
-            if (!response.ok) throw new Error(response.errorText ?? `DELETE HTTP ${response.status}`);
-            onRemovePost?.(item.id);
-            onToast?.("Post eliminato");
-          } catch (error: any) {
-            onToast?.(error?.message ? String(error.message) : "Errore eliminando il post");
-          } finally {
-            setSaving(false);
-          }
-        },
-      },
-    ]);
-  };
-
-  const handleReportPost = () => {
     setModerationMenuOpen(false);
-    if (!item.id || owner) return;
-    Alert.alert("Segnala post", "Vuoi segnalare questo contenuto?", [
-      { text: "Annulla", style: "cancel" },
-      {
-        text: "Segnala",
-        style: "destructive",
-        onPress: async () => {
-          const response = await reportContent({ targetType: "post", targetId: item.id });
-          if (!response.ok) {
-            onToast?.(response.errorText || "Impossibile inviare la segnalazione");
-            return;
-          }
-          onToast?.("Segnalazione inviata. Grazie!");
-        },
-      },
+    setModerationMenuOpen(false);
+      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
+        <Pressable
+          onPress={() => {
+            console.log("[PR-MOB.PROFILES.2.1][tap-author]", {
+              authorIdRaw,
+              authorUuid,
+              isUuid: authorUuid ? isUuid(authorUuid) : false,
+              postKeys: Object.keys(post ?? {}),
+            });
+
+            if (!authorUuid || !isUuid(authorUuid)) {
+              console.log("[PR-MOB.PROFILES.2.1][tap-author][skip]", "missing valid uuid");
+              return;
+            }
+
+            const target = resolveAuthorRoute({ authorUuid, authorRole, author: item.author ?? null });
+            console.log("[PR-MOB.PROFILES.2.2][tap-author][target]", { authorUuid, authorRole, target });
+            router.navigate(target);
+          style={{
+            flex: 1,
+            flexDirection: "row",
+            gap: 10,
+            alignItems: "center",
+            opacity: authorUuid && isUuid(authorUuid) ? 1 : 0.6,
+          }}
+        >
+          <ProfileAvatar
+            uri={item.author?.avatar_url ?? null}
+            size={40}
+            name={authorName}
+            profile={{
+              accountType: item.author?.account_type ?? item.author?.type ?? item.author?.role ?? null,
+              is_verified: item.author?.is_verified ?? null,
+            }}
+          />
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text style={{ fontSize: 15, fontWeight: "800", color: theme.colors.text }}>{authorName}</Text>
+            </View>
+            <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>
+              {countryFlag ? `${countryFlag} · ${when}` : when}
+            </Text>
+        </Pressable>
+
+        {!owner ? (
+          <View style={{ position: "relative" }}>
+            <Pressable
+              onPress={() => setModerationMenuOpen((prev) => !prev)}
+              accessibilityRole="button"
+              accessibilityLabel="Apri menu post"
+              testID="feed-post-open-menu-action"
+              hitSlop={10}
+              style={{ minWidth: 36, minHeight: 36, alignItems: "center", justifyContent: "center", opacity: 0.75 }}
+            >
+              <Feather name="more-horizontal" size={19} color={theme.colors.muted} />
+            </Pressable>
+            {moderationMenuOpen ? (
+              <View
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: 34,
+                  zIndex: 20,
+                  minWidth: 170,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: theme.colors.neutral200,
+                  backgroundColor: theme.colors.background,
+                  paddingVertical: 4,
+                }}
+              >
+                <Pressable
+                  onPress={handleReportPost}
+                  accessibilityRole="button"
+                  accessibilityLabel="Segnala post"
+                  testID="feed-post-report-action"
+                  style={{ minHeight: 42, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 }}
+                >
+                  <Feather name="alert-triangle" size={17} color={theme.colors.muted} />
+                  <Text style={{ color: theme.colors.text, fontWeight: "600", fontSize: 13 }}>Segnala post</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleBlockAuthor}
+                  accessibilityRole="button"
+                  accessibilityLabel="Blocca autore"
+                  testID="feed-post-block-author-action"
+                  style={{ minHeight: 42, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 }}
+                >
+                  <Feather name="slash" size={17} color={theme.colors.danger} />
+                  <Text style={{ color: theme.colors.danger, fontWeight: "600", fontSize: 13 }}>Blocca autore</Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+      </View>
     ]);
   };
 
@@ -380,12 +438,12 @@ export default function FeedCard({
                   onPress={handleReportPost}
                   accessibilityRole="button"
                   accessibilityLabel="Segnala post"
-                  testID="feed-post-report-action"
-                  style={{ minHeight: 42, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 }}
-                >
-                  <Feather name="alert-triangle" size={17} color={theme.colors.muted} />
-                  <Text style={{ color: theme.colors.text, fontWeight: "600", fontSize: 13 }}>Segnala post</Text>
-                </Pressable>
+              minHeight: 34,
+              minWidth: 96,
+              paddingVertical: 6,
+              paddingHorizontal: 10,
+            <Text style={{ fontSize: 18 }}>{primaryReaction.emoji}</Text>
+            <Text style={{ ...theme.typography.small, color: theme.colors.muted, fontSize: 14 }}>{totalReactions}</Text>
                 <Pressable
                   onPress={handleBlockAuthor}
                   accessibilityRole="button"
@@ -455,18 +513,9 @@ export default function FeedCard({
         onClose={() => setLightbox({ open: false, index: 0 })}
       />
 
-      <View style={{ flexDirection: "row", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-        <View style={{ position: "relative" }}>
-          <Pressable
-            onPress={handleLikePress}
-            onLongPress={() => setPickerOpen((prev) => !prev)}
-            disabled={isLiking}
-            hitSlop={10}
-            style={{
-              minHeight: 34,
-              minWidth: 96,
-              paddingVertical: 6,
-              paddingHorizontal: 10,
+          <Text style={{ ...theme.typography.small, color: theme.colors.muted, fontSize: 15 }}>💬 {commentCount}</Text>
+            accessibilityLabel="Condividi post"
+            testID="feed-post-share-action"
               borderRadius: 999,
               borderWidth: 1,
               borderColor: viewerReaction ? theme.colors.primary : theme.colors.neutral200,
