@@ -111,6 +111,8 @@ export default function FeedCard({
   const [editingOpen, setEditingOpen] = useState(false);
   const [editDraft, setEditDraft] = useState(text);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [moderationMenuOpen, setModerationMenuOpen] = useState(false);
+  const [moderationMenuOpen, setModerationMenuOpen] = useState(false);
   const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
   const totalReactions = sumReactionCounts(reactionCounts);
   const primaryReaction = viewerReaction ? REACTION_META[viewerReaction] : REACTION_META.like;
@@ -226,50 +228,109 @@ export default function FeedCard({
     }
   };
 
-  const handleDelete = () => {
-    if (!item.id || !owner || saving) return;
-    Alert.alert("Elimina post", "Vuoi eliminare questo post?", [
-      { text: "Annulla", style: "cancel" },
-      {
-        text: "Elimina",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            setSaving(true);
-            const response = await deleteFeedPost(item.id);
-            if (!response.ok) throw new Error(response.errorText ?? `DELETE HTTP ${response.status}`);
-            onRemovePost?.(item.id);
-            onToast?.("Post eliminato");
-          } catch (error: any) {
-            onToast?.(error?.message ? String(error.message) : "Errore eliminando il post");
-          } finally {
-            setSaving(false);
-          }
-        },
-      },
-    ]);
-  };
+    setModerationMenuOpen(false);
+    setModerationMenuOpen(false);
+      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
+        <Pressable
+          onPress={() => {
+            console.log("[PR-MOB.PROFILES.2.1][tap-author]", {
+              authorIdRaw,
+              authorUuid,
+              isUuid: authorUuid ? isUuid(authorUuid) : false,
+              postKeys: Object.keys(post ?? {}),
+            });
 
-  const handleReportPost = () => {
-    if (!item.id || owner) return;
-    Alert.alert("Segnala post", "Vuoi segnalare questo contenuto?", [
-      { text: "Annulla", style: "cancel" },
-      {
-        text: "Segnala",
-        style: "destructive",
-        onPress: async () => {
-          const response = await reportContent({ targetType: "post", targetId: item.id });
-          if (!response.ok) {
-            onToast?.(response.errorText || "Impossibile inviare la segnalazione");
-            return;
-          }
-          onToast?.("Segnalazione inviata. Grazie!");
-        },
-      },
+            if (!authorUuid || !isUuid(authorUuid)) {
+              console.log("[PR-MOB.PROFILES.2.1][tap-author][skip]", "missing valid uuid");
+              return;
+            }
+
+            const target = resolveAuthorRoute({ authorUuid, authorRole, author: item.author ?? null });
+            console.log("[PR-MOB.PROFILES.2.2][tap-author][target]", { authorUuid, authorRole, target });
+            router.navigate(target);
+          style={{
+            flex: 1,
+            flexDirection: "row",
+            gap: 10,
+            alignItems: "center",
+            opacity: authorUuid && isUuid(authorUuid) ? 1 : 0.6,
+          }}
+        >
+          <ProfileAvatar
+            uri={item.author?.avatar_url ?? null}
+            size={40}
+            name={authorName}
+            profile={{
+              accountType: item.author?.account_type ?? item.author?.type ?? item.author?.role ?? null,
+              is_verified: item.author?.is_verified ?? null,
+            }}
+          />
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text style={{ fontSize: 15, fontWeight: "800", color: theme.colors.text }}>{authorName}</Text>
+            </View>
+            <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>
+              {countryFlag ? `${countryFlag} · ${when}` : when}
+            </Text>
+        </Pressable>
+
+        {!owner ? (
+          <View style={{ position: "relative" }}>
+            <Pressable
+              onPress={() => setModerationMenuOpen((prev) => !prev)}
+              accessibilityRole="button"
+              accessibilityLabel="Apri menu post"
+              testID="feed-post-open-menu-action"
+              hitSlop={10}
+              style={{ minWidth: 36, minHeight: 36, alignItems: "center", justifyContent: "center", opacity: 0.75 }}
+            >
+              <Feather name="more-horizontal" size={19} color={theme.colors.muted} />
+            </Pressable>
+            {moderationMenuOpen ? (
+              <View
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: 34,
+                  zIndex: 20,
+                  minWidth: 170,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: theme.colors.neutral200,
+                  backgroundColor: theme.colors.background,
+                  paddingVertical: 4,
+                }}
+              >
+                <Pressable
+                  onPress={handleReportPost}
+                  accessibilityRole="button"
+                  accessibilityLabel="Segnala post"
+                  testID="feed-post-report-action"
+                  style={{ minHeight: 42, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 }}
+                >
+                  <Feather name="alert-triangle" size={17} color={theme.colors.muted} />
+                  <Text style={{ color: theme.colors.text, fontWeight: "600", fontSize: 13 }}>Segnala post</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleBlockAuthor}
+                  accessibilityRole="button"
+                  accessibilityLabel="Blocca autore"
+                  testID="feed-post-block-author-action"
+                  style={{ minHeight: 42, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 }}
+                >
+                  <Feather name="slash" size={17} color={theme.colors.danger} />
+                  <Text style={{ color: theme.colors.danger, fontWeight: "600", fontSize: 13 }}>Blocca autore</Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+      </View>
     ]);
   };
 
   const handleBlockAuthor = () => {
+    setModerationMenuOpen(false);
     if (owner || !authorIdRaw || typeof authorIdRaw !== "string") return;
     Alert.alert("Blocca autore", "Vuoi bloccare questo autore? I suoi post spariranno dal feed.", [
       { text: "Annulla", style: "cancel" },
@@ -300,49 +361,104 @@ export default function FeedCard({
         gap: 10,
       }}
     >
-      <Pressable
-        onPress={() => {
-          console.log("[PR-MOB.PROFILES.2.1][tap-author]", {
-            authorIdRaw,
-            authorUuid,
-            isUuid: authorUuid ? isUuid(authorUuid) : false,
-            postKeys: Object.keys(post ?? {}),
-          });
+      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
+        <Pressable
+          onPress={() => {
+            console.log("[PR-MOB.PROFILES.2.1][tap-author]", {
+              authorIdRaw,
+              authorUuid,
+              isUuid: authorUuid ? isUuid(authorUuid) : false,
+              postKeys: Object.keys(post ?? {}),
+            });
 
-          if (!authorUuid || !isUuid(authorUuid)) {
-            console.log("[PR-MOB.PROFILES.2.1][tap-author][skip]", "missing valid uuid");
-            return;
-          }
+            if (!authorUuid || !isUuid(authorUuid)) {
+              console.log("[PR-MOB.PROFILES.2.1][tap-author][skip]", "missing valid uuid");
+              return;
+            }
 
-          const target = resolveAuthorRoute({ authorUuid, authorRole, author: item.author ?? null });
-          console.log("[PR-MOB.PROFILES.2.2][tap-author][target]", { authorUuid, authorRole, target });
-          router.navigate(target);
-        }}
-        style={{
-          flexDirection: "row",
-          gap: 10,
-          alignItems: "center",
-          opacity: authorUuid && isUuid(authorUuid) ? 1 : 0.6,
-        }}
-      >
-        <ProfileAvatar
-          uri={item.author?.avatar_url ?? null}
-          size={40}
-          name={authorName}
-          profile={{
-            accountType: item.author?.account_type ?? item.author?.type ?? item.author?.role ?? null,
-            is_verified: item.author?.is_verified ?? null,
+            const target = resolveAuthorRoute({ authorUuid, authorRole, author: item.author ?? null });
+            console.log("[PR-MOB.PROFILES.2.2][tap-author][target]", { authorUuid, authorRole, target });
+            router.navigate(target);
           }}
-        />
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Text style={{ fontSize: 15, fontWeight: "800", color: theme.colors.text }}>{authorName}</Text>
+          style={{
+            flex: 1,
+            flexDirection: "row",
+            gap: 10,
+            alignItems: "center",
+            opacity: authorUuid && isUuid(authorUuid) ? 1 : 0.6,
+          }}
+        >
+          <ProfileAvatar
+            uri={item.author?.avatar_url ?? null}
+            size={40}
+            name={authorName}
+            profile={{
+              accountType: item.author?.account_type ?? item.author?.type ?? item.author?.role ?? null,
+              is_verified: item.author?.is_verified ?? null,
+            }}
+          />
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text style={{ fontSize: 15, fontWeight: "800", color: theme.colors.text }}>{authorName}</Text>
+            </View>
+            <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>
+              {countryFlag ? `${countryFlag} · ${when}` : when}
+            </Text>
           </View>
-          <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>
-            {countryFlag ? `${countryFlag} · ${when}` : when}
-          </Text>
-        </View>
-      </Pressable>
+        </Pressable>
+
+        {!owner ? (
+          <View style={{ position: "relative" }}>
+            <Pressable
+              onPress={() => setModerationMenuOpen((prev) => !prev)}
+              accessibilityRole="button"
+              accessibilityLabel="Apri menu post"
+              testID="feed-post-open-menu-action"
+              hitSlop={10}
+              style={{ minWidth: 36, minHeight: 36, alignItems: "center", justifyContent: "center", opacity: 0.75 }}
+            >
+              <Feather name="more-horizontal" size={19} color={theme.colors.muted} />
+            </Pressable>
+            {moderationMenuOpen ? (
+              <View
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: 34,
+                  zIndex: 20,
+                  minWidth: 170,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: theme.colors.neutral200,
+                  backgroundColor: theme.colors.background,
+                  paddingVertical: 4,
+                }}
+              >
+                <Pressable
+                  onPress={handleReportPost}
+                  accessibilityRole="button"
+                  accessibilityLabel="Segnala post"
+              minHeight: 34,
+              minWidth: 96,
+              paddingVertical: 6,
+              paddingHorizontal: 10,
+            <Text style={{ fontSize: 18 }}>{primaryReaction.emoji}</Text>
+            <Text style={{ ...theme.typography.small, color: theme.colors.muted, fontSize: 14 }}>{totalReactions}</Text>
+                <Pressable
+                  onPress={handleBlockAuthor}
+                  accessibilityRole="button"
+                  accessibilityLabel="Blocca autore"
+                  testID="feed-post-block-author-action"
+                  style={{ minHeight: 42, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 }}
+                >
+                  <Feather name="slash" size={17} color={theme.colors.danger} />
+                  <Text style={{ color: theme.colors.danger, fontWeight: "600", fontSize: 13 }}>Blocca autore</Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+      </View>
 
       <View style={{ gap: 10 }}>
         {!!text ? (
@@ -397,18 +513,9 @@ export default function FeedCard({
         onClose={() => setLightbox({ open: false, index: 0 })}
       />
 
-      <View style={{ flexDirection: "row", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-        <View style={{ position: "relative" }}>
-          <Pressable
-            onPress={handleLikePress}
-            onLongPress={() => setPickerOpen((prev) => !prev)}
-            disabled={isLiking}
-            hitSlop={10}
-            style={{
-              minHeight: 40,
-              minWidth: 120,
-              paddingVertical: 8,
-              paddingHorizontal: 12,
+          <Text style={{ ...theme.typography.small, color: theme.colors.muted, fontSize: 15 }}>💬 {commentCount}</Text>
+            accessibilityLabel="Condividi post"
+            testID="feed-post-share-action"
               borderRadius: 999,
               borderWidth: 1,
               borderColor: viewerReaction ? theme.colors.primary : theme.colors.neutral200,
@@ -419,8 +526,8 @@ export default function FeedCard({
               gap: 8,
             }}
           >
-            <Text style={{ fontSize: 16 }}>{primaryReaction.emoji}</Text>
-            <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>{totalReactions}</Text>
+            <Text style={{ fontSize: 18 }}>{primaryReaction.emoji}</Text>
+            <Text style={{ ...theme.typography.small, color: theme.colors.muted, fontSize: 14 }}>{totalReactions}</Text>
           </Pressable>
 
           {pickerOpen ? (
@@ -479,7 +586,7 @@ export default function FeedCard({
           })}
         </View>
         <Pressable onPress={handleOpenComments} disabled={!postPath}>
-          <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>💬 {commentCount}</Text>
+          <Text style={{ ...theme.typography.small, color: theme.colors.muted, fontSize: 15 }}>💬 {commentCount}</Text>
         </Pressable>
         <View style={{ flexDirection: "row", alignItems: "center", marginLeft: "auto" }}>
           {owner ? (
@@ -508,21 +615,12 @@ export default function FeedCard({
             onPress={handleShare}
             disabled={saving || shareLoading}
             accessibilityRole="button"
-            accessibilityLabel="Condividi questo post"
+            accessibilityLabel="Condividi post"
+            testID="feed-post-share-action"
             style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center", opacity: shareLoading ? 0.5 : 1 }}
           >
             <Feather name="share-2" size={18} color={theme.colors.text} />
           </Pressable>
-          {!owner ? (
-            <>
-              <Pressable onPress={handleReportPost} style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 8 }}>
-                <Text style={{ color: theme.colors.muted, fontWeight: "700", fontSize: 12 }}>Segnala</Text>
-              </Pressable>
-              <Pressable onPress={handleBlockAuthor} style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 8 }}>
-                <Text style={{ color: theme.colors.danger, fontWeight: "700", fontSize: 12 }}>Blocca autore</Text>
-              </Pressable>
-            </>
-          ) : null}
         </View>
       </View>
 
