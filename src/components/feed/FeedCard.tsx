@@ -504,6 +504,28 @@ export default function FeedCard({
               </Pressable>
             </>
           ) : null}
+          {!owner ? (
+            <>
+              <Pressable
+                onPress={handleBlockAuthor}
+                accessibilityRole="button"
+                accessibilityLabel="Blocca autore"
+                testID="feed-post-block-author-action"
+                style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}
+              >
+                <Feather name="slash" size={18} color={theme.colors.danger} />
+              </Pressable>
+              <Pressable
+                onPress={handleReportPost}
+                accessibilityRole="button"
+                accessibilityLabel="Segnala post"
+                testID="feed-post-report-action"
+                style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}
+              >
+                <Feather name="alert-triangle" size={18} color={theme.colors.muted} />
+              </Pressable>
+            </>
+          ) : null}
           <Pressable
             onPress={handleShare}
             disabled={saving || shareLoading}
@@ -514,28 +536,6 @@ export default function FeedCard({
           >
             <Feather name="share-2" size={18} color={theme.colors.text} />
           </Pressable>
-          {!owner ? (
-            <>
-              <Pressable
-                onPress={handleReportPost}
-                accessibilityRole="button"
-                accessibilityLabel="Segnala post"
-                testID="feed-post-report-action"
-                style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}
-              >
-                <Feather name="message-square" size={18} color={theme.colors.muted} />
-              </Pressable>
-              <Pressable
-                onPress={handleBlockAuthor}
-                accessibilityRole="button"
-                accessibilityLabel="Blocca autore"
-                testID="feed-post-block-author-action"
-                style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}
-              >
-                <Feather name="slash" size={18} color={theme.colors.danger} />
-              </Pressable>
-            </>
-          ) : null}
         </View>
       </View>
 
