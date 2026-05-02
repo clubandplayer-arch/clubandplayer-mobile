@@ -111,6 +111,7 @@ export default function FeedCard({
   const [editingOpen, setEditingOpen] = useState(false);
   const [editDraft, setEditDraft] = useState(text);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [postMenuOpen, setPostMenuOpen] = useState(false);
   const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
   const totalReactions = sumReactionCounts(reactionCounts);
   const primaryReaction = viewerReaction ? REACTION_META[viewerReaction] : REACTION_META.like;
@@ -292,6 +293,7 @@ export default function FeedCard({
   return (
     <View
       style={{
+        position: "relative",
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.neutral200,
         paddingHorizontal: 16,
@@ -302,6 +304,7 @@ export default function FeedCard({
     >
       <Pressable
         onPress={() => {
+          setPostMenuOpen(false);
           console.log("[PR-MOB.PROFILES.2.1][tap-author]", {
             authorIdRaw,
             authorUuid,
@@ -343,6 +346,65 @@ export default function FeedCard({
           </Text>
         </View>
       </Pressable>
+      {!owner ? (
+        <View style={{ position: "absolute", right: 16, top: 14, zIndex: 20 }}>
+          <Pressable
+            onPress={() => setPostMenuOpen((prev) => !prev)}
+            accessibilityRole="button"
+            accessibilityLabel="Apri menu post"
+            testID="Apri menu post"
+            style={{ minWidth: 40, minHeight: 40, alignItems: "center", justifyContent: "center" }}
+          >
+            <Feather name="more-horizontal" size={20} color={theme.colors.muted} />
+          </Pressable>
+          {postMenuOpen ? (
+            <View
+              style={{
+                position: "absolute",
+                right: 0,
+                top: 42,
+                minWidth: 170,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: theme.colors.neutral200,
+                backgroundColor: theme.colors.background,
+                paddingVertical: 6,
+                shadowColor: "#000",
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+                elevation: 4,
+              }}
+            >
+              <Pressable
+                onPress={() => {
+                  setPostMenuOpen(false);
+                  handleReportPost();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Segnala post"
+                testID="Segnala post"
+                style={{ minHeight: 40, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12 }}
+              >
+                <Feather name="alert-triangle" size={17} color={theme.colors.muted} />
+                <Text style={{ color: theme.colors.text, fontWeight: "600", fontSize: 13 }}>Segnala post</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setPostMenuOpen(false);
+                  handleBlockAuthor();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Blocca autore"
+                testID="Blocca autore"
+                style={{ minHeight: 40, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12 }}
+              >
+                <Feather name="slash" size={17} color={theme.colors.danger} />
+                <Text style={{ color: theme.colors.danger, fontWeight: "700", fontSize: 13 }}>Blocca autore</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
 
       <View style={{ gap: 10 }}>
         {!!text ? (
@@ -405,10 +467,10 @@ export default function FeedCard({
             disabled={isLiking}
             hitSlop={10}
             style={{
-              minHeight: 40,
-              minWidth: 120,
-              paddingVertical: 8,
-              paddingHorizontal: 12,
+              minHeight: 36,
+              minWidth: 102,
+              paddingVertical: 6,
+              paddingHorizontal: 10,
               borderRadius: 999,
               borderWidth: 1,
               borderColor: viewerReaction ? theme.colors.primary : theme.colors.neutral200,
@@ -419,8 +481,8 @@ export default function FeedCard({
               gap: 8,
             }}
           >
-            <Text style={{ fontSize: 16 }}>{primaryReaction.emoji}</Text>
-            <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>{totalReactions}</Text>
+            <Text style={{ fontSize: 18 }}>{primaryReaction.emoji}</Text>
+            <Text style={{ ...theme.typography.small, color: theme.colors.muted, fontSize: 18 }}>{totalReactions}</Text>
           </Pressable>
 
           {pickerOpen ? (
@@ -428,7 +490,7 @@ export default function FeedCard({
               style={{
                 position: "absolute",
                 left: 0,
-                top: 44,
+                top: 40,
                 zIndex: 10,
                 flexDirection: "row",
                 gap: 8,
@@ -472,14 +534,14 @@ export default function FeedCard({
             if (count <= 0) return null;
             const meta = REACTION_META[type];
             return (
-              <Text key={type} style={{ ...theme.typography.small, color: theme.colors.muted }}>
+                  <Text key={type} style={{ ...theme.typography.small, color: theme.colors.muted, fontSize: 20 }}>
                 {meta.emoji} {count}
               </Text>
             );
           })}
         </View>
         <Pressable onPress={handleOpenComments} disabled={!postPath}>
-          <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>💬 {commentCount}</Text>
+          <Text style={{ ...theme.typography.small, color: theme.colors.muted, fontSize: 20 }}>💬 {commentCount}</Text>
         </Pressable>
         <View style={{ flexDirection: "row", alignItems: "center", marginLeft: "auto" }}>
           {owner ? (
@@ -508,21 +570,12 @@ export default function FeedCard({
             onPress={handleShare}
             disabled={saving || shareLoading}
             accessibilityRole="button"
-            accessibilityLabel="Condividi questo post"
+            accessibilityLabel="Condividi post"
+            testID="Condividi post"
             style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center", opacity: shareLoading ? 0.5 : 1 }}
           >
             <Feather name="share-2" size={18} color={theme.colors.text} />
           </Pressable>
-          {!owner ? (
-            <>
-              <Pressable onPress={handleReportPost} style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 8 }}>
-                <Text style={{ color: theme.colors.muted, fontWeight: "700", fontSize: 12 }}>Segnala</Text>
-              </Pressable>
-              <Pressable onPress={handleBlockAuthor} style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 8 }}>
-                <Text style={{ color: theme.colors.danger, fontWeight: "700", fontSize: 12 }}>Blocca autore</Text>
-              </Pressable>
-            </>
-          ) : null}
         </View>
       </View>
 
