@@ -39,10 +39,6 @@ function cloneReactionCounts(input?: Partial<Record<FeedReactionType, number>>):
   };
 }
 
-function sumReactionCounts(counts: Partial<Record<FeedReactionType, number>>): number {
-  return FEED_REACTION_TYPES.reduce((acc, type) => acc + (Number(counts[type] ?? 0) || 0), 0);
-}
-
 function formatWhen(iso?: string | null) {
   if (!iso) return "";
   try {
@@ -111,9 +107,11 @@ export default function FeedCard({
   const [editingOpen, setEditingOpen] = useState(false);
   const [editDraft, setEditDraft] = useState(text);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [postMenuOpen, setPostMenuOpen] = useState(false);
   const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
-  const totalReactions = sumReactionCounts(reactionCounts);
+  const totalReactions = FEED_REACTION_TYPES.reduce((acc, type) => acc + (reactionCounts[type] ?? 0), 0);
   const primaryReaction = viewerReaction ? REACTION_META[viewerReaction] : REACTION_META.like;
+  const reactionCluster = FEED_REACTION_TYPES.filter((type) => (reactionCounts[type] ?? 0) > 0).slice(0, 3);
 
   const post = (item?.raw as any) ?? (item as any);
   const authorIdRaw = post?.author_profile?.id ?? post?.author_profile_id ?? post?.authorId ?? post?.author_id ?? null;
@@ -176,11 +174,6 @@ export default function FeedCard({
     }
   };
 
-  const handleLikePress = async () => {
-    const nextReaction = viewerReaction === "like" ? null : "like";
-    await handleReactionToggle(nextReaction);
-  };
-
   const handleOpenComments = () => {
     if (!postPath) return;
     router.push(postPath);
@@ -196,6 +189,10 @@ export default function FeedCard({
     } finally {
       setShareLoading(false);
     }
+  };
+  const handleLikePress = async () => {
+    const nextReaction = viewerReaction === "like" ? null : "like";
+    await handleReactionToggle(nextReaction);
   };
 
   const handleStartEdit = () => {
@@ -292,6 +289,7 @@ export default function FeedCard({
   return (
     <View
       style={{
+        position: "relative",
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.neutral200,
         paddingHorizontal: 16,
@@ -302,6 +300,8 @@ export default function FeedCard({
     >
       <Pressable
         onPress={() => {
+          setPostMenuOpen(false);
+          setPickerOpen(false);
           console.log("[PR-MOB.PROFILES.2.1][tap-author]", {
             authorIdRaw,
             authorUuid,
@@ -343,6 +343,65 @@ export default function FeedCard({
           </Text>
         </View>
       </Pressable>
+      {!owner ? (
+        <View style={{ position: "absolute", right: 16, top: 14, zIndex: 20 }}>
+          <Pressable
+            onPress={() => setPostMenuOpen((prev) => !prev)}
+            accessibilityRole="button"
+            accessibilityLabel="Apri menu post"
+            testID="Apri menu post"
+            style={{ minWidth: 40, minHeight: 40, alignItems: "center", justifyContent: "center" }}
+          >
+            <Feather name="more-horizontal" size={20} color={theme.colors.muted} />
+          </Pressable>
+          {postMenuOpen ? (
+            <View
+              style={{
+                position: "absolute",
+                right: 0,
+                top: 42,
+                minWidth: 170,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: theme.colors.neutral200,
+                backgroundColor: theme.colors.background,
+                paddingVertical: 6,
+                shadowColor: "#000",
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+                elevation: 4,
+              }}
+            >
+              <Pressable
+                onPress={() => {
+                  setPostMenuOpen(false);
+                  handleReportPost();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Segnala post"
+                testID="Segnala post"
+                style={{ minHeight: 40, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12 }}
+              >
+                <Feather name="alert-triangle" size={17} color={theme.colors.muted} />
+                <Text style={{ color: theme.colors.text, fontWeight: "600", fontSize: 13 }}>Segnala post</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setPostMenuOpen(false);
+                  handleBlockAuthor();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Blocca autore"
+                testID="Blocca autore"
+                style={{ minHeight: 40, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12 }}
+              >
+                <Feather name="slash" size={17} color={theme.colors.danger} />
+                <Text style={{ color: theme.colors.danger, fontWeight: "700", fontSize: 13 }}>Blocca autore</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
 
       <View style={{ gap: 10 }}>
         {!!text ? (
@@ -397,89 +456,86 @@ export default function FeedCard({
         onClose={() => setLightbox({ open: false, index: 0 })}
       />
 
-      <View style={{ flexDirection: "row", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-        <View style={{ position: "relative" }}>
+      <View style={{ flexDirection: "row", gap: 8, alignItems: "center", flexWrap: "nowrap" }}>
+        <View style={{ position: "relative", flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1 }}>
           <Pressable
-            onPress={handleLikePress}
+            onPress={() => void handleLikePress()}
             onLongPress={() => setPickerOpen((prev) => !prev)}
             disabled={isLiking}
-            hitSlop={10}
+            hitSlop={8}
             style={{
-              minHeight: 40,
-              minWidth: 120,
-              paddingVertical: 8,
-              paddingHorizontal: 12,
-              borderRadius: 999,
+              minHeight: 30,
+              paddingHorizontal: 9,
+              borderRadius: 15,
               borderWidth: 1,
               borderColor: viewerReaction ? theme.colors.primary : theme.colors.neutral200,
               backgroundColor: viewerReaction ? theme.colors.neutral50 : "transparent",
               flexDirection: "row",
               alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
+              gap: 4,
             }}
           >
-            <Text style={{ fontSize: 16 }}>{primaryReaction.emoji}</Text>
-            <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>{totalReactions}</Text>
+            <Text style={{ fontSize: 15 }}>{primaryReaction.emoji}</Text>
+            <Text style={{ ...theme.typography.small, color: theme.colors.muted, fontSize: 13, fontWeight: viewerReaction ? "700" : "600" }}>
+              {totalReactions}
+            </Text>
           </Pressable>
+          {reactionCluster.length > 0 ? (
+            <View style={{ flexDirection: "row", alignItems: "center", marginLeft: 2 }}>
+              {reactionCluster.map((type, index) => (
+                <Text key={type} style={{ fontSize: 13, marginLeft: index === 0 ? 0 : -3 }}>
+                  {REACTION_META[type].emoji}
+                </Text>
+              ))}
+            </View>
+          ) : null}
 
           {pickerOpen ? (
             <View
               style={{
                 position: "absolute",
                 left: 0,
-                top: 44,
-                zIndex: 10,
+                bottom: 34,
+                zIndex: 20,
                 flexDirection: "row",
-                gap: 8,
-                padding: 8,
+                gap: 6,
+                paddingHorizontal: 8,
+                paddingVertical: 6,
                 borderRadius: 999,
                 borderWidth: 1,
                 borderColor: theme.colors.neutral200,
                 backgroundColor: theme.colors.background,
+                shadowColor: "#000",
+                shadowOpacity: 0.1,
+                shadowRadius: 6,
+                elevation: 3,
               }}
             >
               {FEED_REACTION_TYPES.map((reaction) => {
-                const meta = REACTION_META[reaction];
                 const active = viewerReaction === reaction;
                 return (
                   <Pressable
                     key={reaction}
                     onPress={() => void handleReactionToggle(active ? null : reaction)}
-                    hitSlop={8}
+                    hitSlop={6}
                     style={{
-                      minWidth: 42,
-                      minHeight: 42,
-                      borderRadius: 21,
-                      borderWidth: 1,
-                      borderColor: active ? theme.colors.primary : theme.colors.neutral200,
+                      minWidth: 30,
+                      minHeight: 30,
+                      borderRadius: 15,
                       alignItems: "center",
                       justifyContent: "center",
                       backgroundColor: active ? theme.colors.neutral50 : "transparent",
                     }}
                   >
-                    <Text style={{ fontSize: 20 }}>{meta.emoji}</Text>
+                    <Text style={{ fontSize: 18 }}>{REACTION_META[reaction].emoji}</Text>
                   </Pressable>
                 );
               })}
             </View>
           ) : null}
         </View>
-
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          {FEED_REACTION_TYPES.map((type) => {
-            const count = reactionCounts[type] ?? 0;
-            if (count <= 0) return null;
-            const meta = REACTION_META[type];
-            return (
-              <Text key={type} style={{ ...theme.typography.small, color: theme.colors.muted }}>
-                {meta.emoji} {count}
-              </Text>
-            );
-          })}
-        </View>
         <Pressable onPress={handleOpenComments} disabled={!postPath}>
-          <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>💬 {commentCount}</Text>
+          <Text style={{ ...theme.typography.small, color: theme.colors.muted, fontSize: 16 }}>💬 {commentCount}</Text>
         </Pressable>
         <View style={{ flexDirection: "row", alignItems: "center", marginLeft: "auto" }}>
           {owner ? (
@@ -508,21 +564,12 @@ export default function FeedCard({
             onPress={handleShare}
             disabled={saving || shareLoading}
             accessibilityRole="button"
-            accessibilityLabel="Condividi questo post"
+            accessibilityLabel="Condividi post"
+            testID="Condividi post"
             style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center", opacity: shareLoading ? 0.5 : 1 }}
           >
             <Feather name="share-2" size={18} color={theme.colors.text} />
           </Pressable>
-          {!owner ? (
-            <>
-              <Pressable onPress={handleReportPost} style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 8 }}>
-                <Text style={{ color: theme.colors.muted, fontWeight: "700", fontSize: 12 }}>Segnala</Text>
-              </Pressable>
-              <Pressable onPress={handleBlockAuthor} style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 8 }}>
-                <Text style={{ color: theme.colors.danger, fontWeight: "700", fontSize: 12 }}>Blocca autore</Text>
-              </Pressable>
-            </>
-          ) : null}
         </View>
       </View>
 
