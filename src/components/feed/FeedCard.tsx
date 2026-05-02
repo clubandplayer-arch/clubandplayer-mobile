@@ -39,10 +39,6 @@ function cloneReactionCounts(input?: Partial<Record<FeedReactionType, number>>):
   };
 }
 
-function sumReactionCounts(counts: Partial<Record<FeedReactionType, number>>): number {
-  return FEED_REACTION_TYPES.reduce((acc, type) => acc + (Number(counts[type] ?? 0) || 0), 0);
-}
-
 function formatWhen(iso?: string | null) {
   if (!iso) return "";
   try {
@@ -110,11 +106,8 @@ export default function FeedCard({
   const [shareLoading, setShareLoading] = useState(false);
   const [editingOpen, setEditingOpen] = useState(false);
   const [editDraft, setEditDraft] = useState(text);
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [postMenuOpen, setPostMenuOpen] = useState(false);
   const commentCount = typeof item.commentCount === "number" ? item.commentCount : 0;
-  const totalReactions = sumReactionCounts(reactionCounts);
-  const primaryReaction = viewerReaction ? REACTION_META[viewerReaction] : REACTION_META.like;
 
   const post = (item?.raw as any) ?? (item as any);
   const authorIdRaw = post?.author_profile?.id ?? post?.author_profile_id ?? post?.authorId ?? post?.author_id ?? null;
@@ -149,7 +142,6 @@ export default function FeedCard({
     const prevCounts = { ...reactionCounts };
     try {
       setIsLiking(true);
-      setPickerOpen(false);
       setViewerReaction(nextReaction);
       setReactionCounts((prev) => applyOptimisticReaction(prev, previousReaction, nextReaction));
 
@@ -175,11 +167,6 @@ export default function FeedCard({
     } finally {
       setIsLiking(false);
     }
-  };
-
-  const handleLikePress = async () => {
-    const nextReaction = viewerReaction === "like" ? null : "like";
-    await handleReactionToggle(nextReaction);
   };
 
   const handleOpenComments = () => {
@@ -459,89 +446,40 @@ export default function FeedCard({
         onClose={() => setLightbox({ open: false, index: 0 })}
       />
 
-      <View style={{ flexDirection: "row", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-        <View style={{ position: "relative" }}>
-          <Pressable
-            onPress={handleLikePress}
-            onLongPress={() => setPickerOpen((prev) => !prev)}
-            disabled={isLiking}
-            hitSlop={10}
-            style={{
-              minHeight: 36,
-              minWidth: 102,
-              paddingVertical: 6,
-              paddingHorizontal: 10,
-              borderRadius: 999,
-              borderWidth: 1,
-              borderColor: viewerReaction ? theme.colors.primary : theme.colors.neutral200,
-              backgroundColor: viewerReaction ? theme.colors.neutral50 : "transparent",
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-            }}
-          >
-            <Text style={{ fontSize: 18 }}>{primaryReaction.emoji}</Text>
-            <Text style={{ ...theme.typography.small, color: theme.colors.muted, fontSize: 18 }}>{totalReactions}</Text>
-          </Pressable>
-
-          {pickerOpen ? (
-            <View
-              style={{
-                position: "absolute",
-                left: 0,
-                top: 40,
-                zIndex: 10,
-                flexDirection: "row",
-                gap: 8,
-                padding: 8,
-                borderRadius: 999,
-                borderWidth: 1,
-                borderColor: theme.colors.neutral200,
-                backgroundColor: theme.colors.background,
-              }}
-            >
-              {FEED_REACTION_TYPES.map((reaction) => {
-                const meta = REACTION_META[reaction];
-                const active = viewerReaction === reaction;
-                return (
-                  <Pressable
-                    key={reaction}
-                    onPress={() => void handleReactionToggle(active ? null : reaction)}
-                    hitSlop={8}
-                    style={{
-                      minWidth: 42,
-                      minHeight: 42,
-                      borderRadius: 21,
-                      borderWidth: 1,
-                      borderColor: active ? theme.colors.primary : theme.colors.neutral200,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: active ? theme.colors.neutral50 : "transparent",
-                    }}
-                  >
-                    <Text style={{ fontSize: 20 }}>{meta.emoji}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ) : null}
-        </View>
-
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          {FEED_REACTION_TYPES.map((type) => {
-            const count = reactionCounts[type] ?? 0;
-            if (count <= 0) return null;
-            const meta = REACTION_META[type];
+      <View style={{ flexDirection: "row", gap: 8, alignItems: "center", flexWrap: "nowrap" }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1 }}>
+          {FEED_REACTION_TYPES.map((reaction) => {
+            const meta = REACTION_META[reaction];
+            const count = reactionCounts[reaction] ?? 0;
+            const active = viewerReaction === reaction;
             return (
-                  <Text key={type} style={{ ...theme.typography.small, color: theme.colors.muted, fontSize: 20 }}>
-                {meta.emoji} {count}
-              </Text>
+              <Pressable
+                key={reaction}
+                onPress={() => void handleReactionToggle(active ? null : reaction)}
+                disabled={isLiking}
+                hitSlop={6}
+                style={{
+                  minHeight: 28,
+                  paddingHorizontal: 5,
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: active ? theme.colors.primary : "transparent",
+                  backgroundColor: active ? theme.colors.neutral50 : "transparent",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                <Text style={{ fontSize: 17 }}>{meta.emoji}</Text>
+                <Text style={{ ...theme.typography.small, color: theme.colors.muted, fontSize: 13, fontWeight: active ? "700" : "500" }}>
+                  {count}
+                </Text>
+              </Pressable>
             );
           })}
         </View>
         <Pressable onPress={handleOpenComments} disabled={!postPath}>
-          <Text style={{ ...theme.typography.small, color: theme.colors.muted, fontSize: 20 }}>💬 {commentCount}</Text>
+          <Text style={{ ...theme.typography.small, color: theme.colors.muted, fontSize: 18 }}>💬 {commentCount}</Text>
         </Pressable>
         <View style={{ flexDirection: "row", alignItems: "center", marginLeft: "auto" }}>
           {owner ? (
