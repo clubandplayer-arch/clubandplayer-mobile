@@ -10,6 +10,7 @@ import { getOnboardingSeen, subscribeOnboardingSeen } from "../src/lib/onboardin
 import { usePushNotificationsSync } from "../src/lib/pushNotifications";
 import { normalizePushPayload, resolvePushTargetRoute } from "../src/lib/pushPayload";
 import { theme } from "../src/theme";
+import { usePushNotificationTapRouting } from "../src/lib/usePushNotificationTapRouting";
 
 
 function isInvalidRefreshTokenError(error: unknown) {
@@ -32,6 +33,7 @@ export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
   const pathname = usePathname();
+  usePushNotificationTapRouting(router);
 
   const [fontsLoaded] = useFonts({
     Righteous: require("../assets/fonts/Righteous-Regular.ttf"),
