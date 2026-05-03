@@ -9,6 +9,7 @@ import {
   Alert,
 } from "react-native";
 import * as Linking from "expo-linking";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 
 import {
@@ -25,6 +26,7 @@ import { theme } from "../../../src/theme";
 type FeedRow =
   | { type: "post"; key: string; item: FeedPost }
   | { type: "ad"; key: string };
+const FEED_UGC_TERMS_ACCEPTED_KEY = "feed_ugc_terms_accepted_v1";
 
 function getWhoamiUserId(user: unknown): string | null {
   if (!user || typeof user !== "object") return null;
@@ -48,12 +50,19 @@ export default function FeedScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
 
   const [flash, setFlash] = useState<string | null>(null);
+  const [ugcAccepted, setUgcAccepted] = useState<boolean | null>(null);
   const timerRef = useRef<any>(null);
 
   const web = useWebSession();
   const whoami = useWhoami(web.ready);
   const currentUserId = getWhoamiUserId(whoami.data?.user);
   const isFan = String((whoami.data as { role?: unknown } | null)?.role ?? "").toLowerCase().trim() === "fan";
+
+  useEffect(() => {
+    AsyncStorage.getItem(FEED_UGC_TERMS_ACCEPTED_KEY)
+      .then((value) => setUgcAccepted(value === "1"))
+      .catch(() => setUgcAccepted(false));
+  }, []);
 
   const showFlash = useCallback((msg: string) => {
     setFlash(msg);
@@ -106,9 +115,10 @@ export default function FeedScreen() {
       if (web.error) setLoading(false);
       return;
     }
+    if (ugcAccepted !== true) return;
     setLoading(true);
     load(feedMode);
-  }, [feedMode, load, web.error, web.ready]);
+  }, [feedMode, load, ugcAccepted, web.error, web.ready]);
 
   useEffect(() => {
     const unsubscribeRefresh = on("feed:refresh", () => {
@@ -195,26 +205,28 @@ export default function FeedScreen() {
           backgroundColor: theme.colors.background,
         }}
       >
-        <View
-          style={{
-            borderWidth: 1,
-            borderColor: theme.colors.neutral200,
-            backgroundColor: theme.colors.neutral50,
-            borderRadius: theme.radius.md,
-            padding: 12,
-            gap: 4,
-          }}
-        >
-          <Text style={{ ...theme.typography.strong, color: theme.colors.text }}>
-            Usando Club & Player accetti i Termini di utilizzo. Non sono tollerati contenuti offensivi o utenti abusivi.
-          </Text>
-          <Text
-            style={{ color: theme.colors.primary, fontWeight: "700" }}
-            onPress={() => void Linking.openURL("https://www.clubandplayer.com/legal/terms")}
+        {ugcAccepted ? (
+          <View
+            style={{
+              borderWidth: 1,
+              borderColor: theme.colors.neutral200,
+              backgroundColor: theme.colors.neutral50,
+              borderRadius: theme.radius.md,
+              padding: 12,
+              gap: 4,
+            }}
           >
-            Apri Termini di utilizzo
-          </Text>
-        </View>
+            <Text style={{ ...theme.typography.strong, color: theme.colors.text }}>
+              Usando Club & Player accetti i Termini di utilizzo. Non sono tollerati contenuti offensivi o utenti abusivi.
+            </Text>
+            <Text
+              style={{ color: theme.colors.primary, fontWeight: "700" }}
+              onPress={() => void Linking.openURL("https://www.clubandplayer.com/legal/terms")}
+            >
+              Apri Termini di utilizzo
+            </Text>
+          </View>
+        ) : null}
         {flash ? (
           <View
             style={{
@@ -290,7 +302,7 @@ export default function FeedScreen() {
           </Pressable>
         </View>
 
-        {!isFan ? <FeedComposer onPosted={refetchFeed} /> : null}
+        {ugcAccepted && !isFan ? <FeedComposer onPosted={refetchFeed} /> : null}
 
         {items.length === 0 && !error ? (
           <Text style={{ color: theme.colors.muted }}>{emptyMessage}</Text>
@@ -332,6 +344,7 @@ export default function FeedScreen() {
     web.retry,
     whoami.data?.role,
     whoami.data?.user,
+    ugcAccepted,
   ]);
 
   const footer = useMemo(() => {
@@ -374,7 +387,45 @@ export default function FeedScreen() {
     return out;
   }, [items]);
 
-  if (loading || web.loading) {
+  if (ugcAccepted === null || web.loading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
+        <ActivityIndicator />
+        <Text style={{ color: theme.colors.muted }}>Preparazione feed…</Text>
+      </View>
+    );
+  }
+
+  if (!ugcAccepted) {
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.colors.background, padding: 24, justifyContent: "center", gap: 14 }}>
+        <View style={{ borderWidth: 1, borderColor: theme.colors.neutral200, borderRadius: 12, padding: 16, gap: 10 }}>
+          <Text style={{ fontWeight: "800", fontSize: 18, color: theme.colors.text }}>Prima di accedere ai contenuti UGC</Text>
+          <Text style={{ color: theme.colors.text }}>
+            Usando Club & Player accetti i Termini di utilizzo. Non sono tollerati contenuti offensivi o utenti abusivi.
+          </Text>
+          <Text style={{ color: theme.colors.primary, fontWeight: "700" }} onPress={() => void Linking.openURL("https://www.clubandplayer.com/legal/terms")}>
+            Apri Termini di utilizzo
+          </Text>
+          <Text style={{ color: theme.colors.primary, fontWeight: "700" }} onPress={() => void Linking.openURL("https://www.clubandplayer.com/legal/privacy")}>
+            Apri Privacy Policy
+          </Text>
+          <Pressable
+            onPress={async () => {
+              await AsyncStorage.setItem(FEED_UGC_TERMS_ACCEPTED_KEY, "1");
+              setUgcAccepted(true);
+              setLoading(true);
+            }}
+            style={{ marginTop: 4, backgroundColor: theme.colors.primary, borderRadius: 10, paddingVertical: 12, alignItems: "center" }}
+          >
+            <Text style={{ color: theme.colors.background, fontWeight: "800" }}>Accetto e continuo</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  if (loading) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
         <ActivityIndicator />

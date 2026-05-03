@@ -279,6 +279,11 @@ export default function FeedCard({
             onToast?.("Operazione non riuscita.");
             return;
           }
+          await reportContent({
+            targetType: "profile",
+            targetId: authorIdRaw,
+            reason: "Blocco autore da app mobile per contenuto/utente abusivo",
+          });
           onBlockAuthor?.(authorIdRaw);
           onToast?.("Utente bloccato. I suoi contenuti sono stati rimossi dal feed.");
         },
