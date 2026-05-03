@@ -1,4 +1,16 @@
-const BLOCKED_WORDS = ["bastardo", "stronzo", "troia", "merda", "vaffanculo", "cazzo"];
+const BLOCKED_WORDS = [
+  "bastardo",
+  "stronzo",
+  "troia",
+  "merda",
+  "vaffanculo",
+  "cazzo",
+  "frocio",
+  "ricchione",
+  "fanculo",
+  "puttana",
+  "mignotta",
+];
 
 function normalizeText(value: string) {
   return value
