@@ -242,7 +242,10 @@ export default function LoginScreen() {
         </Text>
       </Pressable>
       <Text style={{ textAlign: "center", color: theme.colors.muted, fontSize: 12 }}>
-        Continuando accetti i nostri{" "}
+        Accedendo o registrandoti accetti i Termini di utilizzo e la Privacy Policy. Club & Player non tollera contenuti offensivi, abusivi o utenti molesti.{" "}
+        {"\n"}
+        {"\n"}
+        Continua consultando i nostri{" "}
         <Text style={{ color: theme.colors.primary }} onPress={() => void Linking.openURL(`${WEB_BASE_URL}/legal/terms`)}>
           Termini di utilizzo
         </Text>{" "}

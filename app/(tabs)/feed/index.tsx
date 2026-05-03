@@ -8,6 +8,7 @@ import {
   FlatList,
   Alert,
 } from "react-native";
+import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 
 import {
@@ -194,7 +195,26 @@ export default function FeedScreen() {
           backgroundColor: theme.colors.background,
         }}
       >
-
+        <View
+          style={{
+            borderWidth: 1,
+            borderColor: theme.colors.neutral200,
+            backgroundColor: theme.colors.neutral50,
+            borderRadius: theme.radius.md,
+            padding: 12,
+            gap: 4,
+          }}
+        >
+          <Text style={{ ...theme.typography.strong, color: theme.colors.text }}>
+            Usando Club & Player accetti i Termini di utilizzo. Non sono tollerati contenuti offensivi o utenti abusivi.
+          </Text>
+          <Text
+            style={{ color: theme.colors.primary, fontWeight: "700" }}
+            onPress={() => void Linking.openURL("https://www.clubandplayer.com/legal/terms")}
+          >
+            Apri Termini di utilizzo
+          </Text>
+        </View>
         {flash ? (
           <View
             style={{

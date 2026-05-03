@@ -97,6 +97,9 @@ export default function OnboardingScreen() {
         Nota: la navigazione “ospite” verrà aggiunta più avanti. Per ora è richiesto l’accesso.
       </Text>
       <Text style={{ fontSize: 12, color: theme.colors.muted }}>
+        Accedendo o registrandoti accetti i Termini di utilizzo e la Privacy Policy. Club & Player non tollera contenuti offensivi, abusivi o utenti molesti.
+      </Text>
+      <Text style={{ fontSize: 12, color: theme.colors.muted }}>
         Consulta{" "}
         <Text style={{ color: theme.colors.primary }} onPress={() => void Linking.openURL(`${WEB_BASE_URL}/legal/terms`)}>
           Termini di utilizzo

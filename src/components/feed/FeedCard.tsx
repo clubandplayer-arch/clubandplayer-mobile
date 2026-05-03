@@ -257,10 +257,10 @@ export default function FeedCard({
         onPress: async () => {
           const response = await reportContent({ targetType: "post", targetId: item.id });
           if (!response.ok) {
-            onToast?.(response.errorText || "Impossibile inviare la segnalazione");
+            onToast?.("Operazione non riuscita.");
             return;
           }
-          onToast?.("Segnalazione inviata. Grazie!");
+          onToast?.("Segnalazione inviata. Il team la esaminerà entro 24 ore.");
         },
       },
     ]);
@@ -276,11 +276,11 @@ export default function FeedCard({
         onPress: async () => {
           const response = await blockProfile(authorIdRaw);
           if (!response.ok) {
-            onToast?.(response.errorText || "Blocco non riuscito");
+            onToast?.("Operazione non riuscita.");
             return;
           }
           onBlockAuthor?.(authorIdRaw);
-          onToast?.("Autore bloccato");
+          onToast?.("Utente bloccato. I suoi contenuti sono stati rimossi dal feed.");
         },
       },
     ]);
