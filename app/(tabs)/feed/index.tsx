@@ -221,21 +221,30 @@ export default function FeedScreen() {
               backgroundColor: theme.colors.neutral50,
               borderRadius: theme.radius.md,
               padding: 12,
-              gap: 4,
+              gap: 8,
             }}
           >
-            <Pressable
-              onPress={async () => {
-                setUgcBannerDismissed(true);
-                await AsyncStorage.setItem(FEED_UGC_BANNER_DISMISSED_KEY, "1");
-              }}
-              style={{ position: "absolute", top: 8, right: 8, zIndex: 1, paddingHorizontal: 6, paddingVertical: 2 }}
-            >
-              <Text style={{ color: theme.colors.muted, fontSize: 16, fontWeight: "700" }}>✕</Text>
-            </Pressable>
-            <Text style={{ ...theme.typography.strong, color: theme.colors.text }}>
-              Usando Club & Player accetti i Termini di utilizzo. Non sono tollerati contenuti offensivi o utenti abusivi.
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
+              <Text style={{ ...theme.typography.strong, color: theme.colors.text, flex: 1 }}>
+                Usando Club & Player accetti i Termini di utilizzo. Non sono tollerati contenuti offensivi o utenti abusivi.
+              </Text>
+              <Pressable
+                onPress={async () => {
+                  setUgcBannerDismissed(true);
+                  await AsyncStorage.setItem(FEED_UGC_BANNER_DISMISSED_KEY, "1");
+                }}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                hitSlop={6}
+              >
+                <Text style={{ color: theme.colors.muted, fontSize: 18, fontWeight: "700", lineHeight: 18 }}>✕</Text>
+              </Pressable>
+            </View>
             <Text
               style={{ color: theme.colors.primary, fontWeight: "700" }}
               onPress={() => void WebBrowser.openBrowserAsync("https://www.clubandplayer.com/legal/terms")}
