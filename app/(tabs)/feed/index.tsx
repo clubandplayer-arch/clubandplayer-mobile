@@ -27,6 +27,7 @@ type FeedRow =
   | { type: "post"; key: string; item: FeedPost }
   | { type: "ad"; key: string };
 const FEED_UGC_TERMS_ACCEPTED_KEY = "feed_ugc_terms_accepted_v1";
+const FEED_UGC_BANNER_DISMISSED_KEY = "feed_ugc_banner_dismissed_v1";
 
 function getWhoamiUserId(user: unknown): string | null {
   if (!user || typeof user !== "object") return null;
@@ -51,6 +52,7 @@ export default function FeedScreen() {
 
   const [flash, setFlash] = useState<string | null>(null);
   const [ugcAccepted, setUgcAccepted] = useState<boolean | null>(null);
+  const [ugcBannerDismissed, setUgcBannerDismissed] = useState(false);
   const timerRef = useRef<any>(null);
 
   const web = useWebSession();
@@ -62,6 +64,12 @@ export default function FeedScreen() {
     AsyncStorage.getItem(FEED_UGC_TERMS_ACCEPTED_KEY)
       .then((value) => setUgcAccepted(value === "1"))
       .catch(() => setUgcAccepted(false));
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.getItem(FEED_UGC_BANNER_DISMISSED_KEY)
+      .then((value) => setUgcBannerDismissed(value === "1"))
+      .catch(() => setUgcBannerDismissed(false));
   }, []);
 
   const showFlash = useCallback((msg: string) => {
@@ -205,7 +213,7 @@ export default function FeedScreen() {
           backgroundColor: theme.colors.background,
         }}
       >
-        {ugcAccepted ? (
+        {ugcAccepted && !ugcBannerDismissed ? (
           <View
             style={{
               borderWidth: 1,
@@ -216,6 +224,15 @@ export default function FeedScreen() {
               gap: 4,
             }}
           >
+            <Pressable
+              onPress={async () => {
+                setUgcBannerDismissed(true);
+                await AsyncStorage.setItem(FEED_UGC_BANNER_DISMISSED_KEY, "1");
+              }}
+              style={{ position: "absolute", top: 8, right: 8, zIndex: 1, paddingHorizontal: 6, paddingVertical: 2 }}
+            >
+              <Text style={{ color: theme.colors.muted, fontSize: 16, fontWeight: "700" }}>✕</Text>
+            </Pressable>
             <Text style={{ ...theme.typography.strong, color: theme.colors.text }}>
               Usando Club & Player accetti i Termini di utilizzo. Non sono tollerati contenuti offensivi o utenti abusivi.
             </Text>
@@ -345,6 +362,7 @@ export default function FeedScreen() {
     whoami.data?.role,
     whoami.data?.user,
     ugcAccepted,
+    ugcBannerDismissed,
   ]);
 
   const footer = useMemo(() => {
