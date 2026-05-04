@@ -18,6 +18,7 @@ import { emit } from "../../../src/lib/events/appEvents";
 import { createPost } from "../../../src/lib/posts/createPost";
 import BrandHeader from "../../../src/components/brand/BrandHeader";
 import { theme } from "../../../src/theme";
+import { containsObjectionableText } from "../../../src/lib/moderation";
 
 type DraftMedia = {
   uri: string;
@@ -162,6 +163,10 @@ export default function CreateScreen() {
 
     if (!text.trim() && media.length === 0) {
       Alert.alert("Contenuto mancante", "Inserisci testo o almeno un media.");
+      return;
+    }
+    if (text.trim() && containsObjectionableText(text)) {
+      Alert.alert("Contenuto non consentito", "Il contenuto non può essere pubblicato perché viola le regole della community.");
       return;
     }
 

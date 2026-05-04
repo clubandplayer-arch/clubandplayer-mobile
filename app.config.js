@@ -8,6 +8,11 @@ const config = {
   userInterfaceStyle: "automatic",
 
   icon: "./assets/icon.png",
+  splash: {
+    image: "./assets/splash-icon.png",
+    resizeMode: "contain",
+    backgroundColor: "#ffffff",
+  },
   
   notification: {
   icon: "./assets/notification-icon.png",
@@ -30,6 +35,10 @@ const config = {
     package: "com.clubandplayer.app",
     googleServicesFile: "./google-services.json",
     versionCode: 42,
+    adaptiveIcon: {
+      foregroundImage: "./assets/adaptive-icon.png",
+      backgroundColor: "#ffffff",
+    },
     intentFilters: [
       {
         action: "VIEW",
@@ -60,7 +69,20 @@ const config = {
     ],
   },
 
-  plugins: ["expo-router", "expo-video", "expo-font", "expo-notifications"],
+  plugins: [
+    "expo-router",
+    "expo-video",
+    "expo-font",
+    "expo-notifications",
+    [
+      "expo-splash-screen",
+      {
+        image: "./assets/splash-icon.png",
+        resizeMode: "contain",
+        backgroundColor: "#ffffff",
+      },
+    ],
+  ],
 
   extra: {
     NEXT_PUBLIC_ADS_ENABLED: process.env.NEXT_PUBLIC_ADS_ENABLED ?? "false",

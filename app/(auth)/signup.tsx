@@ -8,7 +8,7 @@ import {
   View,
   Platform,
 } from "react-native";
-import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { BrandLogo } from "../../components/brand/BrandLogo";
@@ -242,12 +242,15 @@ export default function SignupScreen() {
         </Text>
       </Pressable>
       <Text style={{ textAlign: "center", color: theme.colors.muted, fontSize: 12 }}>
-        Continuando accetti i nostri{" "}
-        <Text style={{ color: theme.colors.primary }} onPress={() => void Linking.openURL(`${WEB_BASE_URL}/legal/terms`)}>
+        Accedendo o registrandoti accetti i Termini di utilizzo e la Privacy Policy. Club & Player non tollera contenuti offensivi, abusivi o utenti molesti.{" "}
+        {"\n"}
+        {"\n"}
+        Continua consultando i nostri{" "}
+        <Text style={{ color: theme.colors.primary }} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_BASE_URL}/legal/terms`)}>
           Termini di utilizzo
         </Text>{" "}
         e la{" "}
-        <Text style={{ color: theme.colors.primary }} onPress={() => void Linking.openURL(`${WEB_BASE_URL}/legal/privacy`)}>
+        <Text style={{ color: theme.colors.primary }} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_BASE_URL}/legal/privacy`)}>
           Privacy Policy
         </Text>
         .

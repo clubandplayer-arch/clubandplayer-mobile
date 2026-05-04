@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from "react-native";
 import { createComment, deleteComment, editComment, fetchComments, type FeedComment } from "../lib/api";
 import { getProfileDisplayName } from "../lib/profiles/getProfileDisplayName";
 import ProfileAvatar from "./profiles/ProfileAvatar";
 import { theme } from "../theme";
+import { containsObjectionableText } from "../lib/moderation";
 
 type CommentsSectionProps = {
   postId: string;
@@ -104,6 +105,10 @@ export function CommentsSection({
 
     const body = draft.trim();
     if (!body) return;
+    if (containsObjectionableText(body)) {
+      Alert.alert("Contenuto non consentito", "Il contenuto non può essere pubblicato perché viola le regole della community.");
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
