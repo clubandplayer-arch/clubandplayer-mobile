@@ -10,7 +10,7 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
 } from "react-native";
-import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { BrandLogo } from "../../components/brand/BrandLogo";
@@ -246,11 +246,11 @@ export default function LoginScreen() {
         {"\n"}
         {"\n"}
         Continua consultando i nostri{" "}
-        <Text style={{ color: theme.colors.primary }} onPress={() => void Linking.openURL(`${WEB_BASE_URL}/legal/terms`)}>
+        <Text style={{ color: theme.colors.primary }} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_BASE_URL}/legal/terms`)}>
           Termini di utilizzo
         </Text>{" "}
         e la{" "}
-        <Text style={{ color: theme.colors.primary }} onPress={() => void Linking.openURL(`${WEB_BASE_URL}/legal/privacy`)}>
+        <Text style={{ color: theme.colors.primary }} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_BASE_URL}/legal/privacy`)}>
           Privacy Policy
         </Text>
         .

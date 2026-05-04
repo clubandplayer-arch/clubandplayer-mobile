@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
-import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
 import { router } from "expo-router";
 import { BrandLogo } from "../../components/brand/BrandLogo";
 import { setOnboardingSeen } from "../../src/lib/onboarding";
@@ -101,11 +101,11 @@ export default function OnboardingScreen() {
       </Text>
       <Text style={{ fontSize: 12, color: theme.colors.muted }}>
         Consulta{" "}
-        <Text style={{ color: theme.colors.primary }} onPress={() => void Linking.openURL(`${WEB_BASE_URL}/legal/terms`)}>
+        <Text style={{ color: theme.colors.primary }} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_BASE_URL}/legal/terms`)}>
           Termini di utilizzo
         </Text>{" "}
         e{" "}
-        <Text style={{ color: theme.colors.primary }} onPress={() => void Linking.openURL(`${WEB_BASE_URL}/legal/privacy`)}>
+        <Text style={{ color: theme.colors.primary }} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_BASE_URL}/legal/privacy`)}>
           Privacy Policy
         </Text>
         .

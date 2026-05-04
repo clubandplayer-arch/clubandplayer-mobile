@@ -8,8 +8,8 @@ import {
   FlatList,
   Alert,
 } from "react-native";
-import * as Linking from "expo-linking";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as WebBrowser from "expo-web-browser";
 import { useRouter } from "expo-router";
 
 import {
@@ -221,7 +221,7 @@ export default function FeedScreen() {
             </Text>
             <Text
               style={{ color: theme.colors.primary, fontWeight: "700" }}
-              onPress={() => void Linking.openURL("https://www.clubandplayer.com/legal/terms")}
+              onPress={() => void WebBrowser.openBrowserAsync("https://www.clubandplayer.com/legal/terms")}
             >
               Apri Termini di utilizzo
             </Text>
@@ -404,10 +404,10 @@ export default function FeedScreen() {
           <Text style={{ color: theme.colors.text }}>
             Usando Club & Player accetti i Termini di utilizzo. Non sono tollerati contenuti offensivi o utenti abusivi.
           </Text>
-          <Text style={{ color: theme.colors.primary, fontWeight: "700" }} onPress={() => void Linking.openURL("https://www.clubandplayer.com/legal/terms")}>
+          <Text style={{ color: theme.colors.primary, fontWeight: "700" }} onPress={() => void WebBrowser.openBrowserAsync("https://www.clubandplayer.com/legal/terms")}>
             Apri Termini di utilizzo
           </Text>
-          <Text style={{ color: theme.colors.primary, fontWeight: "700" }} onPress={() => void Linking.openURL("https://www.clubandplayer.com/legal/privacy")}>
+          <Text style={{ color: theme.colors.primary, fontWeight: "700" }} onPress={() => void WebBrowser.openBrowserAsync("https://www.clubandplayer.com/legal/privacy")}>
             Apri Privacy Policy
           </Text>
           <Pressable

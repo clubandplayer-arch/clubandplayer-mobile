@@ -10,6 +10,8 @@ const BLOCKED_WORDS = [
   "fanculo",
   "puttana",
   "mignotta",
+  "porco dio",
+  "porca madonna",
 ];
 
 function normalizeText(value: string) {
