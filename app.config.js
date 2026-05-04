@@ -31,15 +31,11 @@ const config = {
     },
   },
 
-  android: {
-    package: "com.clubandplayer.app",
-    googleServicesFile: "./google-services.json",
-    versionCode: 43,
-    adaptiveIcon: {
-      foregroundImage: "./assets/adaptive-icon.png",
-      backgroundColor: "#ffffff",
-    },
-    intentFilters: [
+      android: {
+        package: "com.clubandplayer.app",
+        googleServicesFile: "./google-services.json",
+        versionCode: 43,
+        intentFilters: [
       {
         action: "VIEW",
         data: [
