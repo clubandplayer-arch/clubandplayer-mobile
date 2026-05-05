@@ -125,7 +125,10 @@ export default function FeedCard({
   const authorRole = typeof authorRoleRaw === "string" ? authorRoleRaw.toLowerCase().trim() : null;
 
   const postPath = resolvePostPath(item.id);
-  const owner = isPostOwner({ authorId: authorIdRaw }, currentUserId);
+  const postAuthorId =
+    (typeof (post as any)?.authorId === "string" ? (post as any).authorId : null) ??
+    (typeof item.author_id === "string" ? item.author_id : null);
+  const owner = isPostOwner({ authorId: postAuthorId }, currentUserId);
 
 
   const applyOptimisticReaction = (

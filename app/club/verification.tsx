@@ -19,6 +19,7 @@ import {
   useWebSession,
 } from "../../src/lib/api";
 import { Stack } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { theme } from "../../src/theme";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -142,10 +143,12 @@ export default function ClubVerificationScreen() {
     setRefreshing(false);
   }, [web.ready]);
 
-  useEffect(() => {
-    if (!web.ready) return;
-    void loadData();
-  }, [loadData, web.ready]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!web.ready) return;
+      void loadData();
+    }, [loadData, web.ready]),
+  );
 
   useEffect(() => {
     if (!web.loading && !web.ready) {
@@ -168,20 +171,33 @@ export default function ClubVerificationScreen() {
     setError(null);
     setSuccess(null);
 
-    const hasNativeDocumentPicker = Boolean((NativeModules as any)?.ExpoDocumentPicker);
-    if (!hasNativeDocumentPicker) {
-      setError(
-        "Modulo selezione documenti non disponibile su questa build. Aggiorna la build nativa o usa Expo Go.",
-      );
+    let documentPicker: any = null;
+    try {
+      documentPicker = require("expo-document-picker");
+    } catch {
+      setError("Modulo selezione documenti non disponibile su questa build.");
       return;
     }
-    const documentPicker = require("expo-document-picker") as any;
 
-    const picked = await documentPicker.getDocumentAsync({
-      type: "application/pdf",
-      copyToCacheDirectory: true,
-      multiple: false,
-    });
+    const hasNativeDocumentPicker =
+      Boolean((NativeModules as any)?.ExpoDocumentPicker) ||
+      typeof documentPicker?.getDocumentAsync === "function";
+    if (!hasNativeDocumentPicker) {
+      setError("Modulo selezione documenti non disponibile su questa build.");
+      return;
+    }
+
+    let picked: any;
+    try {
+      picked = await documentPicker.getDocumentAsync({
+        type: "application/pdf",
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+    } catch {
+      setError("Impossibile aprire la selezione documenti su questa build.");
+      return;
+    }
 
     if (picked.canceled || !picked.assets?.length) return;
 
