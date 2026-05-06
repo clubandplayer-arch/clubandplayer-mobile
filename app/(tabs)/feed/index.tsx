@@ -40,7 +40,6 @@ function getWhoamiUserId(user: unknown): string | null {
 export default function FeedScreen() {
   const router = useRouter();
 
-
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
