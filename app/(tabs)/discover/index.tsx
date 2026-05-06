@@ -14,6 +14,7 @@ import { getProfileDisplayName } from "../../../src/lib/profiles/getProfileDispl
 import CountryFlag from "../../../src/components/ui/CountryFlag";
 import { getCountryDisplay } from "../../../src/lib/geo/countryDisplay";
 import ProfileAvatar from "../../../src/components/profiles/ProfileAvatar";
+import LightboxModal from "../../../components/media/LightboxModal";
 
 const WEB_BASE_URL =
   process.env.EXPO_PUBLIC_WEB_BASE_URL ?? "https://www.clubandplayer.com";
@@ -84,6 +85,7 @@ export default function DiscoverScreen() {
   const [items, setItems] = useState<SuggestionItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [pendingIds, setPendingIds] = useState<Record<string, boolean>>({});
+  const [avatarPreview, setAvatarPreview] = useState<{ url: string } | null>(null);
 
   const mergeUnique = useCallback((prev: SuggestionItem[], next: SuggestionItem[]) => {
     const seen = new Set(prev.map((x) => x.id));
@@ -361,16 +363,31 @@ export default function DiscoverScreen() {
                 gap: 12,
               }}
             >
-              <ProfileAvatar
-                uri={item.avatar_url ?? null}
-                size={44}
-                name={name}
-                profile={{
-                  accountType: item.account_type ?? item.type ?? null,
-                  isVerified: item.isVerified ?? null,
-                  is_verified: item.is_verified ?? null,
-                }}
-              />
+              {item.avatar_url ? (
+                <Pressable onPress={() => setAvatarPreview({ url: item.avatar_url! })} style={{ zIndex: 10 }}>
+                  <ProfileAvatar
+                    uri={item.avatar_url ?? null}
+                    size={44}
+                    name={name}
+                    profile={{
+                      accountType: item.account_type ?? item.type ?? null,
+                      isVerified: item.isVerified ?? null,
+                      is_verified: item.is_verified ?? null,
+                    }}
+                  />
+                </Pressable>
+              ) : (
+                <ProfileAvatar
+                  uri={item.avatar_url ?? null}
+                  size={44}
+                  name={name}
+                  profile={{
+                    accountType: item.account_type ?? item.type ?? null,
+                    isVerified: item.isVerified ?? null,
+                    is_verified: item.is_verified ?? null,
+                  }}
+                />
+              )}
               <View style={{ flex: 1, gap: 2 }}>
                 <Pressable
                   onPress={() => {
@@ -420,6 +437,12 @@ export default function DiscoverScreen() {
             </View>
           ) : null
         }
+      />
+      <LightboxModal
+        visible={Boolean(avatarPreview)}
+        items={avatarPreview ? [{ url: avatarPreview.url, media_type: "image" }] : []}
+        initialIndex={0}
+        onClose={() => setAvatarPreview(null)}
       />
     </View>
   );
