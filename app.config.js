@@ -3,7 +3,7 @@ const config = {
   name: "Club & Player",
   slug: "clubandplayer",
   scheme: "clubandplayer",
-  version: "3.0.5",
+  version: "3.0.6",
   orientation: "portrait",
   userInterfaceStyle: "automatic",
 
@@ -22,7 +22,7 @@ const config = {
   ios: {
     supportsTablet: false,
     bundleIdentifier: "com.clubandplayer.app",
-    buildNumber: "45",
+    buildNumber: "46",
     infoPlist: {
       NSPhotoLibraryUsageDescription:
         "Club & Player accede alle tue foto per permetterti di caricare immagini nei post, nel profilo e nelle opportunità sportive.",
@@ -34,7 +34,7 @@ const config = {
       android: {
         package: "com.clubandplayer.app",
         googleServicesFile: "./google-services.json",
-        versionCode: 45,
+        versionCode: 46,
         intentFilters: [
       {
         action: "VIEW",
