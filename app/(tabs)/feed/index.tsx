@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as WebBrowser from "expo-web-browser";
-import { useRouter } from "expo-router";
 
 import {
   getFeedPosts,
@@ -38,7 +37,6 @@ function getWhoamiUserId(user: unknown): string | null {
 }
 
 export default function FeedScreen() {
-  const router = useRouter();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -290,7 +288,7 @@ export default function FeedScreen() {
           </View>
 
           <Pressable
-            onPress={() => router.push("/sponsor")}
+            onPress={() => void WebBrowser.openBrowserAsync("https://www.clubandplayer.com/sponsor")}
             style={{
               borderRadius: 10,
               backgroundColor: "#ffffff",
