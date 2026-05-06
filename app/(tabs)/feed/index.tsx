@@ -290,7 +290,7 @@ export default function FeedScreen() {
           </View>
 
           <Pressable
-            onPress={() => void WebBrowser.openBrowserAsync("https://www.clubandplayer.com/sponsor")}
+            onPress={() => void WebBrowser.openBrowserAsync("https://clubandplayer.com/sponsor")}
             style={{
               borderRadius: 10,
               backgroundColor: "#ffffff",
