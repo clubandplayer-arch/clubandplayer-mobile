@@ -91,6 +91,7 @@ export default function FeedCard({
     open: false,
     index: 0,
   });
+  const [avatarOpen, setAvatarOpen] = useState(false);
 
   const authorName = getAuthorName(item.author);
   const text = getPostText(item.raw);
@@ -306,51 +307,48 @@ export default function FeedCard({
         gap: 10,
       }}
     >
-      <Pressable
-        onPress={() => {
-          setPostMenuOpen(false);
-          setPickerOpen(false);
-          console.log("[PR-MOB.PROFILES.2.1][tap-author]", {
-            authorIdRaw,
-            authorUuid,
-            isUuid: authorUuid ? isUuid(authorUuid) : false,
-            postKeys: Object.keys(post ?? {}),
-          });
-
-          if (!authorUuid || !isUuid(authorUuid)) {
-            console.log("[PR-MOB.PROFILES.2.1][tap-author][skip]", "missing valid uuid");
-            return;
-          }
-
-          const target = resolveAuthorRoute({ authorUuid, authorRole, author: item.author ?? null });
-          console.log("[PR-MOB.PROFILES.2.2][tap-author][target]", { authorUuid, authorRole, target });
-          router.navigate(target);
-        }}
-        style={{
-          flexDirection: "row",
-          gap: 10,
-          alignItems: "center",
-          opacity: authorUuid && isUuid(authorUuid) ? 1 : 0.6,
-        }}
-      >
-        <ProfileAvatar
-          uri={item.author?.avatar_url ?? null}
-          size={40}
-          name={authorName}
-          profile={{
-            accountType: item.author?.account_type ?? item.author?.type ?? item.author?.role ?? null,
-            is_verified: item.author?.is_verified ?? null,
+      <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+        {item.author?.avatar_url ? (
+          <Pressable onPress={() => setAvatarOpen(true)} style={{ zIndex: 10 }}>
+            <ProfileAvatar
+              uri={item.author?.avatar_url ?? null}
+              size={40}
+              name={authorName}
+              profile={{
+                accountType: item.author?.account_type ?? item.author?.type ?? item.author?.role ?? null,
+                is_verified: item.author?.is_verified ?? null,
+              }}
+            />
+          </Pressable>
+        ) : (
+          <ProfileAvatar
+            uri={item.author?.avatar_url ?? null}
+            size={40}
+            name={authorName}
+            profile={{
+              accountType: item.author?.account_type ?? item.author?.type ?? item.author?.role ?? null,
+              is_verified: item.author?.is_verified ?? null,
+            }}
+          />
+        )}
+        <Pressable
+          onPress={() => {
+            setPostMenuOpen(false);
+            setPickerOpen(false);
+            if (!authorUuid || !isUuid(authorUuid)) return;
+            const target = resolveAuthorRoute({ authorUuid, authorRole, author: item.author ?? null });
+            router.navigate(target);
           }}
-        />
-        <View style={{ flex: 1 }}>
+          style={{ flex: 1, opacity: authorUuid && isUuid(authorUuid) ? 1 : 0.6 }}
+        >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Text style={{ fontSize: 15, fontWeight: "800", color: theme.colors.text }}>{authorName}</Text>
           </View>
           <Text style={{ ...theme.typography.small, color: theme.colors.muted }}>
             {countryFlag ? `${countryFlag} · ${when}` : when}
           </Text>
-        </View>
-      </Pressable>
+        </Pressable>
+      </View>
       {!owner ? (
         <View style={{ position: "absolute", right: 16, top: 14, zIndex: 20 }}>
           <Pressable
@@ -462,6 +460,12 @@ export default function FeedCard({
         items={item.media ?? []}
         initialIndex={lightbox.index}
         onClose={() => setLightbox({ open: false, index: 0 })}
+      />
+      <LightboxModal
+        visible={avatarOpen}
+        items={[{ url: item.author?.avatar_url ?? "", media_type: "image" }]}
+        initialIndex={0}
+        onClose={() => setAvatarOpen(false)}
       />
 
       <View style={{ flexDirection: "row", gap: 8, alignItems: "center", flexWrap: "nowrap" }}>

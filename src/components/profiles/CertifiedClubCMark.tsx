@@ -25,6 +25,7 @@ export default function CertifiedClubCMark({
     <Text
       accessible
       accessibilityLabel="Club certificato"
+      pointerEvents="none"
       style={{
         position: "absolute",
         top: offsetY,

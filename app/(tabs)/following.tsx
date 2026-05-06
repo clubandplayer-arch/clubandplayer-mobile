@@ -19,6 +19,7 @@ import { getProfileDisplayName } from "../../src/lib/profiles/getProfileDisplayN
 import { useIsClub } from "../../src/lib/useIsClub";
 import { theme } from "../../src/theme";
 import ProfileAvatar from "../../src/components/profiles/ProfileAvatar";
+import LightboxModal from "../../components/media/LightboxModal";
 
 type FollowingItem = {
   id: string;
@@ -139,6 +140,7 @@ export default function FollowingScreen() {
   const { isClub, loading: isClubLoading } = useIsClub(sessionPresent);
   const [rosterSet, setRosterSet] = useState<Set<string>>(new Set());
   const [pendingRosterIds, setPendingRosterIds] = useState<Set<string>>(new Set());
+  const [avatarPreview, setAvatarPreview] = useState<{ url: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -440,10 +442,7 @@ export default function FollowingScreen() {
             const profilePath = item.accountType === "club" ? "/clubs/[id]" : "/players/[id]";
 
             return (
-              <Pressable
-                onPress={() => {
-                  router.push({ pathname: profilePath as any, params: { id: item.id } });
-                }}
+              <View
                 style={{
                   borderWidth: 1,
                   borderColor: theme.colors.primarySoft,
@@ -456,13 +455,29 @@ export default function FollowingScreen() {
                   backgroundColor: theme.colors.background,
                 }}
               >
-                <ProfileAvatar
-                  uri={item.avatarUrl}
-                  size={44}
-                  name={item.name}
-                  profile={{ accountType: item.accountType, isVerified: item.isVerified }}
-                />
-                <View style={{ flex: 1, gap: 2 }}>
+                {item.avatarUrl ? (
+                  <Pressable onPress={() => setAvatarPreview({ url: item.avatarUrl! })} style={{ zIndex: 10 }}>
+                    <ProfileAvatar
+                      uri={item.avatarUrl}
+                      size={44}
+                      name={item.name}
+                      profile={{ accountType: item.accountType, isVerified: item.isVerified }}
+                    />
+                  </Pressable>
+                ) : (
+                  <ProfileAvatar
+                    uri={item.avatarUrl}
+                    size={44}
+                    name={item.name}
+                    profile={{ accountType: item.accountType, isVerified: item.isVerified }}
+                  />
+                )}
+                <Pressable
+                  onPress={() => {
+                    router.push({ pathname: profilePath as any, params: { id: item.id } });
+                  }}
+                  style={{ flex: 1, gap: 2 }}
+                >
                   <Text style={{ fontSize: 16, fontWeight: "700", color: theme.colors.primary }}>{item.name}</Text>
                   {(() => {
                     const country = getCountryDisplay(item.country);
@@ -480,7 +495,7 @@ export default function FollowingScreen() {
                       </View>
                     );
                   })()}
-                </View>
+                </Pressable>
                 {isClub && item.accountType === "athlete" ? (
                   <View
                     style={{
@@ -511,11 +526,17 @@ export default function FollowingScreen() {
                     />
                   </View>
                 ) : null}
-              </Pressable>
+              </View>
             );
           }}
         />
       )}
+      <LightboxModal
+        visible={Boolean(avatarPreview)}
+        items={avatarPreview ? [{ url: avatarPreview.url, media_type: "image" }] : []}
+        initialIndex={0}
+        onClose={() => setAvatarPreview(null)}
+      />
     </View>
   );
 }
