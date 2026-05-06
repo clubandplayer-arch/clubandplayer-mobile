@@ -269,6 +269,41 @@ export default function FeedScreen() {
 
         <View
           style={{
+            width: "100%",
+            borderRadius: theme.radius.md,
+            backgroundColor: "#036f9a",
+            paddingHorizontal: 14,
+            paddingVertical: 12,
+            flexDirection: "row",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 12,
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "700" }}>
+              Sei un’attività e vuoi farti conoscere da club e player?
+            </Text>
+            <Text style={{ color: "rgba(255,255,255,0.9)", fontSize: 12, marginTop: 4 }}>
+              Sponsorizza su Club &amp; Player: richiedi informazioni in 30 secondi.
+            </Text>
+          </View>
+
+          <Pressable
+            onPress={() => router.push("/sponsor")}
+            style={{
+              borderRadius: 10,
+              backgroundColor: "#ffffff",
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+            }}
+          >
+            <Text style={{ color: "#036f9a", fontWeight: "700" }}>Richiedi info</Text>
+          </Pressable>
+        </View>
+
+        <View
+          style={{
             flexDirection: "row",
             borderWidth: 1,
             borderColor: theme.colors.neutral200,
